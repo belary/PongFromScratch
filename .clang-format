@@ -1,0 +1,37 @@
+---
+# 基础风格
+BasedOnStyle: LLVM
+
+# 缩进与宽度
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+# 访问修饰符 (public/private) 的偏移
+AccessModifierOffset: -4
+
+# 大括号换行策略
+BreakBeforeBraces: Attach
+# 如果你更喜欢把大括号放在新的一行（Allman 风格），请取消注释下面一行并将上面一行注释掉
+# BreakBeforeBraces: Allman
+
+# 函数与命名空间
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortBlocksOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: Never
+
+# 这里的设置对游戏循环和逻辑判断很友好
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+
+# 指针/引用的对齐方式（推荐靠类型对齐，如 int* p）
+PointerAlignment: Left
+
+# 排序头文件（自动按字母顺序排列 #include）
+SortIncludes: true
+
+# 针对 C++11 及更高版本的优化
+Standard: Latest
+...

@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(cl /EHsc /Z7 /Fe\"main_cake\" /Isrc /D DEBUG src/platform/win32_platform_cake.cpp /link user32.lib)",
+      "Bash(cmd /c build_cake.bat)",
+      "Bash(cmd //c build_cake.bat)"
     ]
   }
 }
