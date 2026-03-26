@@ -40,10 +40,11 @@ bool platform_create_window(HWND& outWindow) {
 
 int main() {
     HWND hwnd;
+    VkContext vkContext = {};
     if (!platform_create_window(hwnd)) {
         return -2;
     }
-    if (!initWin32VkInstance(new VkContext())) {
+    if (!initWin32VkInstance(&vkContext)) {
         return -3;
     }
     while (running) {
