@@ -12,9 +12,9 @@ ColumnLimit: 100
 AccessModifierOffset: -4
 
 # 大括号换行策略
-BreakBeforeBraces: Attach
-# 如果你更喜欢把大括号放在新的一行（Allman 风格），请取消注释下面一行并将上面一行注释掉
-# BreakBeforeBraces: Allman
+# BreakBeforeBraces: Attach  # 大括号不换行（K&R 风格）
+# Allman 风格：大括号在单独一行，更易读，适合学习项目
+BreakBeforeBraces: Allman
 
 # 函数与命名空间
 AllowShortFunctionsOnASingleLine: Inline
@@ -29,8 +29,10 @@ AlignConsecutiveDeclarations: false
 # 指针/引用的对齐方式（推荐靠类型对齐，如 int* p）
 PointerAlignment: Left
 
-# 排序头文件（自动按字母顺序排列 #include）
-SortIncludes: true
+# 排序头文件（学习项目推荐禁用）
+# 原因：某些头文件有严格的依赖顺序（如 windows.h 必须在 vulkan_win32.h 之前）
+# 自动排序可能破坏编译，手动控制更安全
+SortIncludes: false
 
 # 针对 C++11 及更高版本的优化
 Standard: Latest
