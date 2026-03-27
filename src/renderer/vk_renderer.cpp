@@ -109,6 +109,9 @@ typedef struct VkContext
     VkDevice device;
     VkQueue graphicsQueue;
     VkSwapchainKHR swapChain;
+    VkCommandPool commandPool;
+    VkSemaphore acquireSemaphore;
+    VkSemaphore submitSemaphore;
 
     uint32_t scImgCount;
     VkImage scImages[5];
@@ -478,6 +481,13 @@ bool vk_init(VkContext* vkContext, void* window)
                                                       &formatCount, surfaceFormats));
 
         // 选择合适的格式
+        //
+        // 策略：
+        // 1. 优先选择 VK_FORMAT_B8G8R8_SRGB（Windows 标准格式）
+        // 2. 如果没找到，使用第一个可用的格式作为后备
+        //
+        bool foundFormat = false;
+
         for (uint32_t i = 0; i < formatCount; i++)
         {
             VkSurfaceFormatKHR format = surfaceFormats[i];
@@ -488,8 +498,17 @@ bool vk_init(VkContext* vkContext, void* window)
             if (format.format == VK_FORMAT_B8G8R8_SRGB)
             {
                 vkContext->surfaceFormat = format;
+                foundFormat = true;
                 break;
             }
+        }
+
+        // 如果没找到首选格式，使用第一个可用的格式
+        // ⚠️ 这很重要：不能使用未初始化的 surfaceFormat！
+        if (!foundFormat && formatCount > 0)
+        {
+            std::cout << "no suitable format." << std::endl;
+            vkContext->surfaceFormat = surfaceFormats[0];
         }
 
         // ----------------------------------------------------------------------
@@ -534,56 +553,148 @@ bool vk_init(VkContext* vkContext, void* window)
         // ----------------------------------------------------------------------
         // 第四步：创建交换链
         // ----------------------------------------------------------------------
-        VkSwapchainCreateInfoKHR scCreateInfo = {};
-        scCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        //
+        // 配置交换链创建信息
+        // 每个参数的含义和选择原因见下文详细注释
+        //
+        VkSwapchainCreateInfoKHR scInfo = {};
+        scInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 
         // surface: 要关联的窗口表面
-        scCreateInfo.surface = vkContext->surface;
+        // 交换链必须绑定到一个 surface，这样才能将图像显示到窗口上
+        scInfo.surface = vkContext->surface;
 
         // minImageCount: 交换链中的图像数量
-        scCreateInfo.minImageCount = imgCount;
+        // 我们之前计算为 minImageCount + 1（实现三缓冲）
+        scInfo.minImageCount = imgCount;
 
-        // imageFormat: 图像的像素格式（使用之前选择的格式）
-        scCreateInfo.imageFormat = vkContext->surfaceFormat.format;
+        // imageFormat: 图像的像素格式
+        // 使用之前查询和选择的格式（如 VK_FORMAT_B8G8R8_SRGB）
+        scInfo.imageFormat = vkContext->surfaceFormat.format;
 
-        // imageColorSpace: 颜色空间（包含在 surfaceFormat 中）
-        scCreateInfo.imageColorSpace = vkContext->surfaceFormat.colorSpace;
+        // imageColorSpace: 颜色空间
+        // 包含在 surfaceFormat 中，通常是 VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+        scInfo.imageColorSpace = vkContext->surfaceFormat.colorSpace;
 
-        // imageExtent: 图像尺寸（使用窗口当前尺寸）
-        scCreateInfo.imageExtent = surfaceCaps.currentExtent;
+        // imageExtent: 图像的尺寸（宽度和高度）
+        // 使用 surface 的当前尺寸，通常与窗口大小一致
+        scInfo.imageExtent = surfaceCaps.currentExtent;
 
         // imageArrayLayers: 图层数量
         // 1 = 普通 2D 渲染
         // 2+ = 立体渲染（VR、3D 电影等需要）
-        scCreateInfo.imageArrayLayers = 1;
+        scInfo.imageArrayLayers = 1;
 
         // imageUsage: 图像用途标志
-        // VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT: 用作颜色附件（渲染目标）
+        //
+        // VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT:
+        //   - 图像将用作颜色附件（渲染目标）
+        //   - 这是最常见的用途，表示我们会渲染到这个图像
+        //
         // 其他选项：
         //   - VK_IMAGE_USAGE_TRANSFER_DST_BIT: 可以作为复制目标（用于后处理）
         //   - VK_IMAGE_USAGE_STORAGE_BIT: 可以作为存储图像（计算着色器）
-        scCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        //   - VK_IMAGE_USAGE_SAMPLED_BIT: 可以作为纹理采样（读取渲染结果）
+        //
+        scInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        // imageSharingMode: 图像共享模式
+        //
+        // VK_SHARING_MODE_EXCLUSIVE:
+        //   - 图像一次只能被一个队列族使用
+        //   - 需要显式转移所有权（如果多个队列族使用）
+        //   - 性能更好（不需要同步）
+        //
+        // VK_SHARING_MODE_CONCURRENT:
+        //   - 图像可以被多个队列族同时使用
+        //   - 需要指定 queueFamilyIndexCount 和 pQueueFamilyIndices
+        //   - 需要更多同步开销
+        //
+        // 我们的场景：只使用图形队列，所以使用 EXCLUSIVE
+        scInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        // scInfo.queueFamilyIndexCount = 0;  // EXCLUSIVE 模式下不需要
+        // scInfo.pQueueFamilyIndices = NULL;  // EXCLUSIVE 模式下不需要
 
         // preTransform: 图像变换
-        // surfaceCaps.currentTransform: 当前窗口的变换（通常为无变换）
-        // 如果窗口旋转了（如移动设备），需要相应变换图像
-        scCreateInfo.preTransform = surfaceCaps.currentTransform;
+        //
+        // 控制图像在呈现前的变换（旋转、翻转等）
+        //
+        // 常见值：
+        //   - VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR: 无变换
+        //   - VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR: 旋转 90 度
+        //   - VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR: 水平翻转
+        //
+        // surfaceCaps.currentTransform:
+        //   - 通常为 IDENTITY（无变换）
+        //   - 移动设备可能需要旋转（如手机横屏/竖屏）
+        //
+        scInfo.preTransform = surfaceCaps.currentTransform;
 
         // compositeAlpha: Alpha 合成模式
-        // VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR: 不透明（窗口不透明）
+        //
+        // 控制窗口与其他窗口的透明度混合方式
+        //
+        // VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR:
+        //   - 不透明（窗口内容完全覆盖背后内容）
+        //   - 最常见的选择
+        //
         // 其他选项：
         //   - VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR: 预乘 Alpha
         //   - VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR: 后乘 Alpha
-        scCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        //   - VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR: 使用窗口系统的默认值
+        //
+        scInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+
+        // presentMode: 呈现模式
+        //
+        // 控制图像如何呈现到屏幕
+        //
+        // VK_PRESENT_MODE_IMMEDIATE_KHR:
+        //   - 立即呈现（不等待垂直同步）
+        //   - 可能撕裂，但延迟最低
+        //
+        // VK_PRESENT_MODE_FIFO_KHR:
+        //   - 先进先出队列（垂直同步）
+        //   - 保证不撕裂，但延迟可能较高
+        //   - 所有平台都支持
+        //
+        // VK_PRESENT_MODE_MAILBOX_KHR:
+        //   - 信箱模式（三缓冲的变体）
+        //   - 当队列满时替换旧图像，而不是等待
+        //   - 低延迟 + 不撕裂，推荐选择
+        //
+        // 注意：我们这里使用默认值（FIFO），因为它是唯一保证支持的
+        // scInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;  // 默认值
+
+        // clipped: 是否裁剪
+        //
+        // VK_TRUE:
+        //   - 如果窗口被其他窗口遮挡，不渲染被遮挡的部分
+        //   - 性能更好（不需要渲染看不见的内容）
+        //
+        // VK_FALSE:
+        //   - 即使被遮挡也渲染全部内容
+        //   - 用于需要截图或特殊效果的场景
+        //
+        scInfo.clipped = VK_TRUE; // 启用裁剪以优化性能
+
+        // oldSwapchain: 旧的交换链
+        //
+        // 用于重建交换链时（如窗口大小改变）
+        // 可以传入旧交换链，驱动会保留其资源
+        //
+        // 我们的场景：首次创建，传 VK_NULL_HANDLE
+        scInfo.oldSwapchain = VK_NULL_HANDLE;
 
         // 创建交换链
+        //
         // vkCreateSwapchainKHR 参数：
         //   1. device: 逻辑设备
         //   2. pCreateInfo: 创建信息（上面配置的所有参数）
-        //   3. pAllocator: 内存分配器
+        //   3. pAllocator: 内存分配器（NULL = 使用默认分配器）
         //   4. pSwapchain: 输出参数，返回交换链句柄
-        VK_CHECK(vkCreateSwapchainKHR(vkContext->device, &scCreateInfo, 0, &vkContext->swapChain));
-
+        //
+        VK_CHECK(vkCreateSwapchainKHR(vkContext->device, &scInfo, 0, &vkContext->swapChain));
         // ----------------------------------------------------------------------
         // 第五步：获取交换链图像句柄
         // ----------------------------------------------------------------------
@@ -603,6 +714,488 @@ bool vk_init(VkContext* vkContext, void* window)
         // 现在 vkContext->scImages[] 数组包含了所有交换链图像的句柄
         // 后续渲染时会使用这些图像作为渲染目标
     }
-    
+
+    // ============================================================================
+    // 创建命令池（Command Pool）
+    // ============================================================================
+    //
+    // 什么是命令池？
+    // ------------
+    // 命令池是用于分配命令缓冲区的内存管理器。
+    //
+    // 类比理解：
+    // - Command Pool = 纸张仓库（管理一堆"画纸"）
+    // - Command Buffer = 画纸（在上面记录绘制命令）
+    // - Queue = 画家（执行命令缓冲区上的命令）
+    //
+    // 为什么需要命令池？
+    // ------------------
+    // 1. 内存管理效率
+    //    - 命令缓冲区从池中分配，避免频繁的内存分配/释放
+    //    - 批量管理命令缓冲区的生命周期
+    //
+    // 2. 队列族绑定
+    //    - 每个命令池必须绑定到特定的队列族
+    //    - 从该池分配的命令缓冲区只能提交到对应的队列
+    //
+    // 3. 性能优化
+    //    - 驱动可以针对特定队列族优化命令缓冲区分配
+    //    - 重置和回收更高效
+    //
+    // 工作流程：
+    // ---------
+    // 1. 创建命令池（绑定到队列族）
+    // 2. 从池中分配命令缓冲区
+    // 3. 记录命令到缓冲区
+    // 4. 提交缓冲区到队列
+    // 5. 执行完成后回收缓冲区（可重用）
+    //
+    // ============================================================================
+    {
+        // 配置命令池创建信息
+        VkCommandPoolCreateInfo poolInfo = {};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+
+        // queueFamilyIndex: 命令池绑定的队列族索引
+        //
+        // 为什么要指定队列族？
+        // - 命令缓冲区必须提交到队列才能执行
+        // - 不同的队列族（Graphics、Compute、Transfer）可能有不兼容的命令类型
+        // - 绑定到队列族后，驱动可以优化命令缓冲区结构以匹配该队列
+        //
+        // 举例：
+        // - graphicsIdx = 0（图形队列族）
+        // - 从此池分配的命令缓冲区可以包含绘制命令
+        // - 这些缓冲区只能提交到图形队列，不能提交到计算队列
+        //
+        poolInfo.queueFamilyIndex = vkContext->graphicsIdx;
+
+        // flags: 命令池的创建标志（可选）
+        //
+        // 常用选项：
+        // - VK_COMMAND_POOL_CREATE_TRANSIENT_BIT:
+        //   命令缓冲区生命周期短，频繁重录（适合每帧重新录制）
+        //
+        // - VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT:
+        //   允许单独重置命令缓冲区（而不是整个池）
+        //   不设置此标志时，只能重置整个池
+        //
+        // 本例：不设置 flags，使用默认行为
+        // - 命令缓冲区不在池销毁前自动重置
+        // - 可以通过 vkResetCommandPool 或 vkFreeCommandBuffers 管理
+        //
+        // poolInfo.flags = 0;  // 默认行为
+
+        // 创建命令池
+        //
+        // vkCreateCommandPool 参数：
+        //   1. device: 逻辑设备
+        //   2. pCreateInfo: 创建信息（上面配置的队列族索引等）
+        //   3. pAllocator: 内存分配器（NULL = 使用默认分配器）
+        //   4. pCommandPool: 输出参数，返回命令池句柄
+        //
+        VK_CHECK(vkCreateCommandPool(vkContext->device, &poolInfo, 0, &vkContext->commandPool));
+
+        // 现在 vkContext->commandPool 可以用来分配命令缓冲区
+        // 后续步骤：
+        // VkCommandBufferAllocateInfo allocInfo = {};
+        // allocInfo.commandPool = vkContext->commandPool;
+        // allocInfo.commandBufferCount = 1;
+        // vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+    }
+
+    // ============================================================================
+    // 创建同步对象（Synchronization Primitives）
+    // ============================================================================
+    //
+    // 什么是信号量（Semaphore）？
+    // ----------------------
+    // 信号量是用于 GPU 内部同步的原语，用于协调不同操作之间的执行顺序。
+    //
+    // 类比理解：
+    // - 信号量 = 传递接力棒的机制
+    // - "等待信号量" = 等待接力棒到达才能继续
+    // - "发送信号" = 传递接力棒给下一阶段
+    //
+    // 为什么需要信号量？
+    // ------------------
+    // Vulkan 是异步架构，GPU 操作需要时间完成：
+    //
+    // 1. 获取交换链图像（从显示队列）
+    //    ↓ 需要等待
+    // 2. 渲染到图像（GPU 执行绘制命令）
+    //    ↓ 需要等待
+    // 3. 显示图像（提交给显示队列）
+    //
+    // 没有信号量的问题：
+    // - 可能在图像还在使用时就尝试获取
+    // - 可能在渲染未完成时就尝试显示
+    // - 导致画面撕裂、闪烁或崩溃
+    //
+    // 双信号量模式（标准渲染循环）
+    // ------------------------------
+    //
+    // acquireSemaphore（获取信号量）：
+    //   - 作用：等待交换链图像可用
+    //   - 流程：vkAcquireNextImageKHR(acquireSemaphore) → 图像准备好 → 信号量触发
+    //   - 确保：不会获取到还在显示的图像
+    //
+    // submitSemaphore（提交信号量）：
+    //   - 作用：等待渲染完成
+    //   - 流程：渲染完成 → 信号量触发 → vkQueueSubmit(submitSemaphore) → 显示
+    //   - 确保：渲染完成后才显示图像
+    //
+    // 执行流程示例：
+    // ------------------
+    //
+    // 第 N 帧：
+    //   1. vkAcquireNextImageKHR(waitFor=acquireSemaphore_N)
+    //      ↓ 等待上一帧的 acquireSemaphore_N 触发
+    //   2. vkQueueSubmit(waitFor=acquireSemaphore_N, signal=submitSemaphore_N)
+    //      ↓ 等待获取图像，完成后触发 submitSemaphore_N
+    //   3. vkQueuePresentKHR(waitFor=submitSemaphore_N)
+    //      ↓ 等待渲染完成，完成后触发 acquireSemaphore_N+1
+    //
+    // 第 N+1 帧：
+    //   回到步骤 1，使用 acquireSemaphore_N+1
+    //
+    // 双缓冲 vs 三缓冲
+    // ------------------
+    //
+    // 双缓冲（2 个信号量对）：
+    //   - acquireSemaphore[0], submitSemaphore[0] → 帧 N
+    //   - acquireSemaphore[1], submitSemaphore[1] → 帧 N+1
+    //   - 最小配置，帧率受显示刷新率限制
+    //
+    // 三缓冲（3 个信号量对）：
+    //   - acquireSemaphore[0-2], submitSemaphore[0-2]
+    //   - GPU 可以提前渲染下一帧
+    //   - 更高帧率，但延迟稍高
+    //
+    // ============================================================================
+    {
+        // 配置信号量创建信息
+        VkSemaphoreCreateInfo semaInfo = {};
+        semaInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO; // ⚠️ 注意：不是 SEMAPHORE_TYPE
+
+        // 信号量创建标志（可选）
+        //
+        // 当前版本（Vulkan 1.3）：
+        // - flags 必须为 0（预留未来使用）
+        // - 无 flags 的信号量是二进制信号量（只有"触发"和"未触发"两种状态）
+        //
+        // 时间线信号量（Vulkan 1.2+ 扩展）：
+        // - VK_SEMAPHORE_TYPE_TIMELINE：使用递增的整数值
+        // - 可以更精细地控制多个操作的依赖关系
+        // - 需要使用 VkSemaphoreTypeCreateInfo 指定类型
+        //
+        semaInfo.flags = 0; // 默认：二进制信号量
+
+        // 创建获取信号量
+        //
+        // 用途：同步图像获取操作
+        //
+        // vkCreateSemaphore 参数：
+        //   1. device: 逻辑设备
+        //   2. pCreateInfo: 创建信息（上面配置的 sType 和 flags）
+        //   3. pAllocator: 内存分配器（NULL = 使用默认分配器）
+        //   4. pSemaphore: 输出参数，返回信号量句柄
+        //
+        VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->acquireSemaphore));
+
+        // 创建提交信号量
+        //
+        // 用途：同步渲染完成操作
+        //
+        VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->submitSemaphore));
+
+        // 现在有两个信号量可用于渲染循环：
+        //
+        // 使用示例（伪代码）：
+        //
+        // uint32_t imageIndex;
+        // vkAcquireNextImageKHR(
+        //     device,
+        //     swapchain,
+        //     UINT64_MAX,                    // 超时时间（无限等待）
+        //     acquireSemaphore,              // 等待这个信号量
+        //     VK_NULL_HANDLE,                // 无围栏（fence）
+        //     &imageIndex                    // 返回获取的图像索引
+        // );
+        //
+        // // ... 记录渲染命令到 commandBuffer ...
+        //
+        // VkSubmitInfo submitInfo = {};
+        // submitInfo.waitSemaphoreCount = 1;
+        // submitInfo.pWaitSemaphores = &acquireSemaphore;  // 等待图像获取完成
+        // submitInfo.signalSemaphoreCount = 1;
+        // submitInfo.pSignalSemaphores = &submitSemaphore; // 完成后触发这个信号量
+        // submitInfo.pCommandBuffers = &commandBuffer;
+        //
+        // vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+        //
+        // VkPresentInfoKHR presentInfo = {};
+        // presentInfo.waitSemaphoreCount = 1;
+        // presentInfo.pWaitSemaphores = &submitSemaphore;  // 等待渲染完成
+        // presentInfo.swapchainCount = 1;
+        // presentInfo.pSwapchains = &swapchain;
+        // presentInfo.pImageIndices = &imageIndex;
+        //
+        // vkQueuePresentKHR(queue, &presentInfo);
+        //
+        // ↑ 这样就形成了完整的同步链！
+    }
+
+    return true;
+}
+
+// ============================================================================
+// 渲染函数（vk_render）
+// ============================================================================
+//
+// 此函数执行每一帧的渲染操作，是游戏循环的核心。
+//
+// 渲染流程概述：
+// 1. 从交换链获取可渲染的图像
+// 2. 分配并录制命令缓冲区
+// 3. 提交命令到队列执行
+// 4. 将渲染完成的图像呈现到屏幕
+//
+// ============================================================================
+bool vk_render(VkContext* vkContext)
+{
+    // ============================================================================
+    // 第一步：获取交换链图像
+    // ============================================================================
+    //
+    // vkAcquireNextImageKHR:
+    //   从交换链中获取一个可以渲染的图像
+    //
+    // 为什么需要这一步？
+    //   - 交换链中的图像可能正在被显示
+    //   - 必须等待显示完成后才能使用
+    //   - acquireSemaphore 用于同步这个等待过程
+    //
+    uint32_t imgIdx;  // 输出参数：获取到的图像索引
+
+    // vkAcquireNextImageKHR 参数：
+    //   1. device: 逻辑设备
+    //   2. swapchain: 交换链句柄
+    //   3. timeout: 超时时间（纳秒）
+    //      - 0 = 立即返回（如果没有可用图像）
+    //      - UINT64_MAX = 无限等待
+    //      - 这里使用 0 表示不阻塞（如果没准备好就返回错误）
+    //   4. semaphore: 信号量（获取完成后触发）
+    //      - 当图像可用时，驱动会触发这个信号量
+    //      - 后续的渲染操作会等待这个信号量
+    //   5. fence: 围栏（NULL = 不使用）
+    //      - 用于 CPU-GPU 同步，这里不需要
+    //   6. pImageIndex: 输出参数，返回图像索引
+    //      - 这个索引用于后续操作指定使用哪个图像
+    //
+    VK_CHECK(vkAcquireNextImageKHR(
+        vkContext->device,          // 逻辑设备
+        vkContext->swapChain,       // 交换链
+        0,                          // 超时 = 0（不等待）
+        vkContext->acquireSemaphore, // 获取完成信号量
+        0,                          // 无围栏
+        &imgIdx                     // 输出：图像索引
+    ));
+
+    // ============================================================================
+    // 第二步：分配命令缓冲区
+    // ============================================================================
+    //
+    // 什么是命令缓冲区？
+    //   命令缓冲区用于记录 GPU 操作命令（绘制、复制、清除等）
+    //
+    // 为什么每帧都要重新分配？
+    //   - 我们使用 ONE_TIME_SUBMIT_BIT 标志（只提交一次）
+    //   - 执行后命令缓冲区不能重用
+    //   - 每帧需要新的命令缓冲区
+    //
+    // 性能优化方向：
+    //   - 实际项目中，应该预分配多个命令缓冲区
+    //   - 使用命令缓冲区池循环使用
+    //   - 避免每帧分配/释放的开销
+    //
+    VkCommandBuffer cmdBuffer = {};  // 输出：命令缓冲区句柄
+
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = vkContext->commandPool;  // 从哪个池分配
+    allocInfo.commandBufferCount = 1;                // 分配 1 个缓冲区
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;  // 主缓冲区（可提交执行）
+
+    // vkAllocateCommandBuffers 参数：
+    //   1. device: 逻辑设备
+    //   2. pAllocateInfo: 分配信息
+    //   3. pCommandBuffers: 输出数组（返回命令缓冲区句柄）
+    //
+    VK_CHECK(vkAllocateCommandBuffers(vkContext->device, &allocInfo, &cmdBuffer));
+
+    // ============================================================================
+    // 第三步：开始录制命令
+    // ============================================================================
+    //
+    // 命令缓冲区必须先"开始录制"才能记录命令
+    //
+    VkCommandBufferBeginInfo beginInfo = cmd_begin_info();  // 使用辅助函数
+
+    // vkBeginCommandBuffer 参数：
+    //   1. commandBuffer: 命令缓冲区
+    //   2. pBeginInfo: 开始信息（包含标志等）
+    //
+    VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+
+    // ============================================================================
+    // 第四步：记录渲染命令
+    // ============================================================================
+    //
+    // 这里我们只做最简单的操作：清除图像为黄色
+    // 实际项目中会记录：
+    //   - 开始渲染通道
+    //   - 绑定管线
+    //   - 绑定资源
+    //   - 绘制物体
+    //   - 结束渲染通道
+    //
+    {
+        // 清除颜色（RGBA）
+        // {R, G, B, A} = {1, 1, 0, 1} = 黄色，完全不透明
+        VkClearColorValue color = {1, 1, 0, 1};
+
+        // 图像子资源范围（要清除哪部分）
+        // 这里使用默认值 {0}，表示清除整个图像
+        VkImageSubresourceRange range = {};
+
+        // vkCmdClearColorImage: 清除图像命令
+        //
+        // 参数：
+        //   1. commandBuffer: 命令缓冲区
+        //   2. image: 要清除的图像
+        //   3. imageLayout: 图像布局
+        //      - VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: 呈现源布局
+        //      - 表示图像用于显示
+        //   4. pColor: 清除颜色
+        //   5. rangeCount: 范围数量（通常是 1）
+        //   6. pRanges: 范围数组
+        //
+        vkCmdClearColorImage(
+            cmdBuffer,                           // 命令缓冲区
+            vkContext->scImages[imgIdx],         // 要清除的图像（使用获取的索引）
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,     // 图像布局
+            &color,                              // 清除颜色（黄色）
+            1,                                   // 范围数量
+            &range                               // 范围（整个图像）
+        );
+    }
+
+    // ============================================================================
+    // 第五步：结束录制命令
+    // ============================================================================
+    //
+    // 必须调用此函数告诉 Vulkan 命令录制完成
+    //
+    VK_CHECK(vkEndCommandBuffer(cmdBuffer));
+
+    // ============================================================================
+    // 第六步：提交命令到队列
+    // ============================================================================
+    //
+    // 提交后，GPU 会开始执行命令缓冲区中的命令
+    //
+    // 提交信息配置：
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // ↑ 等待阶段：在哪个管线阶段等待信号量
+    //   - COLOR_ATTACHMENT_OUTPUT: 颜色附件输出阶段
+    //   - 表示在写入颜色之前等待图像获取完成
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    // 等待的信号量（在执行前需要等待哪些信号量）
+    submitInfo.waitSemaphoreCount = 1;                           // 等待 1 个信号量
+    submitInfo.pWaitSemaphores = &vkContext->acquireSemaphore;   // 等待获取信号量
+    submitInfo.pWaitDstStageMask = &waitStage;                   // 在哪个阶段等待
+
+    // 命令缓冲区（要执行哪些命令）
+    submitInfo.commandBufferCount = 1;           // 1 个命令缓冲区
+    submitInfo.pCommandBuffers = &cmdBuffer;     // 命令缓冲区指针
+
+    // 触发的信号量（执行完成后触发哪些信号量）
+    submitInfo.signalSemaphoreCount = 1;                          // 触发 1 个信号量
+    submitInfo.pSignalSemaphores = &vkContext->submitSemaphore;  // 触发提交信号量
+
+    // vkQueueSubmit 参数：
+    //   1. queue: 队列（图形队列）
+    //   2. submitCount: 提交信息数量
+    //   3. pSubmits: 提交信息数组
+    //   4. fence: 围栏（NULL = 不使用）
+    //
+    VK_CHECK(vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, 0));
+
+    // 执行流程：
+    // 1. 等待 acquireSemaphore 触发（图像可用）
+    // 2. 在颜色附件输出阶段之前等待
+    // 3. 执行命令缓冲区（清除图像为黄色）
+    // 4. 触发 submitSemaphore（渲染完成）
+
+    // ============================================================================
+    // 第七步：呈现图像到屏幕
+    // ============================================================================
+    //
+    // 将渲染完成的图像提交给显示系统
+    //
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    // 等待的信号量（渲染完成后才能呈现）
+    presentInfo.waitSemaphoreCount = 1;                          // 等待 1 个信号量
+    presentInfo.pWaitSemaphores = &vkContext->submitSemaphore;   // 等待提交信号量
+
+    // 交换链信息（要呈现哪个图像）
+    presentInfo.swapchainCount = 1;                  // 1 个交换链
+    presentInfo.pSwapchains = &vkContext->swapChain; // 交换链指针
+    presentInfo.pImageIndices = &imgIdx;             // 图像索引
+
+    // vkQueuePresentKHR 参数：
+    //   1. queue: 队列（通常是图形队列，也支持呈现）
+    //   2. pPresentInfo: 呈现信息
+    //
+    VK_CHECK(vkQueuePresentKHR(vkContext->graphicsQueue, &presentInfo));
+
+    // ============================================================================
+    // 渲染循环完成！
+    // ============================================================================
+    //
+    // 完整流程总结：
+    //
+    // 1. 获取图像（等待上一帧显示完成）
+    //    └─ 触发 acquireSemaphore
+    //
+    // 2. 分配命令缓冲区
+    //
+    // 3. 录制命令（清除为黄色）
+    //
+    // 4. 提交命令
+    //    ├─ 等待 acquireSemaphore
+    //    └─ 触发 submitSemaphore
+    //
+    // 5. 呈现图像
+    //    └─ 等待 submitSemaphore
+    //
+    // 注意：
+    // - 这个实现缺少一些优化和错误处理
+    // - 实际项目中需要：
+    //   1. 命令缓冲池（避免每帧分配）
+    //   2. 围栏（避免 CPU 超前 GPU 太多）
+    //   3. 多帧同步（双缓冲或三缓冲）
+    //   4. 资源清理（命令缓冲区、临时对象）
+    //
+    // - 当前实现会在下一帧覆盖命令缓冲区
+    //   如果 GPU 还在使用，会导致问题
+    //   需要使用围栏或多个命令缓冲区来同步
+    //
     return true;
 }

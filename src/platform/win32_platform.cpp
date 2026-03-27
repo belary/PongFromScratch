@@ -66,9 +66,11 @@ int main()
     {
         return -3;
     }
+
     while (running)
     {
         platform_update_window(&hwnd);
+        vk_render(&vkContext);
     }
     return 0;
 }
