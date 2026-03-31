@@ -9,21 +9,26 @@
 
 #define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
 
-#define VK_CHECK(result)                                                                           \
-    if (result != VK_SUCCESS) {                                                                    \
-        std::cout << "Vulkan Error: " << result << std::endl;                                      \
-        __debugbreak();                                                                            \
-        return false;                                                                              \
+#define VK_CHECK(result)                                      \
+    if (result != VK_SUCCESS)                                 \
+    {                                                         \
+        std::cout << "Vulkan Error: " << result << std::endl; \
+        __debugbreak();                                       \
+        return false;                                         \
     }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT msgSeverity, VkDebugUtilsMessageTypeFlagsEXT msgFlags,
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+    VkDebugUtilsMessageSeverityFlagBitsEXT msgSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT msgFlags,
+    const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+    void *pUserData)
+{
     std::cout << "Validation Error: " << pCallbackData->pMessage << std::endl;
     return false;
 }
 
-struct VkContext {
+struct VkContext
+{
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
     VkSurfaceKHR surface;
@@ -44,20 +49,23 @@ struct VkContext {
     int graphicsIdx;
 };
 
-bool vk_init(VkContext* vkcontext, void* window) {
+bool vk_init(VkContext *vkcontext, void *window)
+{
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Pong";
     appInfo.pEngineName = "Ponggine";
 
-    char* extensions[] = {
+    char *extensions[] = {
 #ifdef WINDOWS_BUILD
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #elif LINUX_BUILD
 #endif
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME};
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+        VK_KHR_SURFACE_EXTENSION_NAME};
 
-    char* layers[]{"VK_LAYER_KHRONOS_validation"};
+    char *layers[]{
+        "VK_LAYER_KHRONOS_validation"};
 
     VkInstanceCreateInfo instanceInfo = {};
     instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -68,21 +76,20 @@ bool vk_init(VkContext* vkcontext, void* window) {
     instanceInfo.enabledLayerCount = ArraySize(layers);
     VK_CHECK(vkCreateInstance(&instanceInfo, 0, &vkcontext->instance));
 
-    auto vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        vkcontext->instance, "vkCreateDebugUtilsMessengerEXT");
+    auto vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(vkcontext->instance, "vkCreateDebugUtilsMessengerEXT");
 
-    if (vkCreateDebugUtilsMessengerEXT) {
+    if (vkCreateDebugUtilsMessengerEXT)
+    {
         VkDebugUtilsMessengerCreateInfoEXT debugInfo = {};
         debugInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                                    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-        debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+        debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+        debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
         debugInfo.pfnUserCallback = vk_debug_callback;
 
-        vkCreateDebugUtilsMessengerEXT(vkcontext->instance, &debugInfo, 0,
-                                       &vkcontext->debugMessenger);
-    } else {
+        vkCreateDebugUtilsMessengerEXT(vkcontext->instance, &debugInfo, 0, &vkcontext->debugMessenger);
+    }
+    else
+    {
         return false;
     }
 
@@ -93,8 +100,7 @@ bool vk_init(VkContext* vkcontext, void* window) {
         surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
         surfaceInfo.hwnd = (HWND)window;
         surfaceInfo.hinstance = GetModuleHandleA(0);
-        VK_CHECK(
-            vkCreateWin32SurfaceKHR(vkcontext->instance, &surfaceInfo, 0, &vkcontext->surface));
+        VK_CHECK(vkCreateWin32SurfaceKHR(vkcontext->instance, &surfaceInfo, 0, &vkcontext->surface));
 #elif LINUX_BUILD
 #endif
     }
@@ -104,27 +110,30 @@ bool vk_init(VkContext* vkcontext, void* window) {
         vkcontext->graphicsIdx = -1;
 
         uint32_t gpuCount = 0;
-        // TODO: Suballocation from Main Allocation
+        //TODO: Suballocation from Main Allocation
         VkPhysicalDevice gpus[10];
         VK_CHECK(vkEnumeratePhysicalDevices(vkcontext->instance, &gpuCount, 0));
         VK_CHECK(vkEnumeratePhysicalDevices(vkcontext->instance, &gpuCount, gpus));
 
-        for (uint32_t i = 0; i < gpuCount; i++) {
+        for (uint32_t i = 0; i < gpuCount; i++)
+        {
             VkPhysicalDevice gpu = gpus[i];
 
             uint32_t queueFamilyCount = 0;
-            // TODO: Suballocation from Main Allocation
+            //TODO: Suballocation from Main Allocation
             VkQueueFamilyProperties queueProps[10];
             vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, 0);
             vkGetPhysicalDeviceQueueFamilyProperties(gpu, &queueFamilyCount, queueProps);
 
-            for (uint32_t j = 0; j < queueFamilyCount; j++) {
-                if (queueProps[j].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            for (uint32_t j = 0; j < queueFamilyCount; j++)
+            {
+                if (queueProps[j].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+                {
                     VkBool32 surfaceSupport = VK_FALSE;
-                    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(gpu, j, vkcontext->surface,
-                                                                  &surfaceSupport));
+                    VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(gpu, j, vkcontext->surface, &surfaceSupport));
 
-                    if (surfaceSupport) {
+                    if (surfaceSupport)
+                    {
                         vkcontext->graphicsIdx = j;
                         vkcontext->gpu = gpu;
                         break;
@@ -133,7 +142,8 @@ bool vk_init(VkContext* vkcontext, void* window) {
             }
         }
 
-        if (vkcontext->graphicsIdx < 0) {
+        if (vkcontext->graphicsIdx < 0)
+        {
             return false;
         }
     }
@@ -148,7 +158,8 @@ bool vk_init(VkContext* vkcontext, void* window) {
         queueInfo.queueCount = 1;
         queueInfo.pQueuePriorities = &queuePriority;
 
-        char* extensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+        char *extensions[] = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
         VkDeviceCreateInfo deviceInfo = {};
         deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -166,25 +177,24 @@ bool vk_init(VkContext* vkcontext, void* window) {
     // Swapchain
     {
         uint32_t formatCount = 0;
-        // TODO: Suballocation from Main Memory
+        //TODO: Suballocation from Main Memory
         VkSurfaceFormatKHR surfaceFormats[10];
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkcontext->gpu, vkcontext->surface,
-                                                      &formatCount, 0));
-        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkcontext->gpu, vkcontext->surface,
-                                                      &formatCount, surfaceFormats));
+        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkcontext->gpu, vkcontext->surface, &formatCount, 0));
+        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(vkcontext->gpu, vkcontext->surface, &formatCount, surfaceFormats));
 
-        for (uint32_t i = 0; i < formatCount; i++) {
+        for (uint32_t i = 0; i < formatCount; i++)
+        {
             VkSurfaceFormatKHR format = surfaceFormats[i];
 
-            if (format.format == VK_FORMAT_B8G8R8A8_SRGB) {
+            if (format.format == VK_FORMAT_B8G8R8A8_SRGB)
+            {
                 vkcontext->surfaceFormat = format;
                 break;
             }
         }
 
         VkSurfaceCapabilitiesKHR surfaceCaps = {};
-        VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkcontext->gpu, vkcontext->surface,
-                                                           &surfaceCaps));
+        VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vkcontext->gpu, vkcontext->surface, &surfaceCaps));
         uint32_t imgCount = surfaceCaps.minImageCount + 1;
         imgCount = imgCount > surfaceCaps.maxImageCount ? imgCount - 1 : imgCount;
 
@@ -201,10 +211,8 @@ bool vk_init(VkContext* vkcontext, void* window) {
 
         VK_CHECK(vkCreateSwapchainKHR(vkcontext->device, &scInfo, 0, &vkcontext->swapchain));
 
-        VK_CHECK(vkGetSwapchainImagesKHR(vkcontext->device, vkcontext->swapchain,
-                                         &vkcontext->scImgCount, 0));
-        VK_CHECK(vkGetSwapchainImagesKHR(vkcontext->device, vkcontext->swapchain,
-                                         &vkcontext->scImgCount, vkcontext->scImages));
+        VK_CHECK(vkGetSwapchainImagesKHR(vkcontext->device, vkcontext->swapchain, &vkcontext->scImgCount, 0));
+        VK_CHECK(vkGetSwapchainImagesKHR(vkcontext->device, vkcontext->swapchain, &vkcontext->scImgCount, vkcontext->scImages));
     }
 
     // Command Pool
@@ -226,10 +234,10 @@ bool vk_init(VkContext* vkcontext, void* window) {
     return true;
 }
 
-bool vk_render(VkContext* vkcontext) {
+bool vk_render(VkContext *vkcontext)
+{
     uint32_t imgIdx;
-    VK_CHECK(vkAcquireNextImageKHR(vkcontext->device, vkcontext->swapchain, 0,
-                                   vkcontext->aquireSemaphore, 0, &imgIdx));
+    VK_CHECK(vkAcquireNextImageKHR(vkcontext->device, vkcontext->swapchain, 0, vkcontext->aquireSemaphore, 0, &imgIdx));
 
     VkCommandBuffer cmd;
     VkCommandBufferAllocateInfo allocInfo = {};
@@ -249,8 +257,7 @@ bool vk_render(VkContext* vkcontext) {
         range.layerCount = 1;
         range.levelCount = 1;
 
-        vkCmdClearColorImage(cmd, vkcontext->scImages[imgIdx], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                             &color, 1, &range);
+        vkCmdClearColorImage(cmd, vkcontext->scImages[imgIdx], VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, &color, 1, &range);
     }
 
     VK_CHECK(vkEndCommandBuffer(cmd));

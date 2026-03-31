@@ -166,9 +166,9 @@ if (surfaceSupport) {
 
 ```
 ┌─────────────────────────────────────┐
-│  Surface = 墙/画布底板              │  ← "可以显示图像的地方"
+│  Surface = 墙/画布底板               │  ← "可以显示图像的地方"
 │  ┌─────────┐                        │
-│  │ Image 1 │ ← Swapchain 管理的图像 │
+│  │ Image 1 │ ← Swapchain 管理的图像  │
 │  └─────────┘                        │
 │  ┌─────────┐                        │
 │  │ Image 2 │                        │
@@ -814,6 +814,154 @@ acquireSemaphore → 渲染命令 → submitSemaphore → 显示
      (等待)          (执行)        (触发)       (等待)
 ```
 
+#### VkImageSubresourceRange 详解
+
+清除图像时需要指定子资源范围，精确控制清除哪部分。
+
+##### aspectMask（图像方面）
+
+一张图像可以有多个"方面"：
+
+| 标志 | 含义 | 使用场景 |
+|------|------|----------|
+| `COLOR_BIT` | 颜色数据 | 清除颜色缓冲 |
+| `DEPTH_BIT` | 深度数据 | 清除深度缓冲 |
+| `STENCIL_BIT` | 模板数据 | 清除模板缓冲 |
+| `METADATA_BIT` | 元数据 | 稀疏纹理用 |
+
+```cpp
+// 清除颜色图像
+range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+// 同时清除深度和模板
+range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+```
+
+##### levelCount（Mip 层级数量）
+
+Mip Mapping（多级渐远纹理）的概念：
+
+```
+Level 0: ████████ 1024x1024  ← 原始尺寸（最大）
+Level 1: ████     512x512    ← 一半尺寸
+Level 2: ██       256x256    ← 四分之一尺寸
+Level 3: █        128x128
+...
+```
+
+```cpp
+// 只清除 Level 0（交换链图像通常只有 1 个 mip 层级）
+range.levelCount = 1;
+
+// 清除所有 mip 层级
+range.levelCount = VK_REMAINING_MIP_LEVELS;
+```
+
+##### layerCount（图层数量）
+
+图层用于不同的渲染场景：
+
+| 图层数 | 用途 |
+|--------|------|
+| 1 | 普通窗口渲染 |
+| 2 | VR 立体渲染（左眼 + 右眼）|
+| 6 | 立方体纹理（6 个面）|
+
+```cpp
+// 普通窗口渲染
+range.layerCount = 1;
+
+// VR 立体渲染
+range.layerCount = 2;
+
+// 所有图层
+range.layerCount = VK_REMAINING_ARRAY_LAYERS;
+```
+
+---
+
+### 图像布局转换（Image Layout Transition）
+
+#### 什么是图像布局？
+
+Vulkan 中图像在不同用途下需要不同的"布局"（Layout）：
+
+| 布局 | 用途 | 典型操作 |
+|------|------|----------|
+| `UNDEFINED` | 未定义 | 初始状态 |
+| `PRESENT_SRC_KHR` | 呈现源 | 显示到屏幕 |
+| `TRANSFER_DST_OPTIMAL` | 传输目标 | 清除、复制 |
+| `COLOR_ATTACHMENT_OPTIMAL` | 颜色附件 | 渲染 |
+| `SHADER_READ_ONLY_OPTIMAL` | 着色器只读 | 纹理采样 |
+| `GENERAL` | 通用 | 任何操作（性能较差）|
+
+#### 为什么需要转换？
+
+```
+交换链图像获取时: PRESENT_SRC_KHR（显示用）
+         ↓ 必须转换
+vkCmdClearColorImage 要求: TRANSFER_DST_OPTIMAL（传输目标）
+         ↓ 转换完成
+可以执行清除操作
+```
+
+#### 如何转换：Pipeline Barrier
+
+```cpp
+VkImageMemoryBarrier barrier = {};
+barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;       // 当前布局
+barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;   // 目标布局
+barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+barrier.image = image;
+barrier.subresourceRange = range;
+
+vkCmdPipelineBarrier(
+    cmdBuffer,
+    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,      // 源阶段
+    VK_PIPELINE_STAGE_TRANSFER_BIT,          // 目标阶段
+    0, 0, NULL, 0, NULL,
+    1, &barrier                             // 图像屏障
+);
+```
+
+#### 围栏（Fence）vs 信号量（Semaphore）
+
+| 特性 | 信号量 | 围栏 |
+|------|--------|------|
+| **作用范围** | GPU 内部 | CPU ↔ GPU |
+| **重置方式** | 自动（二进制） | 手动（vkResetFences） |
+| **用途** | 管线阶段同步 | 帧间同步 |
+| **创建标志** | 无 | `VK_FENCE_CREATE_SIGNALED_BIT` |
+
+**为什么渲染循环需要围栏？**
+
+```cpp
+// 问题：vkAcquireNextImageKHR 要求信号量没有待完成的操作
+// 如果上一帧还在执行，acquireSemaphore 仍然处于"已触发"状态
+
+// 解决：
+while (running) {
+    // 1. CPU 等待上一帧完成
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    // 2. 重置围栏（手动！）
+    vkResetFences(device, 1, &fence);
+
+    // 3. 获取图像
+    vkAcquireNextImageKHR(..., acquireSemaphore, ...);
+
+    // ... 录制命令 ...
+
+    // 4. 提交时传入围栏，GPU 完成后自动触发
+    vkQueueSubmit(queue, 1, &submitInfo, fence);
+
+    // 5. 呈现
+    vkQueuePresentKHR(...);
+}
+```
+
 ---
 
 ## 常见错误与解决
@@ -909,6 +1057,65 @@ int main() {
         return -3;  // ← 在这里设置断点调试
     }
 }
+```
+
+---
+
+### 6. 图像布局不正确
+
+**错误信息**：
+```
+Validation Error: vkCmdClearColorImage(): Layout is PRESENT_SRC_KHR
+but can only be TRANSFER_DST_OPTIMAL, SHARED_PRESENT_KHR, or GENERAL.
+```
+
+**原因**：交换链图像的布局是 `PRESENT_SRC_KHR`，但 `vkCmdClearColorImage` 要求 `TRANSFER_DST_OPTIMAL`
+
+**解决方案**：在清除前使用 Pipeline Barrier 转换布局
+```cpp
+VkImageMemoryBarrier barrier = {};
+barrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+barrier.image = image;
+vkCmdPipelineBarrier(cmdBuffer, TOP_OF_PIPE, TRANSFER, 0, 0, NULL, 0, NULL, 1, &barrier);
+```
+
+---
+
+### 7. 缺少 TRANSFER_DST_BIT
+
+**错误信息**：
+```
+Validation Error: vkCmdClearColorImage(): image was created with usage
+VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT (missing VK_IMAGE_USAGE_TRANSFER_DST_BIT).
+```
+
+**原因**：清除操作本质是"数据传输"，图像必须启用 `TRANSFER_DST_BIT`
+
+**解决方案**：
+```cpp
+scInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+```
+
+---
+
+### 8. 信号量未等待完成
+
+**错误信息**：
+```
+Validation Error: vkAcquireNextImageKHR(): Semaphore must not have any pending operations.
+```
+
+**原因**：上一帧的 `acquireSemaphore` 还没被等待就再次使用
+
+**解决方案**：使用围栏（Fence）同步
+```cpp
+// 每帧开始时等待上一帧完成
+vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+vkResetFences(device, 1, &fence);
+
+// 提交时传入围栏
+vkQueueSubmit(queue, 1, &submitInfo, fence);  // 不是 NULL
 ```
 
 ---

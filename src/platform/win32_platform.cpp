@@ -70,7 +70,10 @@ int main()
     while (running)
     {
         platform_update_window(&hwnd);
-        vk_render(&vkContext);
+        if (!vk_render(&vkContext))
+        {
+            return -4;
+        }
     }
     return 0;
 }

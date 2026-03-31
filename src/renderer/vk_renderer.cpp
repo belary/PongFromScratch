@@ -111,7 +111,8 @@ typedef struct VkContext
     VkSwapchainKHR swapChain;
     VkCommandPool commandPool;
     VkSemaphore acquireSemaphore;
-    VkSemaphore submitSemaphore;
+    VkSemaphore submitSemaphores[5];  // 每个交换链图像一个独立的提交信号量
+    VkFence inFlightFence;            // 围栏：CPU 等待 GPU 完成上一帧
 
     uint32_t scImgCount;
     VkImage scImages[5];
@@ -119,6 +120,44 @@ typedef struct VkContext
     int graphicsIdx;
 
 } VkContext;
+
+void transition_image_layout(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout,
+                             VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+
+    VkPipelineStageFlags srcStage;
+    VkPipelineStageFlags dstStage;
+
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+             newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = 0;
+        srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
+
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
 
 bool vk_init(VkContext* vkContext, void* window)
 {
@@ -545,10 +584,12 @@ bool vk_init(VkContext* vkContext, void* window)
 
         // 确保不超过最大值
         // maxImageCount = 0 表示没有限制（除了内存）
-        if (surfaceCaps.maxImageCount > 0 && imgCount > surfaceCaps.maxImageCount)
-        {
-            imgCount = surfaceCaps.maxImageCount;
-        }
+        // if (surfaceCaps.maxImageCount > 0 && imgCount > surfaceCaps.maxImageCount)
+        // {
+        //     imgCount = surfaceCaps.maxImageCount;
+        // }
+
+        imgCount = imgCount > surfaceCaps.maxImageCount ? imgCount - 1 : imgCount;
 
         // ----------------------------------------------------------------------
         // 第四步：创建交换链
@@ -596,24 +637,10 @@ bool vk_init(VkContext* vkContext, void* window)
         //   - VK_IMAGE_USAGE_STORAGE_BIT: 可以作为存储图像（计算着色器）
         //   - VK_IMAGE_USAGE_SAMPLED_BIT: 可以作为纹理采样（读取渲染结果）
         //
-        scInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-        // imageSharingMode: 图像共享模式
-        //
-        // VK_SHARING_MODE_EXCLUSIVE:
-        //   - 图像一次只能被一个队列族使用
-        //   - 需要显式转移所有权（如果多个队列族使用）
-        //   - 性能更好（不需要同步）
-        //
-        // VK_SHARING_MODE_CONCURRENT:
-        //   - 图像可以被多个队列族同时使用
-        //   - 需要指定 queueFamilyIndexCount 和 pQueueFamilyIndices
-        //   - 需要更多同步开销
-        //
-        // 我们的场景：只使用图形队列，所以使用 EXCLUSIVE
-        scInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        // scInfo.queueFamilyIndexCount = 0;  // EXCLUSIVE 模式下不需要
-        // scInfo.pQueueFamilyIndices = NULL;  // EXCLUSIVE 模式下不需要
+        // 注意：必须同时启用 TRANSFER_DST_BIT
+        // 因为 vkCmdClearColorImage 本质上是"传输"操作
+        // 清除 = 将颜色数据"传输"到图像，所以需要 TRANSFER_DST_BIT
+        scInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         // preTransform: 图像变换
         //
@@ -795,13 +822,6 @@ bool vk_init(VkContext* vkContext, void* window)
         //   4. pCommandPool: 输出参数，返回命令池句柄
         //
         VK_CHECK(vkCreateCommandPool(vkContext->device, &poolInfo, 0, &vkContext->commandPool));
-
-        // 现在 vkContext->commandPool 可以用来分配命令缓冲区
-        // 后续步骤：
-        // VkCommandBufferAllocateInfo allocInfo = {};
-        // allocInfo.commandPool = vkContext->commandPool;
-        // allocInfo.commandBufferCount = 1;
-        // vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
     }
 
     // ============================================================================
@@ -811,7 +831,7 @@ bool vk_init(VkContext* vkContext, void* window)
     // 什么是信号量（Semaphore）？
     // ----------------------
     // 信号量是用于 GPU 内部同步的原语，用于协调不同操作之间的执行顺序。
-    //
+    // 获取信号量 (AccquireSemaphore) 触发 → GPU 开始渲染 → 渲染结束并触发提交信号量 (SubmitSemaphore) → 显示硬件观察到 B，读取显存并显示。
     // 类比理解：
     // - 信号量 = 传递接力棒的机制
     // - "等待信号量" = 等待接力棒到达才能继续
@@ -821,30 +841,37 @@ bool vk_init(VkContext* vkContext, void* window)
     // ------------------
     // Vulkan 是异步架构，GPU 操作需要时间完成：
     //
-    // 1. 获取交换链图像（从显示队列）
-    //    ↓ 需要等待
-    // 2. 渲染到图像（GPU 执行绘制命令）
-    //    ↓ 需要等待
-    // 3. 显示图像（提交给显示队列）
+    // 1. 获取交换链图像 (Acquire Next Image)
+    //    - 动作：向显示引擎申请一张图，并指定信号量 A。
+    //    - 逻辑：此操作在 CPU 上立即返回，但图像此时可能还在显示器上。
+    //    - 触发：当显示器刷完旧帧，显示引擎会自动点亮“信号量 A”。
+
+    // 2. 提交渲染任务 (Queue Submit)
+    //    - 等待：设置 pWaitSemaphores = A。
+    //    - 逻辑：告诉 GPU：“你可以先排队，但【必须等 A 亮了】才能往显存里写像素。”
+    //    - 动作：执行渲染命令（如 vkCmdClearColorImage）。
+    //    - 触发：GPU 全部画完后，硬件会自动点亮“信号量 B”。
+
+    // 3. 呈现图像 (Queue Present)
+    //    - 等待：设置 pWaitSemaphores = B。
+    //    - 逻辑：告诉显示引擎：“等 B 亮了（渲染完了），你再去读这块显存并贴到屏幕上。”
+    //    - 后果：显示引擎读取完成后，会将图像标记为“Available”（空闲），从而允许【下一帧】的 Step 1 成功。
     //
-    // 没有信号量的问题：
-    // - 可能在图像还在使用时就尝试获取
-    // - 可能在渲染未完成时就尝试显示
-    // - 导致画面撕裂、闪烁或崩溃
-    //
-    // 双信号量模式（标准渲染循环）
     // ------------------------------
     //
-    // acquireSemaphore（获取信号量）：
+    // acquireSemaphore（获取信号量）：CPU发起请求, 当图像准备好被写时，GPU主动触发该信号量
     //   - 作用：等待交换链图像可用
-    //   - 流程：vkAcquireNextImageKHR(acquireSemaphore) → 图像准备好 → 信号量触发
+    //   - 流程：vkAcquireNextImageKHR(acquireSemaphore) → 图像准备好 → (GPU)信号量触发
     //   - 确保：不会获取到还在显示的图像
-    //
-    // submitSemaphore（提交信号量）：
+    //   - 物理意义：显存里的那块内存区域正在被显示器的扫描电路读取，为了防止你边画边读导致画面花掉，Vulkan 强制锁定它。
+    //   - 同步意义：这就是为什么你需要 acquireSemaphore。它本质上是硬件在告诉你：“嘿，显示器终于用完这张图了，现在你可以安全地往里面写新的像素了。”
+
+    // submitSemaphore（提交信号量）：CPU提交任务给GPU
     //   - 作用：等待渲染完成
     //   - 流程：渲染完成 → 信号量触发 → vkQueueSubmit(submitSemaphore) → 显示
     //   - 确保：渲染完成后才显示图像
     //
+    // 双信号量模式（标准渲染循环）
     // 执行流程示例：
     // ------------------
     //
@@ -878,19 +905,6 @@ bool vk_init(VkContext* vkContext, void* window)
         VkSemaphoreCreateInfo semaInfo = {};
         semaInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO; // ⚠️ 注意：不是 SEMAPHORE_TYPE
 
-        // 信号量创建标志（可选）
-        //
-        // 当前版本（Vulkan 1.3）：
-        // - flags 必须为 0（预留未来使用）
-        // - 无 flags 的信号量是二进制信号量（只有"触发"和"未触发"两种状态）
-        //
-        // 时间线信号量（Vulkan 1.2+ 扩展）：
-        // - VK_SEMAPHORE_TYPE_TIMELINE：使用递增的整数值
-        // - 可以更精细地控制多个操作的依赖关系
-        // - 需要使用 VkSemaphoreTypeCreateInfo 指定类型
-        //
-        semaInfo.flags = 0; // 默认：二进制信号量
-
         // 创建获取信号量
         //
         // 用途：同步图像获取操作
@@ -906,44 +920,26 @@ bool vk_init(VkContext* vkContext, void* window)
         // 创建提交信号量
         //
         // 用途：同步渲染完成操作
-        //
-        VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->submitSemaphore));
+        // 注意：每个交换链图像需要独立的信号量，避免信号量复用冲突
+        // 参见：https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html
+        for (uint32_t i = 0; i < 5; i++)
+        {
+            VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->submitSemaphores[i]));
+        }
 
-        // 现在有两个信号量可用于渲染循环：
+        // 创建围栏（Fence）
         //
-        // 使用示例（伪代码）：
+        // 作用：CPU-GPU 同步，让 CPU 等待 GPU 完成上一帧
+        // vkAcquireNextImageKHR 要求信号量必须是"未触发"状态
+        // 如果上一帧的 GPU 操作还没完成，信号量仍然处于"已触发"状态
+        // 必须用围栏等待上一帧完全结束后才能开始下一帧
         //
-        // uint32_t imageIndex;
-        // vkAcquireNextImageKHR(
-        //     device,
-        //     swapchain,
-        //     UINT64_MAX,                    // 超时时间（无限等待）
-        //     acquireSemaphore,              // 等待这个信号量
-        //     VK_NULL_HANDLE,                // 无围栏（fence）
-        //     &imageIndex                    // 返回获取的图像索引
-        // );
-        //
-        // // ... 记录渲染命令到 commandBuffer ...
-        //
-        // VkSubmitInfo submitInfo = {};
-        // submitInfo.waitSemaphoreCount = 1;
-        // submitInfo.pWaitSemaphores = &acquireSemaphore;  // 等待图像获取完成
-        // submitInfo.signalSemaphoreCount = 1;
-        // submitInfo.pSignalSemaphores = &submitSemaphore; // 完成后触发这个信号量
-        // submitInfo.pCommandBuffers = &commandBuffer;
-        //
-        // vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-        //
-        // VkPresentInfoKHR presentInfo = {};
-        // presentInfo.waitSemaphoreCount = 1;
-        // presentInfo.pWaitSemaphores = &submitSemaphore;  // 等待渲染完成
-        // presentInfo.swapchainCount = 1;
-        // presentInfo.pSwapchains = &swapchain;
-        // presentInfo.pImageIndices = &imageIndex;
-        //
-        // vkQueuePresentKHR(queue, &presentInfo);
-        //
-        // ↑ 这样就形成了完整的同步链！
+        // VK_FENCE_CREATE_SIGNALED_BIT: 创建时已处于"触发"状态
+        // 为什么？第一帧渲染前不需要等待，避免死锁
+        VkFenceCreateInfo fenceInfo = {};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        VK_CHECK(vkCreateFence(vkContext->device, &fenceInfo, 0, &vkContext->inFlightFence));
     }
 
     return true;
@@ -965,6 +961,20 @@ bool vk_init(VkContext* vkContext, void* window)
 bool vk_render(VkContext* vkContext)
 {
     // ============================================================================
+    // 第零步：等待上一帧完成（CPU-GPU 同步）
+    // ============================================================================
+    //
+    // vkAcquireNextImageKHR 要求信号量必须是”未触发”状态
+    // 如果上一帧 GPU 还在执行，acquireSemaphore 处于”已触发”状态
+    // 必须用围栏等待 GPU 完成后再开始新的一帧
+    //
+    // vkWaitForFences: CPU 阻塞等待，直到围栏被 GPU 触发
+    // vkResetFences: 围栏需要手动重置才能再次使用（与信号量不同）
+    //
+    vkWaitForFences(vkContext->device, 1, &vkContext->inFlightFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(vkContext->device, 1, &vkContext->inFlightFence);
+
+    // ============================================================================
     // 第一步：获取交换链图像
     // ============================================================================
     //
@@ -976,7 +986,7 @@ bool vk_render(VkContext* vkContext)
     //   - 必须等待显示完成后才能使用
     //   - acquireSemaphore 用于同步这个等待过程
     //
-    uint32_t imgIdx;  // 输出参数：获取到的图像索引
+    uint32_t imgIdx; // 输出参数：获取到的图像索引
 
     // vkAcquireNextImageKHR 参数：
     //   1. device: 逻辑设备
@@ -993,14 +1003,13 @@ bool vk_render(VkContext* vkContext)
     //   6. pImageIndex: 输出参数，返回图像索引
     //      - 这个索引用于后续操作指定使用哪个图像
     //
-    VK_CHECK(vkAcquireNextImageKHR(
-        vkContext->device,          // 逻辑设备
-        vkContext->swapChain,       // 交换链
-        0,                          // 超时 = 0（不等待）
-        vkContext->acquireSemaphore, // 获取完成信号量
-        0,                          // 无围栏
-        &imgIdx                     // 输出：图像索引
-    ));
+    VK_CHECK(vkAcquireNextImageKHR(vkContext->device,           // 逻辑设备
+                                   vkContext->swapChain,        // 交换链
+                                   0,                           // 超时 = 0（不等待）
+                                   vkContext->acquireSemaphore, // 获取完成信号量
+                                   0,                           // 无围栏
+                                   &imgIdx                      // 输出：图像索引
+                                   ));
 
     // ============================================================================
     // 第二步：分配命令缓冲区
@@ -1019,13 +1028,12 @@ bool vk_render(VkContext* vkContext)
     //   - 使用命令缓冲区池循环使用
     //   - 避免每帧分配/释放的开销
     //
-    VkCommandBuffer cmdBuffer = {};  // 输出：命令缓冲区句柄
+    VkCommandBuffer cmdBuffer; // 输出：命令缓冲区句柄
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = vkContext->commandPool;  // 从哪个池分配
-    allocInfo.commandBufferCount = 1;                // 分配 1 个缓冲区
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;  // 主缓冲区（可提交执行）
+    allocInfo.commandPool = vkContext->commandPool; // 从哪个池分配
+    allocInfo.commandBufferCount = 1;               // 分配 1 个缓冲区
 
     // vkAllocateCommandBuffers 参数：
     //   1. device: 逻辑设备
@@ -1040,13 +1048,18 @@ bool vk_render(VkContext* vkContext)
     //
     // 命令缓冲区必须先"开始录制"才能记录命令
     //
-    VkCommandBufferBeginInfo beginInfo = cmd_begin_info();  // 使用辅助函数
+    VkCommandBufferBeginInfo beginInfo = cmd_begin_info(); // 使用辅助函数
 
     // vkBeginCommandBuffer 参数：
     //   1. commandBuffer: 命令缓冲区
     //   2. pBeginInfo: 开始信息（包含标志等）
     //
     VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+
+    // 转换布局：UNDEFINED -> TRANSFER_DST
+    // 注意：必须在 vkBeginCommandBuffer 之后！
+    transition_image_layout(cmdBuffer, vkContext->scImages[imgIdx], VK_IMAGE_LAYOUT_UNDEFINED,
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     // ============================================================================
     // 第四步：记录渲染命令
@@ -1061,13 +1074,66 @@ bool vk_render(VkContext* vkContext)
     //   - 结束渲染通道
     //
     {
+        // --------------------------------------------------------------
+        // 清除图像
+        // --------------------------------------------------------------
+        // 注意：此时图像布局已转换为 TRANSFER_DST_OPTIMAL
+
         // 清除颜色（RGBA）
         // {R, G, B, A} = {1, 1, 0, 1} = 黄色，完全不透明
         VkClearColorValue color = {1, 1, 0, 1};
 
-        // 图像子资源范围（要清除哪部分）
-        // 这里使用默认值 {0}，表示清除整个图像
+        // 图像子资源范围（要清除图像的哪一部分）
+        //
+        // VkImageSubresourceRange 指定图像的子资源范围
+        // 一张图像可能有多个 mip 层和多个图层（用于 3D 纹理或 VR）
+        //
         VkImageSubresourceRange range = {};
+
+        // aspectMask: 图像的哪些方面
+        //
+        // 图像可以有多个"方面"（aspect）：
+        //   - VK_IMAGE_ASPECT_COLOR_BIT:     颜色数据（RGB/RGBA）
+        //   - VK_IMAGE_ASPECT_DEPTH_BIT:     深度数据（深度缓冲）
+        //   - VK_IMAGE_ASPECT_STENCIL_BIT:   模板数据（模板缓冲）
+        //   - VK_IMAGE_ASPECT_METADATA_BIT:  元数据（稀疏纹理用）
+        //
+        // 我们清除的是颜色图像，所以只选择 COLOR
+        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+        // levelCount: Mip 层级数量
+        //
+        // Mip Mapping（多级渐远纹理）：
+        //   - Level 0 = 原始尺寸（最大）
+        //   - Level 1 = 一半尺寸
+        //   - Level 2 = 四分之一尺寸
+        //   - ...
+        //
+        // 举例：
+        //   1024x1024 的纹理：
+        //     Level 0: 1024x1024
+        //     Level 1: 512x512
+        //     Level 2: 256x256
+        //     Level 3: 128x128
+        //     ...
+        //
+        // 这里设为 1 = 只清除 Level 0（原始尺寸）
+        // 交换链图像通常只有 1 个 mip 层级
+        range.levelCount = 1;
+
+        // layerCount: 图层数量
+        //
+        // 图层用于立体渲染（VR）或纹理数组：
+        //   - Layer 0: 左眼视图 / 第一张纹理
+        //   - Layer 1: 右眼视图 / 第二张纹理
+        //   - ...
+        //
+        // 普通窗口渲染只需要 1 层
+        // VR 应用需要 2 层（左眼 + 右眼）
+        // 立方体纹理需要 6 层（6 个面）
+        //
+        // 这里设为 1 = 只清除 Layer 0
+        range.layerCount = 1;
 
         // vkCmdClearColorImage: 清除图像命令
         //
@@ -1075,20 +1141,24 @@ bool vk_render(VkContext* vkContext)
         //   1. commandBuffer: 命令缓冲区
         //   2. image: 要清除的图像
         //   3. imageLayout: 图像布局
-        //      - VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: 呈现源布局
-        //      - 表示图像用于显示
+        //      - 必须是 TRANSFER_DST_OPTIMAL（不是 PRESENT_SRC_KHR！）
+        //      - 之前已通过 Pipeline Barrier 转换布局
         //   4. pColor: 清除颜色
         //   5. rangeCount: 范围数量（通常是 1）
         //   6. pRanges: 范围数组
         //
-        vkCmdClearColorImage(
-            cmdBuffer,                           // 命令缓冲区
-            vkContext->scImages[imgIdx],         // 要清除的图像（使用获取的索引）
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,     // 图像布局
-            &color,                              // 清除颜色（黄色）
-            1,                                   // 范围数量
-            &range                               // 范围（整个图像）
+        vkCmdClearColorImage(cmdBuffer,                   // 命令缓冲区
+                             vkContext->scImages[imgIdx], // 要清除的图像（使用获取的索引）
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             &color, // 清除颜色（黄色）
+                             1,      // 范围数量
+                             &range  // 范围（整个图像）
         );
+
+        // 【新增】转换布局：TRANSFER_DST -> PRESENT_SRC
+        transition_image_layout(cmdBuffer, vkContext->scImages[imgIdx],
+                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     }
 
     // ============================================================================
@@ -1115,25 +1185,25 @@ bool vk_render(VkContext* vkContext)
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     // 等待的信号量（在执行前需要等待哪些信号量）
-    submitInfo.waitSemaphoreCount = 1;                           // 等待 1 个信号量
-    submitInfo.pWaitSemaphores = &vkContext->acquireSemaphore;   // 等待获取信号量
-    submitInfo.pWaitDstStageMask = &waitStage;                   // 在哪个阶段等待
+    submitInfo.waitSemaphoreCount = 1;                         // 等待 1 个信号量
+    submitInfo.pWaitSemaphores = &vkContext->acquireSemaphore; // 等待获取信号量
+    submitInfo.pWaitDstStageMask = &waitStage;                 // 在哪个阶段等待
 
     // 命令缓冲区（要执行哪些命令）
-    submitInfo.commandBufferCount = 1;           // 1 个命令缓冲区
-    submitInfo.pCommandBuffers = &cmdBuffer;     // 命令缓冲区指针
+    submitInfo.commandBufferCount = 1;       // 1 个命令缓冲区
+    submitInfo.pCommandBuffers = &cmdBuffer; // 命令缓冲区指针
 
     // 触发的信号量（执行完成后触发哪些信号量）
-    submitInfo.signalSemaphoreCount = 1;                          // 触发 1 个信号量
-    submitInfo.pSignalSemaphores = &vkContext->submitSemaphore;  // 触发提交信号量
+    submitInfo.signalSemaphoreCount = 1;                                     // 触发 1 个信号量
+    submitInfo.pSignalSemaphores = &vkContext->submitSemaphores[imgIdx]; // 使用当前图像的信号量
 
     // vkQueueSubmit 参数：
     //   1. queue: 队列（图形队列）
     //   2. submitCount: 提交信息数量
     //   3. pSubmits: 提交信息数组
-    //   4. fence: 围栏（NULL = 不使用）
+    //   4. fence: 围栏（GPU 完成后会触发，下一帧 CPU 等待此围栏）
     //
-    VK_CHECK(vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, 0));
+    VK_CHECK(vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, vkContext->inFlightFence));
 
     // 执行流程：
     // 1. 等待 acquireSemaphore 触发（图像可用）
@@ -1151,8 +1221,8 @@ bool vk_render(VkContext* vkContext)
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
     // 等待的信号量（渲染完成后才能呈现）
-    presentInfo.waitSemaphoreCount = 1;                          // 等待 1 个信号量
-    presentInfo.pWaitSemaphores = &vkContext->submitSemaphore;   // 等待提交信号量
+    presentInfo.waitSemaphoreCount = 1;                                     // 等待 1 个信号量
+    presentInfo.pWaitSemaphores = &vkContext->submitSemaphores[imgIdx]; // 等待当前图像的信号量
 
     // 交换链信息（要呈现哪个图像）
     presentInfo.swapchainCount = 1;                  // 1 个交换链
