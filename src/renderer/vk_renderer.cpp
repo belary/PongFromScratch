@@ -45,13 +45,18 @@
 
 #define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
 
-#define VK_CHECK(result)                                                                           \
-    if (result != VK_SUCCESS)                                                                      \
+// 点击“关闭”按钮的瞬间，窗口的大小或状态会发生剧烈波动（比如最小化动画），这时驱动可能会先返回一个 SUBOPTIMAL
+#define VK_CHECK(res_expr)                                                                         \
+    do                                                                                             \
     {                                                                                              \
-        std::cout << "Vulkan Error: " << result << std::endl;                                      \
-        __debugbreak();                                                                            \
-        return false;                                                                              \
-    }
+        VkResult result = (res_expr);                                                              \
+        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)                                   \
+        {                                                                                          \
+            std::cout << "Vulkan Error: " << result << std::endl;                                  \
+            __debugbreak();                                                                        \
+            return false;                                                                          \
+        }                                                                                          \
+    } while (0)
 
 /**
  * Vulkan 调试回调函数
@@ -111,8 +116,8 @@ typedef struct VkContext
     VkSwapchainKHR swapChain;
     VkCommandPool commandPool;
     VkSemaphore acquireSemaphore;
-    VkSemaphore submitSemaphores[5];  // 每个交换链图像一个独立的提交信号量
-    VkFence inFlightFence;            // 围栏：CPU 等待 GPU 完成上一帧
+    VkSemaphore submitSemaphores[5]; // 每个交换链图像一个独立的提交信号量
+    VkFence inFlightFence;           // 围栏：CPU 等待 GPU 完成上一帧
 
     uint32_t scImgCount;
     VkImage scImages[5];
@@ -831,8 +836,8 @@ bool vk_init(VkContext* vkContext, void* window)
     // 什么是信号量（Semaphore）？
     // ----------------------
     // 信号量是用于 GPU 内部同步的原语，用于协调不同操作之间的执行顺序。
-    // 获取信号量 (AccquireSemaphore) 触发 → GPU 开始渲染 → 渲染结束并触发提交信号量 (SubmitSemaphore) → 显示硬件观察到 B，读取显存并显示。
-    // 类比理解：
+    // 获取信号量 (AccquireSemaphore) 触发 → GPU 开始渲染 → 渲染结束并触发提交信号量
+    // (SubmitSemaphore) → 显示硬件观察到 B，读取显存并显示。 类比理解：
     // - 信号量 = 传递接力棒的机制
     // - "等待信号量" = 等待接力棒到达才能继续
     // - "发送信号" = 传递接力棒给下一阶段
@@ -855,7 +860,8 @@ bool vk_init(VkContext* vkContext, void* window)
     // 3. 呈现图像 (Queue Present)
     //    - 等待：设置 pWaitSemaphores = B。
     //    - 逻辑：告诉显示引擎：“等 B 亮了（渲染完了），你再去读这块显存并贴到屏幕上。”
-    //    - 后果：显示引擎读取完成后，会将图像标记为“Available”（空闲），从而允许【下一帧】的 Step 1 成功。
+    //    - 后果：显示引擎读取完成后，会将图像标记为“Available”（空闲），从而允许【下一帧】的 Step 1
+    //    成功。
     //
     // ------------------------------
     //
@@ -863,8 +869,11 @@ bool vk_init(VkContext* vkContext, void* window)
     //   - 作用：等待交换链图像可用
     //   - 流程：vkAcquireNextImageKHR(acquireSemaphore) → 图像准备好 → (GPU)信号量触发
     //   - 确保：不会获取到还在显示的图像
-    //   - 物理意义：显存里的那块内存区域正在被显示器的扫描电路读取，为了防止你边画边读导致画面花掉，Vulkan 强制锁定它。
-    //   - 同步意义：这就是为什么你需要 acquireSemaphore。它本质上是硬件在告诉你：“嘿，显示器终于用完这张图了，现在你可以安全地往里面写新的像素了。”
+    //   -
+    //   物理意义：显存里的那块内存区域正在被显示器的扫描电路读取，为了防止你边画边读导致画面花掉，Vulkan
+    //   强制锁定它。
+    //   - 同步意义：这就是为什么你需要
+    //   acquireSemaphore。它本质上是硬件在告诉你：“嘿，显示器终于用完这张图了，现在你可以安全地往里面写新的像素了。”
 
     // submitSemaphore（提交信号量）：CPU提交任务给GPU
     //   - 作用：等待渲染完成
@@ -894,10 +903,6 @@ bool vk_init(VkContext* vkContext, void* window)
     //   - acquireSemaphore[1], submitSemaphore[1] → 帧 N+1
     //   - 最小配置，帧率受显示刷新率限制
     //
-    // 三缓冲（3 个信号量对）：
-    //   - acquireSemaphore[0-2], submitSemaphore[0-2]
-    //   - GPU 可以提前渲染下一帧
-    //   - 更高帧率，但延迟稍高
     //
     // ============================================================================
     {
@@ -924,7 +929,8 @@ bool vk_init(VkContext* vkContext, void* window)
         // 参见：https://docs.vulkan.org/guide/latest/swapchain_semaphore_reuse.html
         for (uint32_t i = 0; i < 5; i++)
         {
-            VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->submitSemaphores[i]));
+            VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0,
+                                       &vkContext->submitSemaphores[i]));
         }
 
         // 创建围栏（Fence）
@@ -1194,7 +1200,7 @@ bool vk_render(VkContext* vkContext)
     submitInfo.pCommandBuffers = &cmdBuffer; // 命令缓冲区指针
 
     // 触发的信号量（执行完成后触发哪些信号量）
-    submitInfo.signalSemaphoreCount = 1;                                     // 触发 1 个信号量
+    submitInfo.signalSemaphoreCount = 1;                                 // 触发 1 个信号量
     submitInfo.pSignalSemaphores = &vkContext->submitSemaphores[imgIdx]; // 使用当前图像的信号量
 
     // vkQueueSubmit 参数：
@@ -1221,7 +1227,7 @@ bool vk_render(VkContext* vkContext)
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
     // 等待的信号量（渲染完成后才能呈现）
-    presentInfo.waitSemaphoreCount = 1;                                     // 等待 1 个信号量
+    presentInfo.waitSemaphoreCount = 1;                                 // 等待 1 个信号量
     presentInfo.pWaitSemaphores = &vkContext->submitSemaphores[imgIdx]; // 等待当前图像的信号量
 
     // 交换链信息（要呈现哪个图像）
