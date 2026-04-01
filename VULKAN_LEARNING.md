@@ -880,6 +880,221 @@ range.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
 ---
 
+### 图像布局转换辅助函数
+
+#### 项目实现方式
+
+项目使用 `transition_image_layout` 辅助函数封装 Pipeline Barrier：
+
+```cpp
+// 位置：vk_renderer.cpp 第 129-165 行
+void transition_image_layout(VkCommandBuffer cmd, VkImage image,
+                             VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;     // 当前布局
+    barrier.newLayout = newLayout;     // 目标布局
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags srcStage, dstStage;
+
+    // 根据转换类型设置访问掩码和管线阶段
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        // 第一次使用图像
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+```
+
+#### 使用流程
+
+```cpp
+// 渲染循环中的调用顺序：
+vkBeginCommandBuffer(cmdBuffer, &beginInfo);          // ← 1. 开始录制
+
+transition_image_layout(cmdBuffer,                        // ← 2. 转换布局
+                        image,
+                        VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+vkCmdClearColorImage(cmdBuffer,                            // ← 3. 清除（布局正确）
+                      image,
+                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  // ← 必须匹配转换后的布局
+                      &color, 1, &range);
+
+vkEndCommandBuffer(cmdBuffer);
+```
+
+#### 关键点
+
+| 要点 | 说明 |
+|------|------|
+| **封装意义** | 简化代码、预定义正确参数、提高可读性 |
+| **调用顺序** | 必须在 `vkBeginCommandBuffer` 之后 |
+| **布局一致性** | 清除时使用的布局必须与转换后的布局一致 |
+
+#### Vulkan SDK 1.4 的强制要求
+
+**核心问题**：为什么必须显式转换布局？
+
+Vulkan SDK 1.4 强制要求必须显式处理图像从"无状态"到"可工作状态"的转换。
+
+##### VK_IMAGE_LAYOUT_UNDEFINED 的问题
+
+```
+交换链图像刚创建或刚获取时：
+  内容是 "未定义" (UNDEFINED)
+  ↓
+  不能直接告诉 Vulkan 它是 TRANSFER_DST_OPTIMAL
+  ↓
+  必须执行 Pipeline Barrier 手动转换！
+```
+
+**原因**：
+- Vulkan 驱动不知道图像之前的状态
+- 直接使用可能导致未定义行为
+- SDK 1.4 加强验证，要求显式转换
+
+##### 两个关键转换点
+
+**转换 1：UNDEFINED → TRANSFER_DST_OPTIMAL**
+
+```
+目的：让图像准备好接收清除/复制操作
+时机：清除操作之前
+原因：刚获取的交换链图像处于 UNDEFINED 状态
+```
+
+```cpp
+// 第一次使用图像时必须转换
+transition_image_layout(cmdBuffer, image,
+    VK_IMAGE_LAYOUT_UNDEFINED,           // ← 当前：未定义
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL); // ← 目标：传输目标
+
+// 现在可以安全清除
+vkCmdClearColorImage(..., VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, ...);
+```
+
+**转换 2：TRANSFER_DST_OPTIMAL → PRESENT_SRC_KHR**
+
+```
+目的：让图像准备好显示
+时机：呈现操作之前
+原因：清除后图像处于传输目标布局，不能直接显示
+```
+
+```cpp
+// 清除完成后，如果要显示，需要转换回呈现布局
+transition_image_layout(cmdBuffer, image,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // ← 当前：传输目标
+    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);      // ← 目标：呈现源
+
+// 现在可以安全呈现
+vkQueuePresentKHR(...);
+```
+
+##### 完整的生命周期
+
+```
+图像创建 → UNDEFINED
+    ↓
+第一次获取 → Pipeline Barrier → TRANSFER_DST_OPTIMAL
+    ↓                               ↓
+清除操作 ----------------------→ 操作完成
+    ↓                               ↓
+（可选）呈现前 → Pipeline Barrier → PRESENT_SRC_KHR
+    ↓
+显示到屏幕
+```
+
+##### 为什么 Vulkan 这样要求？
+
+1. **性能优化**：驱动可以根据布局优化内存访问
+2. **安全性**：显式状态转换避免未定义行为
+3. **可追踪性**：每个布局转换都是明确的同步点
+
+##### 常见错误
+
+```cpp
+// ❌ 错误：直接使用 UNDEFINED 布局
+vkCmdClearColorImage(..., VK_IMAGE_LAYOUT_UNDEFINED, ...);
+// 报错：布局必须是 TRANSFER_DST_OPTIMAL 或 GENERAL
+
+// ❌ 错误：不转换就呈现
+vkCmdClearColorImage(..., VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, ...);
+vkQueuePresentKHR(...);  // 图像还是 TRANSFER_DST 布局！
+// 报错：呈现需要 PRESENT_SRC_KHR 布局
+
+// ✅ 正确：显式转换每个状态
+transition_image_layout(..., UNDEFINED, TRANSFER_DST);     // 准备清除
+vkCmdClearColorImage(..., TRANSFER_DST_OPTIMAL, ...);       // 清除
+transition_image_layout(..., TRANSFER_DST, PRESENT_SRC);     // 准备显示
+vkQueuePresentKHR(...);                                     // 呈现
+```
+
+---
+
+#### 完整渲染循环（带围栏同步）
+
+```cpp
+bool vk_render(VkContext* vkContext) {
+    // 0. 等待上一帧完成
+    vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(device, 1, &fence);
+
+    // 1. 获取图像
+    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, acquireSemaphore, ..., &imgIdx);
+
+    // 2. 分配命令缓冲区
+    vkAllocateCommandBuffers(device, &allocInfo, &cmdBuffer);
+
+    // 3. 开始录制
+    vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+    // 4. 记录命令（清除、绘制等）
+    transition_image_layout(..., UNDEFINED, TRANSFER_DST);
+    vkCmdClearColorImage(..., TRANSFER_DST_OPTIMAL, ...);
+    vkEndCommandBuffer(cmdBuffer);
+
+    // 5. 提交到队列
+    VkSubmitInfo submitInfo = {};
+    submitInfo.pWaitSemaphores = &acquireSemaphore;   // 等待图像
+    submitInfo.pWaitDstStageMask = &COLOR_ATTACHMENT_OUTPUT;
+    submitInfo.pCommandBuffers = &cmdBuffer;
+    submitInfo.pSignalSemaphores = &submitSemaphore; // 完成触发
+    vkQueueSubmit(queue, 1, &submitInfo, fence);       // GPU 完成触发 fence
+
+    // 6. 呈现图像
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.pWaitSemaphores = &submitSemaphore;     // 等待渲染完成
+    presentInfo.pSwapchains = &swapchain;
+    presentInfo.pImageIndices = &imgIdx;
+    vkQueuePresentKHR(queue, &presentInfo);
+
+    return true;
+}
+```
+
+**关键点**：
+- 第 0 步必须在最前（等待上一帧）
+- `vkQueueSubmit` 必须传入 fence（不是 NULL）
+- `VK_FENCE_CREATE_SIGNALED_BIT` 让第一帧不需要等待
+
+---
+
 ### 图像布局转换（Image Layout Transition）
 
 #### 什么是图像布局？

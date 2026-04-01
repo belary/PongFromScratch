@@ -201,6 +201,65 @@ char* device_extensions[] = {
 };
 ```
 
+#### 图像布局转换辅助函数
+
+项目使用了 `transition_image_layout` 辅助函数来封装复杂的 Pipeline Barrier 操作：
+
+```cpp
+// 辅助函数：封装图像布局转换
+void transition_image_layout(VkCommandBuffer cmd, VkImage image,
+                             VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags srcStage;
+    VkPipelineStageFlags dstStage;
+
+    // 根据不同的转换场景设置不同的访问掩码和管线阶段
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+        newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        // 第一次使用图像：UNDEFINED -> TRANSFER_DST
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+
+    vkCmdPipelineBarrier(cmd, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+```
+
+**使用方式**：
+```cpp
+// 渲染循环中：
+vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+// 转换布局（必须在 begin 之后）
+transition_image_layout(cmdBuffer, image, VK_IMAGE_LAYOUT_UNDEFINED,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+// 现在可以清除图像
+vkCmdClearColorImage(cmdBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, ...);
+
+vkEndCommandBuffer(cmdBuffer);
+```
+
+**为什么要封装？**
+- 简化代码：不需要每次设置复杂的 barrier 参数
+- 减少错误：预定义常用转换的正确参数
+- 提高可读性：函数名比 vkCmdPipelineBarrier 更清晰
+
 #### 格式查询与后备模式
 ```cpp
 // 查询支持的格式
