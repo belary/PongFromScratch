@@ -1,4 +1,7 @@
 ﻿#include <vulkan/vulkan.h>
+
+#include "platform.h"
+
 #ifdef WINDOWS_BUILD
 // ============================================================================
 // Windows 平台头文件包含顺序（学习重点）
@@ -45,7 +48,8 @@
 
 #define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
 
-// 点击“关闭”按钮的瞬间，窗口的大小或状态会发生剧烈波动（比如最小化动画），这时驱动可能会先返回一个 SUBOPTIMAL
+// 点击“关闭”按钮的瞬间，窗口的大小或状态会发生剧烈波动（比如最小化动画），这时驱动可能会先返回一个
+// SUBOPTIMAL
 #define VK_CHECK(res_expr)                                                                         \
     do                                                                                             \
     {                                                                                              \
@@ -789,7 +793,7 @@ bool vk_init(VkContext* vkContext, void* window)
         //   - 模板附件（Stencil Attachment）：模板缓冲（模板测试）
         //
         VkAttachmentDescription colorAttachment = {};
-        colorAttachment.format = vkContext->surfaceFormat.format;  // 图像格式（如 B8G8R8_SRGB）
+        colorAttachment.format = vkContext->surfaceFormat.format; // 图像格式（如 B8G8R8_SRGB）
 
         // loadOp: 附件开始渲染时的操作
         //
@@ -797,14 +801,14 @@ bool vk_init(VkContext* vkContext, void* window)
         // VK_ATTACHMENT_LOAD_OP_LOAD:       保留之前的内容
         // VK_ATTACHMENT_LOAD_OP_DONT_CARE: 不关心（性能优化）
         //
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;  // 清除为特定值
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // 清除为特定值
 
         // storeOp: 渲染完成后的操作
         //
         // VK_ATTACHMENT_STORE_OP_STORE:      存储结果（保存到内存）
         // VK_ATTACHMENT_STORE_OP_DONT_CARE:  不保存（性能优化，只用于临时附件）
         //
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;  // 保存结果
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // 保存结果
 
         // samples: 采样数量（多重采样抗锯齿）
         //
@@ -840,7 +844,7 @@ bool vk_init(VkContext* vkContext, void* window)
         // 附件引用告诉子阶段如何使用附件
         //
         VkAttachmentReference colorAttachmentRef = {};
-        colorAttachmentRef.attachment = 0;                           // 附件在数组中的索引
+        colorAttachmentRef.attachment = 0; // 附件在数组中的索引
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
         // ↑ 附件在使用时的布局
         // ATTACHMENT_OPTIMAL: 针对附件操作优化的布局
@@ -861,8 +865,8 @@ bool vk_init(VkContext* vkContext, void* window)
         // 当前项目：只有一个子阶段（直接清除为黄色）
         //
         VkSubpassDescription subpassDesc = {};
-        subpassDesc.colorAttachmentCount = 1;                        // 颜色附件数量
-        subpassDesc.pColorAttachments = &colorAttachmentRef;      // 颜色附件引用数组
+        subpassDesc.colorAttachmentCount = 1;                // 颜色附件数量
+        subpassDesc.pColorAttachments = &colorAttachmentRef; // 颜色附件引用数组
 
         // ----------------------------------------------------------------------
         // 第四步：创建渲染通道
@@ -870,10 +874,10 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         VkRenderPassCreateInfo rpInfo = {};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        rpInfo.pAttachments = attachments;                        // 附件数组
-        rpInfo.attachmentCount = ArraySize(attachments);        // 附件数量
-        rpInfo.pSubpasses = &subpassDesc;                         // 子阶段数组
-        rpInfo.subpassCount = 1;                                  // 子阶段数量
+        rpInfo.pAttachments = attachments;               // 附件数组
+        rpInfo.attachmentCount = ArraySize(attachments); // 附件数量
+        rpInfo.pSubpasses = &subpassDesc;                // 子阶段数组
+        rpInfo.subpassCount = 1;                         // 子阶段数量
 
         // vkCreateRenderPass 参数：
         //   1. device: 逻辑设备
@@ -884,12 +888,12 @@ bool vk_init(VkContext* vkContext, void* window)
         VK_CHECK(vkCreateRenderPass(vkContext->device, &rpInfo, 0, &vkContext->renderPass));
     }
 
-    //Frame Buffers
+    // Frame Buffers
     {
         VkFramebufferCreateInfo fbInfo = {};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fbInfo.renderPass = vkContext->renderPass;
-        fbInfo.width = vkContext->
+        // fbInfo.width = vkContext->
     }
 
     // ============================================================================
