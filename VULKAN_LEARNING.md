@@ -699,6 +699,14 @@ vkGetPhysicalDeviceSurfaceCapabilitiesKHR(gpu, surface, &caps);
 10. 创建同步对象（VkSemaphore）
    - acquireSemaphore：同步图像获取
    - submitSemaphore：同步渲染完成
+   ↓
+11. 创建渲染通道（VkRenderPass）
+   - 配置附件（颜色、深度、模板）
+   - 配置子阶段（Subpasses）
+   - 定义加载/存储操作
+   ↓
+12. 创建帧缓冲（Framebuffer）
+   - 将交换链图像绑定到渲染通道
 ```
 
 ### 关键代码模式
@@ -1175,6 +1183,88 @@ while (running) {
     // 5. 呈现
     vkQueuePresentKHR(...);
 }
+```
+
+---
+
+### 渲染通道（Render Pass）
+
+#### 什么是渲染通道？
+
+渲染通道是 Vulkan 中描述"如何渲染"的蓝图，定义了渲染的完整流程。
+
+```
+Render Pass = 整个渲染过程的描述
+Subpass    = 具体渲染步骤
+Attachment = 渲染目标（画布）
+```
+
+#### 类比理解
+
+```
+绘画过程：
+1. 准备画布（附件设置）
+2. 画背景（Subpass 0）
+3. 画人物（Subpass 1）
+4. 签名盖章（完成）
+
+Vulkan 渲染：
+1. 创建 Render Pass（定义附件和流程）
+2. vkCmdBeginRenderPass（开始渲染）
+3. vkCmdDrawIndexed（执行绘制）
+4. vkCmdEndRenderPass（结束渲染）
+```
+
+#### 附件（Attachment）类型
+
+| 附件类型 | 作用 | 常见用途 |
+|----------|------|----------|
+| **Color** | 存储像素颜色 | 渲染结果显示 |
+| **Depth** | 存储深度信息 | 深度测试、3D 渲染 |
+| **Stencil** | 存储模板信息 | 模板测试、遮罩效果 |
+
+#### 加载和存储操作
+
+##### LoadOp（附件开始时的操作）
+
+| 操作 | 说明 | 使用场景 |
+|------|------|----------|
+| `CLEAR` | 清除附件为特定值 | 每帧重新开始 |
+| `LOAD` | 保留之前的内容 | 增量渲染、分帧渲染 |
+| `DONT_CARE` | 不关心内容 | 性能优化 |
+
+##### StoreOp（渲染完成后的操作）
+
+| 操作 | 说明 | 使用场景 |
+|------|------|----------|
+| `STORE` | 保存结果到内存 | 正常渲染 |
+| `DONT_CARE` | 不保存 | 临时附件 |
+
+#### 图像布局在 Render Pass 中的作用
+
+```
+initialLayout → [Subpass 渲染] → finalLayout
+     ↓                            ↓
+UNDEFINED                      PRESENT_SRC
+                        ATTACHMENT
+                        OPTIMAL
+```
+
+#### 创建和使用示例
+
+```cpp
+// 创建
+VkRenderPassCreateInfo rpInfo = {};
+rpInfo.pAttachments = attachments;
+rpInfo.attachmentCount = 1;
+rpInfo.pSubpasses = &subpassDesc;
+rpInfo.subpassCount = 1;
+vkCreateRenderPass(device, &rpInfo, NULL, &renderPass);
+
+// 使用
+vkCmdBeginRenderPass(cmdBuffer, renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+vkCmdDrawIndexed(cmdBuffer, ...);
+vkCmdEndRenderPass(cmdBuffer);
 ```
 
 ---

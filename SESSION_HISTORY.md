@@ -37,6 +37,7 @@ Image = 实际的图像数据（GPU 内存）
 Command Pool = 管理命令缓冲区的内存池（绑定到队列族）
 Semaphore = GPU 内部的接力棒传递机制（异步同步）
 Command Buffer = 记录 GPU 命令的"画纸"（每帧分配和录制）
+Render Pass = 渲染流程的蓝图（定义附件、子阶段、加载/存储操作）
 ```
 
 #### 4. 初始化流程实现
@@ -49,6 +50,11 @@ Command Buffer = 记录 GPU 命令的"画纸"（每帧分配和录制）
 - ✅ 获取交换链图像（VkImage）
 - ✅ 创建命令池（VkCommandPool）
 - ✅ 创建同步对象（VkSemaphore）
+- ✅ 创建渲染通道（VkRenderPass）
+  - 配置颜色附件（Color Attachment）
+  - 设置加载/存储操作（LOAD_OP_CLEAR / STORE_OP_STORE）
+  - 配置子阶段（Subpass）
+  - 定义初始/最终布局（UNDEFINED → PRESENT_SRC）
 
 #### 5. 渲染循环实现
 - ✅ 实现完整的 `vk_render` 函数

@@ -106,6 +106,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 
 typedef struct VkContext
 {
+    VkExtent2D screenSize;
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;
     VkSurfaceKHR surface;
@@ -118,6 +119,7 @@ typedef struct VkContext
     VkSemaphore acquireSemaphore;
     VkSemaphore submitSemaphores[5]; // 每个交换链图像一个独立的提交信号量
     VkFence inFlightFence;           // 围栏：CPU 等待 GPU 完成上一帧
+    VkRenderPass renderPass;
 
     uint32_t scImgCount;
     VkImage scImages[5];
@@ -166,6 +168,7 @@ void transition_image_layout(VkCommandBuffer cmd, VkImage image, VkImageLayout o
 
 bool vk_init(VkContext* vkContext, void* window)
 {
+    platform_get_window_size(&vkContext->screenSize.width, &vkContext->screenSize.height);
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Pong From Scratch";
@@ -745,6 +748,148 @@ bool vk_init(VkContext* vkContext, void* window)
 
         // 现在 vkContext->scImages[] 数组包含了所有交换链图像的句柄
         // 后续渲染时会使用这些图像作为渲染目标
+    }
+
+    // ============================================================================
+    // 创建渲染通道（Render Pass）
+    // ============================================================================
+    //
+    // 什么是渲染通道（Render Pass）？
+    // ----------------------------------
+    // 渲染通道是 Vulkan 中描述"如何渲染"的蓝图，它定义了：
+    //   1. 使用哪些附件（Attachments）- 颜色、深度、模板等
+    //   2. 附件的初始/最终状态（加载/存储操作）
+    //   3. 渲染流程的各个子阶段（Subpasses）
+    //
+    // 类比理解：
+    // - Render Pass = 作画计划书
+    // - Subpass = 具体步骤（步骤1：画背景，步骤2：画人物...）
+    // - Attachment = 画布（颜色、深度、模板等）
+    //
+    // 为什么需要渲染通道？
+    // ----------------------------------
+    // 1. 性能优化：驱动知道整个渲染流程，可以优化硬件操作
+    // 2. 同步控制：明确指定每个阶段的依赖关系
+    // 3. 内存管理：自动处理附件之间的数据传输
+    // 4. 清除操作：定义如何初始化附件（清除、保留等）
+    //
+    // 渲染通道的完整生命周期：
+    // ----------------------------------
+    // 创建 → 开始录制命令 → vkCmdBeginRenderPass → [渲染命令] → vkCmdEndRenderPass → 提交
+    //
+    {
+        // ----------------------------------------------------------------------
+        // 第一步：配置附件（Attachment）
+        // ----------------------------------------------------------------------
+        //
+        // 什么是附件？
+        //   附件是渲染过程中使用的图像资源，通常包括：
+        //   - 颜色附件（Color Attachment）：存储渲染结果（像素颜色）
+        //   - 深度附件（Depth Attachment）：深度缓冲（深度测试）
+        //   - 模板附件（Stencil Attachment）：模板缓冲（模板测试）
+        //
+        VkAttachmentDescription colorAttachment = {};
+        colorAttachment.format = vkContext->surfaceFormat.format;  // 图像格式（如 B8G8R8_SRGB）
+
+        // loadOp: 附件开始渲染时的操作
+        //
+        // VK_ATTACHMENT_LOAD_OP_CLEAR:     清除附件（填充特定值）
+        // VK_ATTACHMENT_LOAD_OP_LOAD:       保留之前的内容
+        // VK_ATTACHMENT_LOAD_OP_DONT_CARE: 不关心（性能优化）
+        //
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;  // 清除为特定值
+
+        // storeOp: 渲染完成后的操作
+        //
+        // VK_ATTACHMENT_STORE_OP_STORE:      存储结果（保存到内存）
+        // VK_ATTACHMENT_STORE_OP_DONT_CARE:  不保存（性能优化，只用于临时附件）
+        //
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;  // 保存结果
+
+        // samples: 采样数量（多重采样抗锯齿）
+        //
+        // VK_SAMPLE_COUNT_1_BIT: 无多重采样（性能最好）
+        // VK_SAMPLE_COUNT_4_BIT: 4x 多重采样（抗锯齿，性能开销）
+        //
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+
+        // initialLayout: 渲染开始前图像的布局
+        //
+        // VK_IMAGE_LAYOUT_UNDEFINED: 附件的初始状态是未定义的
+        // 这意味着开始渲染时，我们需要清除它（由 loadOp = CLEAR 决定）
+        //
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        // finalLayout: 渲染结束后图像的布局
+        //
+        // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: 呈现源布局
+        // 渲染完成后，图像将被显示到屏幕，所以布局应该设置为呈现源
+        //
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        // 注意：initialLayout 和 finalLayout 可以不同
+        // 这允许驱动在渲染过程中自动转换布局以优化性能
+
+        // 将附件信息放入数组
+        VkAttachmentDescription attachments[] = {colorAttachment};
+
+        // ----------------------------------------------------------------------
+        // 第二步：配置附件引用（Attachment Reference）
+        // ----------------------------------------------------------------------
+        //
+        // 附件引用告诉子阶段如何使用附件
+        //
+        VkAttachmentReference colorAttachmentRef = {};
+        colorAttachmentRef.attachment = 0;                           // 附件在数组中的索引
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+        // ↑ 附件在使用时的布局
+        // ATTACHMENT_OPTIMAL: 针对附件操作优化的布局
+        // 驱动会自动选择最优布局，不需要我们指定具体布局
+
+        // ----------------------------------------------------------------------
+        // 第三步：配置子阶段（Subpass）
+        // ----------------------------------------------------------------------
+        //
+        // 什么是子阶段？
+        //   子阶段是渲染流程中的一个步骤，一个渲染通道可以有多个子阶段
+        //
+        // 典型多子阶段示例：
+        //   - Subpass 0: 几何通道（处理三角形、光照）
+        //   - Subpass 1: 后期处理（模糊、色调映射）
+        //   - Subpass 2: UI 覆盖层
+        //
+        // 当前项目：只有一个子阶段（直接清除为黄色）
+        //
+        VkSubpassDescription subpassDesc = {};
+        subpassDesc.colorAttachmentCount = 1;                        // 颜色附件数量
+        subpassDesc.pColorAttachments = &colorAttachmentRef;      // 颜色附件引用数组
+
+        // ----------------------------------------------------------------------
+        // 第四步：创建渲染通道
+        // ----------------------------------------------------------------------
+        //
+        VkRenderPassCreateInfo rpInfo = {};
+        rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        rpInfo.pAttachments = attachments;                        // 附件数组
+        rpInfo.attachmentCount = ArraySize(attachments);        // 附件数量
+        rpInfo.pSubpasses = &subpassDesc;                         // 子阶段数组
+        rpInfo.subpassCount = 1;                                  // 子阶段数量
+
+        // vkCreateRenderPass 参数：
+        //   1. device: 逻辑设备
+        //   2. pCreateInfo: 创建信息（上面配置的所有参数）
+        //   3. pAllocator: 内存分配器（NULL = 使用默认分配器）
+        //   4. pRenderPass: 输出参数，返回渲染通道句柄
+        //
+        VK_CHECK(vkCreateRenderPass(vkContext->device, &rpInfo, 0, &vkContext->renderPass));
+    }
+
+    //Frame Buffers
+    {
+        VkFramebufferCreateInfo fbInfo = {};
+        fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fbInfo.renderPass = vkContext->renderPass;
+        fbInfo.width = vkContext->
     }
 
     // ============================================================================
