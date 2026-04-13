@@ -336,8 +336,8 @@ vkQueuePresentKHR(queue, &presentInfo);
 - [ ] 资源清理函数
 
 #### 待学习的渲染功能
-- [ ] 创建渲染通道（Render Pass）
-- [ ] 创建帧缓冲（Framebuffer）
+- [ ] 创建渲染通道（Render Pass） ✅
+- [ ] 创建帧缓冲（Framebuffer） ✅
 - [ ] Graphics Pipeline 创建
 - [ ] 着色器模块（Shader Module）
 - [ ] 顶点缓冲（Vertex Buffer）
@@ -502,3 +502,198 @@ main.exe
 **会话时间**：约 2 小时
 **学习进度**：Vulkan 初始化完成 ✅
 **下一步**：渲染管线和着色器
+
+---
+
+## 2025-04-10 - Framebuffer 学习
+
+### 完成内容
+
+#### 1. 代码注释
+- ✅ 为 Framebuffer 创建代码添加详细中文注释 [vk_renderer.cpp:893-966](src/renderer/vk_renderer.cpp#L893-L966)
+- ✅ 解释了 VkFramebufferCreateInfo 的所有字段
+- ✅ 说明了为什么每个交换链图像需要独立的 Framebuffer
+
+#### 2. 核心概念学习
+
+**Framebuffer 的作用：**
+- 将 Render Pass 中定义的附件与实际的图像视图绑定
+- 一个 Render Pass 可以配合多个 Framebuffer 使用
+- 渲染时根据当前图像索引选择对应的 Framebuffer
+
+**关键理解：**
+```
+Render Pass  = 作画计划书（定义要用到哪些画布）
+Framebuffer  = 准备好的实际画布（指向真实的图像）
+ImageView    = 画布的视图（如何查看/访问图像）
+```
+
+**渲染流程：**
+```
+vkAcquireNextImageKHR → 获取 imageIdx
+   ↓
+vkCmdBeginRenderPass → 使用 framebuffers[imageIdx]
+   ↓
+[渲染命令]
+   ↓
+vkCmdEndRenderPass
+   ↓
+vkQueuePresentKHR → 显示 scImages[imageIdx]
+```
+
+#### 3. 知识库更新
+- ✅ 在 VULKAN_LEARNING.md 添加了"帧缓冲"章节
+- ✅ 包含：概念解释、创建流程、渲染时的使用方式
+
+#### 4. 会话历史更新
+- ✅ 更新待学习的渲染功能列表（标记 Framebuffer 为已完成）
+
+### 当前代码状态
+
+#### 新增数据结构成员
+```cpp
+typedef struct VkContext
+{
+    // ... 已有成员 ...
+    VkRenderPass renderPass;       // 渲染通道
+    VkImageView scImgViews[5];     // 交换链图像视图
+    VkFramebuffer framebuffers[5]; // 帧缓冲（新增）
+} VkContext;
+```
+
+### 当前进度总结
+
+**已完成的初始化步骤：**
+1. ✅ 创建 VkInstance
+2. ✅ 创建 VkSurface
+3. ✅ 选择物理设备
+4. ✅ 查找队列族
+5. ✅ 创建逻辑设备
+6. ✅ 获取队列
+7. ✅ 创建交换链
+8. ✅ 获取交换链图像
+9. ✅ 创建图像视图
+10. ✅ 创建命令池
+11. ✅ 创建同步对象（Semaphore + Fence）
+12. ✅ 创建渲染通道（Render Pass）
+13. ✅ 创建帧缓冲（Framebuffer）
+
+**下一步：**
+- 创建 Graphics Pipeline
+- 编写着色器（GLSL）
+- 实现基本的三角形渲染
+
+---
+
+## 2025-04-13 - 着色器学习
+
+### 完成内容
+
+#### 1. 着色器代码注释
+- ✅ 为 [shader.vert](../assets/shaders/shader.vert) 添加详细中文注释
+- ✅ 为 [shader.frag](../assets/shaders/shader.frag) 添加详细中文注释
+- ✅ 解释了 GLSL 语法和内置变量
+
+#### 2. 修复 API 版本问题
+- ✅ 修复了 `VkApplicationInfo.apiVersion` 未设置的问题
+- ✅ 设置为 `VK_API_VERSION_1_2` 以支持现代 SPIR-V 版本
+
+#### 3. 核心概念学习
+
+**GLSL 版本**：
+- `#version 450` 对应 Vulkan 1.0 / SPIR-V 1.0
+- `#version 460` 对应 Vulkan 1.2 / SPIR-V 1.5
+
+**顶点着色器**：
+- 处理每个顶点的数据
+- 输出到 `gl_Position`（裁剪空间坐标）
+- `gl_VertexIndex`：当前顶点的索引
+
+**片段着色器**：
+- 为每个像素计算颜色
+- 输出到 `layout(location = 0) out vec4`
+- 颜色格式：RGBA，每个通道范围 [0, 1]
+
+**坐标系统**：
+```
+    +Y
+     │
+     │
+     └─── +X
+    /
+   /
+ +Z
+
+范围：[-1, 1] × [-1, 1]
+```
+
+**渲染流程**：
+```
+顶点着色器 → 图元装配 → 光栅化 → 片段着色器 → 帧缓冲
+```
+
+#### 4. 知识库更新
+- ✅ 在 VULKAN_LEARNING.md 添加了"着色器"章节
+- ✅ 包含：GLSL 版本对照表、顶点/片段着色器说明、颜色表示、渲染管线流程
+
+#### 5. 常见错误更新
+- ✅ 添加了"SPIR-V 版本不兼容错误"的解决方案
+
+### 关键代码模式
+
+#### 着色器模块创建
+```cpp
+// 读取 SPIR-V 字节码
+uint32_t* code = (uint32_t*)platform_read_file("shader.vert.spv", &size);
+
+// 创建着色器模块
+VkShaderModuleCreateInfo info = {};
+info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+info.pCode = code;
+info.codeSize = size;
+vkCreateShaderModule(device, &info, 0, &shaderModule);
+
+// 释放文件缓冲区（Vulkan 已复制）
+delete code;
+```
+
+### 当前三角形代码
+
+**顶点着色器**：
+```glsl
+vec2 vertices[3] = vec2[3](
+    vec2(-0.5, 0.5),   // 左上
+    vec2(0, -0.5),     // 底部中间
+    vec2(0.5, 0.5)     // 右上
+);
+
+void main() {
+    gl_Position = vec4(vertices[gl_VertexIndex], 0.0, 1.0);
+}
+```
+
+**片段着色器**：
+```glsl
+layout(location = 0) out vec4 fragmentColor;
+
+void main() {
+    fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);  // 白色
+}
+```
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建
+- ✅ 顶点着色器（硬编码三角形）
+- ✅ 片段着色器（纯白色）
+
+**下一步：**
+- 创建 Graphics Pipeline（绑定着色器、配置状态）
+- 使用 RenderPass 和 Framebuffer 进行渲染
+- 实现三角形绘制
+
+---

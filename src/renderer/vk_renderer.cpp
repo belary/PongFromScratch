@@ -124,9 +124,13 @@ typedef struct VkContext
     VkSemaphore submitSemaphores[5]; // 每个交换链图像一个独立的提交信号量
     VkFence inFlightFence;           // 围栏：CPU 等待 GPU 完成上一帧
     VkRenderPass renderPass;
+    VkPipelineLayout pipeLayout;
+    VkPipeline pipeline;
 
     uint32_t scImgCount;
     VkImage scImages[5];
+    VkImageView scImgViews[5];
+    VkFramebuffer framebuffers[5];
 
     int graphicsIdx;
 
@@ -177,6 +181,21 @@ bool vk_init(VkContext* vkContext, void* window)
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Pong From Scratch";
     appInfo.pEngineName = "Pong Engine";
+
+    // apiVersion: 应用请求的 Vulkan API 版本
+    //
+    // 重要：必须设置此字段，否则默认为 Vulkan 1.0
+    //
+    // VK_API_VERSION_1_0 (0x400000): SPIR-V 1.0 支持
+    // VK_API_VERSION_1_1 (0x401000): SPIR-V 1.3 支持
+    // VK_API_VERSION_1_2 (0x402000): SPIR-V 1.5 支持
+    // VK_API_VERSION_1_3 (0x403000): SPIR-V 1.6 支持
+    //
+    // 宏定义格式：VK_MAKE_VERSION(major, minor, patch)
+    // 例如：VK_API_VERSION_1_2 = VK_MAKE_VERSION(1, 2, 0)
+    //
+    appInfo.apiVersion = VK_API_VERSION_1_2;
+    // ↑ 使用 Vulkan 1.2，支持大多数现代着色器特性
 
     // Vulkan 实例扩展列表
     //
@@ -755,6 +774,117 @@ bool vk_init(VkContext* vkContext, void* window)
     }
 
     // ============================================================================
+    // 创建图像视图（ImageView）
+    // ============================================================================
+    //
+    // 什么是图像视图（ImageView）？
+    // ----------------------------------
+    // 图像视图是对图像的"视图"或"包装器"，定义了如何查看/访问图像。
+    //
+    // 类比理解：
+    // - Image  = 实际的图像数据（原始像素数据，存在 GPU 内存中）
+    // - ImageView = 看待图像的方式（格式、范围、类型等）
+    //
+    // 为什么需要 ImageView？
+    // ----------------------------------
+    // 1. 格式重映射：将 BGR 图像视为 RGB（颜色通道重排）
+    // 2. 范围限制：只使用图像的一部分（mipmap 的某一层）
+    // 3. 类型转换：将深度纹理视为普通纹理
+    // 4. Framebuffer 要求：Framebuffer 绑定的是 ImageView 而不是 Image
+    //
+    // 示例：ImageView 的用途
+    // ----------------------------------
+    // 原始图像：B8G8R8A8 格式（蓝-绿-红-Alpha）
+    // ImageView 可以告诉 Vulkan："把蓝当红，把红当蓝"（组件重映射）
+    //
+    {
+        // ----------------------------------------------------------------------
+        // 配置 ImageView 创建信息（循环外设置，所有图像共享相同配置）
+        // ----------------------------------------------------------------------
+        //
+        // 为什么在循环外设置 viewInfo？
+        // - 所有交换链图像的 ImageView 配置完全相同
+        // - 只有 image 字段不同（指向不同的图像）
+        // - 这样避免重复代码，提高效率
+        //
+        VkImageViewCreateInfo viewInfo = {};
+        viewInfo.sType =
+            VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO; // ← 修复：原为 EVENT_CREATE_INFO（错误）
+        // ↑ sType 必须匹配结构体类型，否则 Vulkan 会验证失败
+
+        // viewType: 视图类型
+        //
+        // VK_IMAGE_VIEW_TYPE_2D:        普通 2D 纹理（当前使用）
+        // VK_IMAGE_VIEW_TYPE_3D:        3D 纹理
+        // VK_IMAGE_VIEW_TYPE_CUBE:      立方体贴图（6 个面）
+        // VK_IMAGE_VIEW_TYPE_2D_ARRAY:  2D 纹理数组
+        //
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+        // format: 视图的格式（必须与图像创建时的格式兼容）
+        //
+        // 注意：格式必须匹配或兼容，否则 vkCreateImageView 会失败
+        //       例如：不能将 B8G8R8_SRGB 图像创建为 R8G8B8A8_SNORM 视图
+        //
+        viewInfo.format = vkContext->surfaceFormat.format;
+
+        // components: 颜色通道重映射（可选，这里使用默认值）
+        //
+        // 允许重新排列颜色通道，例如：
+        // - 将 BGR 图像映射为 RGB（Windows DIB 图像常用）
+        // - 提取单个通道（将 RGB 图像视为灰度图）
+        //
+        // 默认值为 IDENTITY（不重映射），所以这里不需要显式设置
+        // viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;  // 默认
+        // viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        // viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        // viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        // subresourceRange: 要访问的图像子资源范围
+        //
+        // aspectMask: 要访问的图像"方面"
+        // VK_IMAGE_ASPECT_COLOR_BIT:    颜色数据（当前使用）
+        // VK_IMAGE_ASPECT_DEPTH_BIT:    深度数据（深度缓冲）
+        // VK_IMAGE_ASPECT_STENCIL_BIT:  模板数据（模板缓冲）
+        // VK_IMAGE_ASPECT_METADATA_BIT: 元数据（罕见）
+        //
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+        // levelCount: mipmap 层级数量
+        //
+        // 1 = 只使用 1 层（无 mipmap）
+        // VK_REMAINING_MIP_LEVELS = 从 baseMipLevel 到最高层
+        //
+        viewInfo.subresourceRange.levelCount = 1;
+
+        // layerCount: 数组层数量
+        //
+        // 1 = 只使用 1 层（当前使用）
+        // VK_REMAINING_ARRAY_LAYERS = 从 baseArrayLayer 到最后一层
+        // 对于立方体贴图：应该是 6
+        //
+        viewInfo.subresourceRange.layerCount = 1;
+
+        // ----------------------------------------------------------------------
+        // 为每个交换链图像创建 ImageView
+        // ----------------------------------------------------------------------
+        for (uint32_t i = 0; i < vkContext->scImgCount; i++)
+        {
+            // image: 要创建视图的图像
+            // 这是唯一需要为每个 ImageView 单独设置的字段
+            viewInfo.image = vkContext->scImages[i];
+
+            // 创建 ImageView
+            // 参数：
+            // - device: 逻辑设备
+            // - pCreateInfo: 创建信息（指向 viewInfo）
+            // - pAllocator: 内存分配器（NULL = 使用默认分配器）
+            // - pImageView: 输出的 ImageView 句柄
+            VK_CHECK(vkCreateImageView(vkContext->device, &viewInfo, 0, &vkContext->scImgViews[i]));
+        }
+    }
+
+    // ============================================================================
     // 创建渲染通道（Render Pass）
     // ============================================================================
     //
@@ -845,10 +975,14 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         VkAttachmentReference colorAttachmentRef = {};
         colorAttachmentRef.attachment = 0; // 附件在数组中的索引
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         // ↑ 附件在使用时的布局
-        // ATTACHMENT_OPTIMAL: 针对附件操作优化的布局
-        // 驱动会自动选择最优布局，不需要我们指定具体布局
+        // COLOR_ATTACHMENT_OPTIMAL: 颜色附件的最优布局
+        // 适用于作为渲染目标的图像（写入颜色数据）
+        //
+        // 注意：VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL 是新版本 Vulkan 的值
+        //       需要启用 VK_KHR_synchronization2 扩展
+        //       这里使用传统的 COLOR_ATTACHMENT_OPTIMAL，无需额外扩展
 
         // ----------------------------------------------------------------------
         // 第三步：配置子阶段（Subpass）
@@ -888,12 +1022,97 @@ bool vk_init(VkContext* vkContext, void* window)
         VK_CHECK(vkCreateRenderPass(vkContext->device, &rpInfo, 0, &vkContext->renderPass));
     }
 
-    // Frame Buffers
+    // ============================================================================
+    // 创建帧缓冲（Framebuffer）
+    // ============================================================================
+    //
+    // 什么是帧缓冲（Framebuffer）？
+    // ----------------------------------
+    // 帧缓冲将 Render Pass 中定义的附件与实际的图像视图绑定起来。
+    //
+    // 类比理解：
+    // - Render Pass  = 作画计划书（定义要用到哪些画布）
+    // - Framebuffer  = 准备好的实际画布（指向真实的图像）
+    // - ImageView    = 画布的视图（如何查看/访问图像）
+    //
+    // 为什么需要 Framebuffer？
+    // ----------------------------------
+    // Render Pass 只是描述"需要什么类型的附件"，而 Framebuffer 提供"具体的图像"。
+    // 一个 Render Pass 可以配合多个 Framebuffer 使用（例如：不同的交换链图像）。
+    //
+    // 关键概念：
+    // ----------------------------------
+    // 1. 附件绑定：Framebuffer 将 ImageView 绑定到 Render Pass 的附件槽位
+    // 2. 每个交换链图像一个 Framebuffer：因为每个图像都需要独立的 Framebuffer
+    // 3. 尺寸匹配：Framebuffer 尺寸必须与附件图像的尺寸一致
+    //
+    // Framebuffer 与 Render Pass 的关系：
+    // ----------------------------------
+    // RenderPass 定义： "我需要一个颜色附件"
+    // Framebuffer 提供： "这是实际的图像视图（scImgViews[0]）"
+    //
+    // 渲染时的完整流程：
+    // ----------------------------------
+    // vkCmdBeginRenderPass 需要指定 Framebuffer
+    //   ↓
+    // Vulkan 知道要渲染到哪些具体的图像
+    //   ↓
+    // 渲染结果写入 Framebuffer 绑定的图像
+    //
     {
+        // ----------------------------------------------------------------------
+        // 配置 Framebuffer 创建信息
+        // ----------------------------------------------------------------------
         VkFramebufferCreateInfo fbInfo = {};
         fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+
+        // renderPass: 此 Framebuffer 兼容的 Render Pass
+        // Framebuffer 必须与 Render Pass 的附件定义兼容：
+        // - 附件数量匹配
+        // - 格式匹配
+        // - 采样数匹配
         fbInfo.renderPass = vkContext->renderPass;
-        // fbInfo.width = vkContext->
+
+        // width/height: Framebuffer 的尺寸（必须与附件图像的尺寸一致）
+        fbInfo.width = vkContext->screenSize.width;
+        fbInfo.height = vkContext->screenSize.height;
+
+        // layers: 图像层数（通常为 1，立体渲染需要更多）
+        fbInfo.layers = 1;
+
+        // attachmentCount: 附件数量（必须与 Render Pass 中定义的附件数量一致）
+        fbInfo.attachmentCount = 1;
+
+        // ----------------------------------------------------------------------
+        // 为每个交换链图像创建一个 Framebuffer
+        // ----------------------------------------------------------------------
+        // 为什么需要多个 Framebuffer？
+        // - 交换链有多个图像（双缓冲 = 2，三缓冲 = 3）
+        // - 每个图像需要独立的 Framebuffer
+        // - 渲染时根据当前获取的图像索引使用对应的 Framebuffer
+        //
+        // 示例流程：
+        // Frame 0: 获取 imageIdx=0 → 使用 framebuffers[0] → 渲染到 scImages[0]
+        // Frame 1: 获取 imageIdx=1 → 使用 framebuffers[1] → 渲染到 scImages[1]
+        // Frame 2: 获取 imageIdx=0 → 使用 framebuffers[0] → 渲染到 scImages[0]
+        //   └─ GPU 已完成上一帧，image 0 可以重新使用
+        //
+        for (uint32_t i = 0; i < vkContext->scImgCount; i++)
+        {
+            // pAttachments: 指向实际的图像视图数组
+            // 这里我们将交换链图像的 ImageView 绑定到 Framebuffer
+            // Render Pass 中的第一个附件将使用这个 ImageView
+            fbInfo.pAttachments = &vkContext->scImgViews[i];
+
+            // 创建 Framebuffer
+            // 参数：
+            // - device: 逻辑设备
+            // - pCreateInfo: 创建信息
+            // - pAllocator: 内存分配器（NULL = 使用默认分配器）
+            // - pFramebuffer: 输出的 Framebuffer 句柄
+            VK_CHECK(
+                vkCreateFramebuffer(vkContext->device, &fbInfo, 0, &vkContext->framebuffers[i]));
+        }
     }
 
     // ============================================================================
@@ -1097,6 +1316,195 @@ bool vk_init(VkContext* vkContext, void* window)
         VK_CHECK(vkCreateFence(vkContext->device, &fenceInfo, 0, &vkContext->inFlightFence));
     }
 
+    // Create Pipeline layout
+    {
+        VkPipelineLayoutCreateInfo layoutInfo = {};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        VK_CHECK(vkCreatePipelineLayout(vkContext->device, &layoutInfo, 0, &vkContext->pipeLayout));
+    }
+
+    // Create Pipeline
+    {
+        VkPipelineVertexInputStateCreateInfo vertextInputState = {};
+        vertextInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+        VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+        colorBlendAttachment.blendEnable = VK_FALSE;
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                              VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+        VkPipelineColorBlendStateCreateInfo colorBlendState = {};
+        colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlendState.pAttachments = &colorBlendAttachment;
+        colorBlendState.attachmentCount = 1;
+
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+        VkViewport viewport = {};
+        viewport.maxDepth = 1.0;
+
+        VkRect2D scissor = {};
+
+        VkPipelineViewportStateCreateInfo viewportState = {};
+        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportState.pScissors = &scissor;
+        viewportState.pViewports = &viewport;
+        viewportState.scissorCount = 1;
+        viewportState.viewportCount = 1;
+
+        VkPipelineRasterizationStateCreateInfo rasterizationState = {};
+        rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizationState.lineWidth = 1.0;
+
+        VkPipelineMultisampleStateCreateInfo multisampleState = {};
+        multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+        // ============================================================================
+        // 创建着色器模块（Shader Module）
+        // ============================================================================
+        //
+        // 什么是要色器模块？
+        // ----------------------------------
+        // Shader Module 是 Vulkan 中对着色器代码（SPIR-V 字节码）的包装器。
+        //
+        // SPIR-V 是什么？
+        // - Vulkan 使用的着色器中间表示
+        // - 由 GLSL/HLSL 等高级着色器语言编译而来
+        // - 跨平台、二进制格式
+        //
+        // 编译流程：
+        // GLSL 源码 (.vert/.frag) → glslc/glslangValidator → SPIR-V (.spv) → Vulkan
+        //
+        // Vulkan 版本与 SPIR-V 版本的对应关系：
+        // ----------------------------------
+        // Vulkan 1.0 → SPIR-V 1.0
+        // Vulkan 1.1 → SPIR-V 1.3
+        // Vulkan 1.2 → SPIR-V 1.5
+        // Vulkan 1.3 → SPIR-V 1.6
+        //
+        // 注意：VkApplicationInfo.apiVersion 必须与 SPIR-V 版本兼容！
+        //
+        VkShaderModule vertextshader, fragmentShader;
+
+        // ----------------------------------------------------------------------
+        // 创建顶点着色器模块（Vertex Shader）
+        // ----------------------------------------------------------------------
+        // 顶点着色器作用：
+        // - 处理每个顶点的位置、颜色、纹理坐标等属性
+        // - 将顶点从模型空间转换到裁剪空间
+        // - 传递数据到片段着色器
+        //
+        {
+            // 读取 SPIR-V 字节码文件
+            // platform_read_file 返回文件内容的字节数组和大小
+            // 注意：返回的是 uint32_t*，因为 SPIR-V 是 32 位字对齐的
+            int lengthInBytes;
+            uint32_t* vertexCode =
+                (uint32_t*)platform_read_file("assets/shaders/shader.vert.spv", &lengthInBytes);
+
+            // 配置着色器模块创建信息
+            VkShaderModuleCreateInfo shaderInfo = {};
+            shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+
+            // pCode: 指向 SPIR-V 字节码的指针
+            // 注意：SPIR-V 要求字对齐，所以使用 uint32_t* 而非 void*
+            shaderInfo.pCode = vertexCode;
+
+            // codeSize: 字节码的大小（字节数，不是字数！）
+            //
+            // 常见错误：使用 sizeof(vertexCode) 会得到指针大小（4/8 字节）
+            //          必须使用文件读取返回的实际大小
+            //
+            shaderInfo.codeSize = lengthInBytes;
+
+            // 创建着色器模块
+            // 参数：
+            // - device: 逻辑设备
+            // - pCreateInfo: 创建信息
+            // - pAllocator: 内存分配器（NULL = 使用默认分配器）
+            // - pShaderModule: 输出的着色器模块句柄
+            VK_CHECK(vkCreateShaderModule(vkContext->device, &shaderInfo, 0, &vertextshader));
+
+            // 释放文件缓冲区
+            // 注意：Shader Module 创建后，Vulkan 会复制 SPIR-V 代码
+            //       所以可以安全删除原始文件缓冲区
+            delete vertexCode;
+        }
+
+        // ----------------------------------------------------------------------
+        // 创建片段着色器模块（Fragment Shader）
+        // ----------------------------------------------------------------------
+        // 片段着色器作用：
+        // - 处理每个像素（片段）的颜色
+        // - 计算光照、纹理采样、材质效果
+        // - 输出最终颜色到帧缓冲
+        //
+        {
+            // 读取 SPIR-V 字节码文件
+            int lengthInBytes;
+            uint32_t* fragmentCode =
+                (uint32_t*)platform_read_file("assets/shaders/shader.frag.spv", &lengthInBytes);
+
+            // 配置着色器模块创建信息
+            VkShaderModuleCreateInfo shaderInfo = {};
+            shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+            shaderInfo.pCode = fragmentCode;
+            shaderInfo.codeSize = lengthInBytes;
+
+            // 创建着色器模块
+            VK_CHECK(vkCreateShaderModule(vkContext->device, &shaderInfo, 0, &fragmentShader));
+
+            // 释放文件缓冲区
+            delete fragmentCode;
+        }
+
+        VkPipelineShaderStageCreateInfo vertStage = {};
+        vertStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertStage.pName = "main";
+        vertStage.module = vertextshader;
+
+        VkPipelineShaderStageCreateInfo fragStage = {};
+        fragStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragStage.pName = "main";
+        fragStage.module = fragmentShader;
+
+        VkPipelineShaderStageCreateInfo shaderStages[2] = {vertStage, fragStage};
+
+        VkDynamicState dynamicStates[]{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        VkPipelineDynamicStateCreateInfo dynamicState = {};
+        dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicState.dynamicStateCount = ArraySize(dynamicStates);
+        dynamicState.pDynamicStates = dynamicStates;
+
+        VkGraphicsPipelineCreateInfo pipelineInfo = {};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.renderPass = vkContext->renderPass;
+        pipelineInfo.pVertexInputState = &vertextInputState;
+        pipelineInfo.pColorBlendState = &colorBlendState;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizationState;
+        pipelineInfo.pMultisampleState = &multisampleState;
+        pipelineInfo.stageCount = ArraySize(shaderStages);
+        pipelineInfo.pDynamicState = &dynamicState;
+        pipelineInfo.layout = vkContext->pipeLayout;
+        pipelineInfo.pStages = shaderStages;
+
+        VK_CHECK(vkCreateGraphicsPipelines(vkContext->device, 0, 1, &pipelineInfo, 0,
+                                           &vkContext->pipeline));
+
+        vkDestroyShaderModule(vkContext->device, vertextshader, 0);
+        vkDestroyShaderModule(vkContext->device, fragmentShader, 0);
+    }
+
     return true;
 }
 
@@ -1211,10 +1619,7 @@ bool vk_render(VkContext* vkContext)
     //
     VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
 
-    // 转换布局：UNDEFINED -> TRANSFER_DST
-    // 注意：必须在 vkBeginCommandBuffer 之后！
-    transition_image_layout(cmdBuffer, vkContext->scImages[imgIdx], VK_IMAGE_LAYOUT_UNDEFINED,
-                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
 
     // ============================================================================
     // 第四步：记录渲染命令
@@ -1228,93 +1633,36 @@ bool vk_render(VkContext* vkContext)
     //   - 绘制物体
     //   - 结束渲染通道
     //
+
+    VkClearValue color = {1, 1, 0, 1};
+
+    VkRenderPassBeginInfo rpBeginInfo = {};
+    rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpBeginInfo.renderArea.extent = vkContext->screenSize;
+    rpBeginInfo.clearValueCount = 1;
+    rpBeginInfo.pClearValues = &color;
+    rpBeginInfo.renderPass = vkContext->renderPass;
+    rpBeginInfo.framebuffer = vkContext->framebuffers[imgIdx];
+    vkCmdBeginRenderPass(cmdBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    
+    //rending command
     {
-        // --------------------------------------------------------------
-        // 清除图像
-        // --------------------------------------------------------------
-        // 注意：此时图像布局已转换为 TRANSFER_DST_OPTIMAL
+        VkViewport viewPort = {};
+        viewPort.maxDepth = 1.0f;
+        viewPort.width = vkContext->screenSize.width;
+        viewPort.height = vkContext->screenSize.height;
 
-        // 清除颜色（RGBA）
-        // {R, G, B, A} = {1, 1, 0, 1} = 黄色，完全不透明
-        VkClearColorValue color = {1, 1, 0, 1};
+        VkRect2D scissor = {};
+        scissor.extent = vkContext->screenSize;
 
-        // 图像子资源范围（要清除图像的哪一部分）
-        //
-        // VkImageSubresourceRange 指定图像的子资源范围
-        // 一张图像可能有多个 mip 层和多个图层（用于 3D 纹理或 VR）
-        //
-        VkImageSubresourceRange range = {};
+        vkCmdSetViewport(cmdBuffer, 0, 1, &viewPort);
+        vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
-        // aspectMask: 图像的哪些方面
-        //
-        // 图像可以有多个"方面"（aspect）：
-        //   - VK_IMAGE_ASPECT_COLOR_BIT:     颜色数据（RGB/RGBA）
-        //   - VK_IMAGE_ASPECT_DEPTH_BIT:     深度数据（深度缓冲）
-        //   - VK_IMAGE_ASPECT_STENCIL_BIT:   模板数据（模板缓冲）
-        //   - VK_IMAGE_ASPECT_METADATA_BIT:  元数据（稀疏纹理用）
-        //
-        // 我们清除的是颜色图像，所以只选择 COLOR
-        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-
-        // levelCount: Mip 层级数量
-        //
-        // Mip Mapping（多级渐远纹理）：
-        //   - Level 0 = 原始尺寸（最大）
-        //   - Level 1 = 一半尺寸
-        //   - Level 2 = 四分之一尺寸
-        //   - ...
-        //
-        // 举例：
-        //   1024x1024 的纹理：
-        //     Level 0: 1024x1024
-        //     Level 1: 512x512
-        //     Level 2: 256x256
-        //     Level 3: 128x128
-        //     ...
-        //
-        // 这里设为 1 = 只清除 Level 0（原始尺寸）
-        // 交换链图像通常只有 1 个 mip 层级
-        range.levelCount = 1;
-
-        // layerCount: 图层数量
-        //
-        // 图层用于立体渲染（VR）或纹理数组：
-        //   - Layer 0: 左眼视图 / 第一张纹理
-        //   - Layer 1: 右眼视图 / 第二张纹理
-        //   - ...
-        //
-        // 普通窗口渲染只需要 1 层
-        // VR 应用需要 2 层（左眼 + 右眼）
-        // 立方体纹理需要 6 层（6 个面）
-        //
-        // 这里设为 1 = 只清除 Layer 0
-        range.layerCount = 1;
-
-        // vkCmdClearColorImage: 清除图像命令
-        //
-        // 参数：
-        //   1. commandBuffer: 命令缓冲区
-        //   2. image: 要清除的图像
-        //   3. imageLayout: 图像布局
-        //      - 必须是 TRANSFER_DST_OPTIMAL（不是 PRESENT_SRC_KHR！）
-        //      - 之前已通过 Pipeline Barrier 转换布局
-        //   4. pColor: 清除颜色
-        //   5. rangeCount: 范围数量（通常是 1）
-        //   6. pRanges: 范围数组
-        //
-        vkCmdClearColorImage(cmdBuffer,                   // 命令缓冲区
-                             vkContext->scImages[imgIdx], // 要清除的图像（使用获取的索引）
-                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                             &color, // 清除颜色（黄色）
-                             1,      // 范围数量
-                             &range  // 范围（整个图像）
-        );
-
-        // 【新增】转换布局：TRANSFER_DST -> PRESENT_SRC
-        transition_image_layout(cmdBuffer, vkContext->scImages[imgIdx],
-                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeline);
+        vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
     }
+
+    vkCmdEndRenderPass(cmdBuffer);
 
     // ============================================================================
     // 第五步：结束录制命令

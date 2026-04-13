@@ -1269,6 +1269,175 @@ vkCmdEndRenderPass(cmdBuffer);
 
 ---
 
+### 帧缓冲（Framebuffer）
+
+#### 什么是帧缓冲？
+
+帧缓冲将 Render Pass 中定义的附件与实际的图像视图绑定起来。
+
+```
+Render Pass  = 作画计划书（定义要用到哪些画布）
+Framebuffer  = 准备好的实际画布（指向真实的图像）
+ImageView    = 画布的视图（如何查看/访问图像）
+```
+
+#### 为什么需要 Framebuffer？
+
+Render Pass 只是描述"需要什么类型的附件"，而 Framebuffer 提供"具体的图像"。
+
+一个 Render Pass 可以配合多个 Framebuffer 使用。
+
+#### Framebuffer 创建流程
+
+```
+1. 为每个交换链图像创建 ImageView
+   ↓
+2. 创建 Framebuffer（绑定 ImageView 到 Render Pass 附件）
+   ↓
+3. 渲染时根据当前图像索引选择对应的 Framebuffer
+```
+
+#### 渲染时的使用
+
+```
+vkAcquireNextImageKHR → 获取 imageIdx
+   ↓
+vkCmdBeginRenderPass → 使用 framebuffers[imageIdx]
+   ↓
+[渲染命令]
+   ↓
+vkCmdEndRenderPass
+   ↓
+vkQueuePresentKHR → 显示 scImages[imageIdx]
+```
+
+#### 关键概念
+
+| 概念 | 说明 |
+|------|------|
+| **附件绑定** | Framebuffer 将 ImageView 绑定到 Render Pass 的附件槽位 |
+| **一个图像一个 Framebuffer** | 每个交换链图像都需要独立的 Framebuffer |
+| **尺寸匹配** | Framebuffer 尺寸必须与附件图像尺寸一致 |
+
+---
+
+### 着色器（Shader）
+
+#### 什么是着色器？
+
+着色器是在 GPU 上运行的小程序，用于计算顶点位置和像素颜色。
+
+```
+顶点着色器 (Vertex Shader)  → 处理顶点 → 输出位置
+                             ↓
+                          光栅化
+                             ↓
+片段着色器 (Fragment Shader) → 处理像素 → 输出颜色
+```
+
+#### GLSL 版本与 Vulkan 版本
+
+| GLSL 版本 | Vulkan 版本 | SPIR-V 版本 |
+|-----------|-------------|-------------|
+| 450       | 1.0         | 1.0         |
+| 460       | 1.2         | 1.5         |
+
+#### 顶点着色器（Vertex Shader）
+
+**作用**：
+- 处理每个顶点的数据
+- 将顶点从模型空间转换到裁剪空间
+- 传递数据到片段着色器
+
+**内置变量**：
+- `gl_VertexIndex`：当前顶点的索引
+- `gl_Position`：顶点的最终位置（输出）
+
+**坐标系统（Vulkan NDC）**：
+```
+      +X
+       │
+       │
+       │
+       └──── +Y (向下)
+      ╱
+     ╱
+    +Z（指向屏幕外）
+
+范围：[-1, 1] × [-1, 1] × [-1, 1]
+```
+
+**重要区别**：
+- Vulkan：Y 轴正方向向下（与帧缓冲区坐标系一致）
+- OpenGL：Y 轴正方向向上
+
+**示例代码**：
+```glsl
+#version 450
+
+vec2 vertices[3] = vec2[3](
+    vec2(-0.5, 0.5),   // 左上
+    vec2(0, -0.5),     // 底部中间
+    vec2(0.5, 0.5)     // 右上
+);
+
+void main() {
+    gl_Position = vec4(vertices[gl_VertexIndex], 0.0, 1.0);
+}
+```
+
+#### 片段着色器（Fragment Shader）
+
+**作用**：
+- 为每个像素计算最终颜色
+- 处理纹理、光照、材质效果
+
+**内置变量**：
+- `gl_FragCoord`：当前像素的窗口坐标（输入）
+- `gl_FragDepth`：深度值（输出）
+
+**输出格式**：
+```glsl
+layout(location = 0) out vec4 fragColor;
+//                         ↑         ↑
+//                      位置索引    RGBA 颜色
+
+void main() {
+    fragColor = vec4(1.0, 0.0, 0.0, 1.0);  // 红色
+}
+```
+
+#### 颜色表示
+
+| 颜色 | vec4 值 | 说明 |
+|------|---------|------|
+| 黑色 | `(0, 0, 0, 1)` | RGB 全为 0 |
+| 白色 | `(1, 1, 1, 1)` | RGB 全为 1 |
+| 红色 | `(1, 0, 0, 1)` | 只有 R 通道 |
+| 绿色 | `(0, 1, 0, 1)` | 只有 G 通道 |
+| 蓝色 | `(0, 0, 1, 1)` | 只有 B 通道 |
+| 黄色 | `(1, 1, 0, 1)` | R + G |
+| 青色 | `(0, 1, 1, 1)` | G + B |
+| 品红 | `(1, 0, 1, 1)` | R + B |
+
+#### 渲染管线流程
+
+```
+vkCmdDraw
+   ↓
+[顶点着色器] - 处理 3 个顶点
+   ↓
+[图元装配] - 组装三角形
+   ↓
+[光栅化] - 三角形 → 像素
+   ↓
+[片段着色器] - 计算每个像素颜色
+   ↓
+[帧缓冲] - 写入图像
+```
+
+---
+
 ## 常见错误与解决
 
 ### 1. 扩展未启用错误
@@ -1363,6 +1532,51 @@ int main() {
     }
 }
 ```
+
+---
+
+### 6. SPIR-V 版本不兼容错误
+
+**错误信息**：
+```
+Validation Error: vkCreateShaderModule(): SPIR-V Capability Shader was declared,
+but one of the following requirements is required (VK_VERSION_1_0).
+```
+
+**原因**：着色器使用的 SPIR-V 版本比应用程序请求的 Vulkan API 版本更新
+
+**版本对应关系**：
+
+| Vulkan 版本 | SPIR-V 版本 | 发布年份 |
+|-------------|-------------|----------|
+| Vulkan 1.0 | SPIR-V 1.0 | 2016 |
+| Vulkan 1.1 | SPIR-V 1.3 | 2018 |
+| Vulkan 1.2 | SPIR-V 1.5 | 2020 |
+| Vulkan 1.3 | SPIR-V 1.6 | 2022 |
+
+**解决方案**：
+
+在 `VkApplicationInfo` 中设置 `apiVersion`：
+
+```cpp
+VkApplicationInfo appInfo = {};
+appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+appInfo.pApplicationName = "My Application";
+appInfo.apiVersion = VK_API_VERSION_1_2;  // ← 关键：必须设置
+```
+
+**替代方案**（不推荐）：重新编译着色器，使用较低的 SPIR-V 版本
+
+```bash
+# 使用 glslc 编译时指定目标 SPIR-V 版本
+glslc shader.vert -o shader.vert.spv --target-spv=spv1.0
+```
+
+**为什么默认会失败？**
+
+- `VkApplicationInfo.apiVersion` 默认为 0，Vulkan 会使用 **1.0 版本**
+- 现代 GLSL 编译器（如 SDK 1.4 的 glslc）默认生成 **SPIR-V 1.5+**
+- 版本不匹配导致验证层报错
 
 ---
 
