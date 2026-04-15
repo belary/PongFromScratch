@@ -697,3 +697,194 @@ void main() {
 - 实现三角形绘制
 
 ---
+
+## 2025-04-13 - 渲染方法更新：使用 RenderPass
+
+### 完成内容
+
+#### 1. 渲染方法改进
+- ✅ 从 `vkCmdClearColorImage` 改为使用 `vkCmdBeginRenderPass/vkCmdEndRenderPass`
+- ✅ 添加了详细的渲染命令注释
+- ✅ 移除了手动的布局转换代码
+
+#### 2. 核心变化
+
+**旧方法（已弃用）**：
+```cpp
+// 手动布局转换
+transition_image_layout(cmd, image, UNDEFINED, TRANSFER_DST);
+vkCmdClearColorImage(cmd, image, TRANSFER_DST_OPTIMAL, ...);
+transition_image_layout(cmd, image, TRANSFER_DST, PRESENT_SRC);
+```
+
+**新方法（当前使用）**：
+```cpp
+// RenderPass 自动处理
+vkCmdBeginRenderPass(cmd, &rpInfo, ...);
+vkCmdSetViewport(cmd, ...);
+vkCmdSetScissor(cmd, ...);
+vkCmdBindPipeline(cmd, GRAPHICS, pipeline);
+vkCmdDraw(cmd, 3, 1, 0, 0);  // 绘制三角形
+vkCmdEndRenderPass(cmd);
+```
+
+#### 3. RenderPass 的优势
+
+| 特性 | 旧方法 | RenderPass |
+|------|--------|------------|
+| **布局转换** | 手动调用 `transition_image_layout` | 自动处理 |
+| **清除操作** | `vkCmdClearColorImage` | RenderPass 配置 |
+| **驱动优化** | 每次调用独立 | 整体优化 |
+| **代码复杂度** | 较高 | 较低 |
+| **多子阶段** | 不支持 | 支持 |
+
+#### 4. 新增渲染命令说明
+
+**VkClearValue**：清除颜色值
+```cpp
+VkClearValue color = {1, 1, 0, 1};
+//                 R  G  B  A
+//                 = 黄色，不透明
+```
+
+**VkRenderPassBeginInfo**：RenderPass 开始信息
+- `renderPass`: 使用的渲染通道
+- `framebuffer`: 渲染目标（根据 imgIdx 选择）
+- `renderArea`: 受影响的区域（整个屏幕）
+- `clearValueCount`: 清除值数量
+- `pClearValues`: 清除值数组
+
+**vkCmdSetViewport**：设置视口
+```cpp
+VkViewport viewport = {};
+viewport.width = screenSize.width;
+viewport.height = screenSize.height;
+viewport.minDepth = 0.0f;
+viewport.maxDepth = 1.0f;
+```
+
+**vkCmdSetScissor**：设置裁剪矩形
+```cpp
+VkRect2D scissor = {};
+scissor.extent = screenSize;
+```
+
+**vkCmdBindPipeline**：绑定图形管线
+```cpp
+vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+```
+
+**vkCmdDraw**：绘制调用
+```cpp
+vkCmdDraw(cmd, 3, 1, 0, 0);
+//           ↑  ↑  ↑  ↑
+//           |  |  |  +-- firstInstance (0)
+//           |  |  +----- firstVertex (0)
+//           |  +-------- instanceCount (1)
+//           +----------- vertexCount (3 个顶点)
+```
+
+#### 5. 知识库更新
+- ✅ 更新了渲染循环模式代码示例
+- ✅ 添加了 RenderPass vs 旧方法的对比
+
+#### 6. 代码注释更新
+- ✅ 为 [vk_renderer.cpp:1624-1730](src/renderer/vk_renderer.cpp#L1624-L1730) 添加了详细注释
+- ✅ 解释了 VkClearValue 联合体结构
+- ✅ 说明了每个渲染命令的作用和参数
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建（Vertex + Fragment）
+- ✅ Graphics Pipeline 创建
+- ✅ RenderPass 渲染
+- ✅ 三角形绘制（硬编码顶点）
+
+**渲染流程：**
+```
+vkCmdBeginRenderPass → 清除为黄色
+   ↓
+vkCmdSetViewport + vkCmdSetScissor
+   ↓
+vkCmdBindPipeline（绑定图形管线）
+   ↓
+vkCmdDraw(3, 1, 0, 0) → 绘制三角形
+   ↓
+vkCmdEndRenderPass → 自动转换到 PRESENT_SRC
+```
+
+**下一步：**
+- 添加顶点缓冲区（动态顶点数据）
+- 添加 Uniform 缓冲区（MVP 矩阵）
+- 添加纹理映射
+
+---
+
+## 2025-04-13 - 理解正面/背面剔除
+
+### 核心概念理解
+
+**三角形像一张"薄纸"，有两个面：**
+- 正面：朝向观察者（屏幕外）
+- 背面：朝向屏幕里面
+
+### 如何判断正面/背面？
+
+**看顶点绘制顺序（在观察者眼里）：**
+
+| 顶点顺序 | 面朝向 | 是否渲染 |
+|----------|--------|----------|
+| 顺时针 (CW) | 正面 → 朝向观察者 | ✓ 渲染 |
+| 逆时针 (CCW) | 背面 → 背向观察者 | ✗ 剔除（如果 cullMode = BACK） |
+
+### 示例
+
+**顺时针三角形（正面）：**
+
+```
+    v0 ●
+        │ \
+        │   \  v0 → v1 → v2 是顺时针
+        │     \
+    v1 ●-------● v2
+
+    ✓ 正面朝向观察者 → 渲染
+```
+
+**逆时针三角形（背面）：**
+
+```
+    v2 ●
+        │ \
+        │   \  v2 → v1 → v0 是顺时针
+        │     \
+    v1 ●-------● v0
+
+    ✗ 背面朝向观察者 → 剔除
+```
+
+### Vulkan 配置
+
+```cpp
+rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;  // 顺时针为正面
+rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;      // 剔除背面
+```
+
+### 2D 渲染中为什么需要？
+
+1. **性能优化**：避免渲染看不见的面
+2. **透明度问题**：防止背面干扰正面
+3. **2D 中的 3D 元素**：旋转卡片、翻转精灵等
+
+**纯 2D 图形**：如果所有三角形顶点顺序一致，背面剔除不会剔除任何东西。
+
+### 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"光栅化状态"章节
+- ✅ 包含：正面/背面概念、顶点顺序判断、背面剔除原理、2D 应用场景
+
+---

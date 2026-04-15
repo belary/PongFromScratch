@@ -1316,54 +1316,306 @@ bool vk_init(VkContext* vkContext, void* window)
         VK_CHECK(vkCreateFence(vkContext->device, &fenceInfo, 0, &vkContext->inFlightFence));
     }
 
-    // Create Pipeline layout
+    // ============================================================================
+    // 创建图形管线（Graphics Pipeline）
+    // ============================================================================
+    //
+    // 什么是图形管线？
+    // ----------------------------------
+    // 图形管线是 Vulkan 中最复杂的对象之一，它定义了完整的渲染流程。
+    //
+    // 类比理解：
+    // - Graphics Pipeline = 工厂的完整生产线配置
+    // - 每个状态 = 生产线上的一个工位设置
+    // - 着色器 = 工人的操作手册
+    //
+    // 为什么需要这么多状态？
+    // ----------------------------------
+    // Vulkan 的设计理念是"显式且高效"：
+    // - 所有状态必须在创建管线时指定
+    // - 驱动可以提前优化（编译着色器、设置硬件状态）
+    // - 运行时切换管线非常快（只需一次硬件状态切换）
+    //
+    // 管线状态分类：
+    // ----------------------------------
+    // 1. 着色器阶段（Shader Stages）：顶点、片段、几何、计算等
+    // 2. 顶点输入状态（Vertex Input）：顶点数据格式
+    // 3. 输入装配状态（Input Assembly）：图元类型（三角形、线等）
+    // 4. 视口状态（Viewport）：屏幕映射
+    // 5. 光栅化状态（Rasterization）：剔除模式、多边形模式
+    // 6. 多重采样状态（Multisample）：抗锯齿
+    // 7. 颜色混合状态（Color Blend）：透明度、颜色混合
+    // 8. 管线布局（Pipeline Layout）：描述符、推送常量
+    // 9. 动态状态（Dynamic State）：运行时修改的状态
+    //
+    // 创建流程：
+    // ----------------------------------
+    // 1. 创建 Pipeline Layout（描述符布局）
+    // 2. 配置各个状态结构
+    // 3. 加载着色器
+    // 4. 创建 Graphics Pipeline
+    //
+
+    // ============================================================================
+    // 步骤 1：创建管线布局（Pipeline Layout）
+    // ============================================================================
+    //
+    // 什么是 Pipeline Layout？
+    // ----------------------------------
+    // Pipeline Layout 定义了管线如何访问资源（Uniform、纹理、推送常量等）。
+    //
+    // 作用：
+    // - 声明着色器使用的 Descriptor Set Layout
+    // - 声明推送常量（Push Constants）的范围
+    // - 提供资源绑定的"接口契约"
+    //
+    // 当前项目：
+    // - 不使用 Uniform 缓冲区
+    // - 不使用纹理
+    // - 不使用推送常量
+    // - 所以 Pipeline Layout 是空的（只需基础配置）
+    //
     {
         VkPipelineLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+        //.setLayoutCount = 0;  // 默认：无 Descriptor Set Layout
+        // .pSetLayouts = NULL;
+        // .pushConstantRangeCount = 0;  // 默认：无推送常量
+        // .pPushConstantRanges = NULL;
+
         VK_CHECK(vkCreatePipelineLayout(vkContext->device, &layoutInfo, 0, &vkContext->pipeLayout));
     }
 
-    // Create Pipeline
+    // ============================================================================
+    // 步骤 2：配置管线状态
+    // ============================================================================
     {
+        // ========================================================================
+        // 2.1 顶点输入状态（Vertex Input State）
+        // ========================================================================
+        //
+        // 定义顶点数据的格式和布局
+        //
+        // 当前项目：
+        // - 顶点数据硬编码在着色器中
+        // - 不从顶点缓冲区读取
+        // - 所以顶点输入状态是空的
+        //
         VkPipelineVertexInputStateCreateInfo vertextInputState = {};
         vertextInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-        VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
-        colorBlendAttachment.blendEnable = VK_FALSE;
-        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                              VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+        //.vertexBindingDescriptionCount = 0;  // 无顶点绑定
+        //.pVertexBindingDescriptions = NULL;
+        //.vertexAttributeDescriptionCount = 0;  // 无顶点属性
+        //.pVertexAttributeDescriptions = NULL;
 
-        VkPipelineColorBlendStateCreateInfo colorBlendState = {};
-        colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlendState.pAttachments = &colorBlendAttachment;
-        colorBlendState.attachmentCount = 1;
-
+        // ========================================================================
+        // 2.2 输入装配状态（Input Assembly State）
+        // ========================================================================
+        //
+        // 定义如何从顶点组装图元（三角形、线、点等）
+        //
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+
+        // topology: 图元拓扑（如何从顶点组装图元）
+        //
+        // 常用拓扑类型：
+        // VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST:     每 3 个顶点组成一个三角形
+        // VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP:    三角形带（共享边）
+        // VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN:      三角形扇
+        // VK_PRIMITIVE_TOPOLOGY_LINE_LIST:         每 2 个顶点组成一条线
+        // VK_PRIMITIVE_TOPOLOGY_POINT_LIST:        每个顶点是一个点
+        //
+        // 示例：
+        // TRIANGLE_LIST:     [v0,v1,v2] [v3,v4,v5] [v6,v7,v8] → 3 个三角形
+        // TRIANGLE_STRIP:    [v0,v1,v2,v3,v4,v5] → 4 个三角形（共享边）
+        //
         inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
+        //.primitiveRestartEnable = VK_FALSE;  // 是否启用图元重启（用于 strip/fan）
+
+        // ========================================================================
+        // 2.3 视口状态（Viewport State）
+        // ========================================================================
+        //
+        // 定义如何将 NDC 坐标映射到屏幕坐标
+        //
+        // 注意：这里设置为占位符（0），实际值在运行时通过 vkCmdSetViewport 设置
+        //
         VkViewport viewport = {};
-        viewport.maxDepth = 1.0;
+        viewport.x = 0.0f;         // 视口 X 坐标（占位符）
+        viewport.y = 0.0f;         // 视口 Y 坐标（占位符）
+        viewport.width = 0;        // 视口宽度（占位符，运行时设置）
+        viewport.height = 0;       // 视口高度（占位符，运行时设置）
+        viewport.minDepth = 0.0f;  // 深度最小值
+        viewport.maxDepth = 1.0f;  // 深度最大值
 
         VkRect2D scissor = {};
+        scissor.offset = {0, 0};       // 裁剪矩形起始位置（占位符）
+        scissor.extent = {0, 0};       // 裁剪矩形大小（占位符，运行时设置）
 
         VkPipelineViewportStateCreateInfo viewportState = {};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        viewportState.pScissors = &scissor;
-        viewportState.pViewports = &viewport;
-        viewportState.scissorCount = 1;
-        viewportState.viewportCount = 1;
+        viewportState.viewportCount = 1;         // 视口数量
+        viewportState.pViewports = &viewport;    // 视口数组（占位符）
+        viewportState.scissorCount = 1;          // 裁剪矩形数量
+        viewportState.pScissors = &scissor;      // 裁剪矩形数组（占位符）
 
+        // ========================================================================
+        // 2.4 光栅化状态（Rasterization State）
+        // ========================================================================
+        //
+        // 控制几何形状如何转换为片段（像素）
+        //
         VkPipelineRasterizationStateCreateInfo rasterizationState = {};
         rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
-        rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-        rasterizationState.lineWidth = 1.0;
 
+        // depthClampEnable: 是否启用深度夹取
+        //
+        // VK_TRUE:  将深度值夹取到 [0, 1] 范围（而不是裁剪）
+        // VK_FALSE: 正常裁剪（当前使用）
+        //
+        rasterizationState.depthClampEnable = VK_FALSE;
+
+        // rasterizerDiscardEnable: 是否丢弃光栅化输出
+        //
+        // VK_TRUE:  不输出任何片段（用于阴影贴图等特殊用途）
+        // VK_FALSE: 正常光栅化（当前使用）
+        //
+        rasterizationState.rasterizerDiscardEnable = VK_FALSE;
+
+        // polygonMode: 多边形渲染模式
+        //
+        // VK_POLYGON_MODE_FILL:    填充多边形（正常渲染）
+        // VK_POLYGON_MODE_LINE:    线框模式（只绘制边）
+        // VK_POLYGON_MODE_POINT:   点模式（只绘制顶点）
+        //
+        rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+
+        // cullMode: 剔除模式（哪些面被剔除）
+        //
+        // VK_CULL_MODE_NONE:       不剔除任何面
+        // VK_CULL_MODE_FRONT_BIT:  剔除正面
+        // VK_CULL_MODE_BACK_BIT:   剔除背面（当前使用）
+        // VK_CULL_MODE_FRONT_AND_BACK: 剔除所有面
+        //
+        // 为什么要剔除？
+        // - 性能优化：避免渲染看不见的面
+        // - 避免透明度问题：背面可能干扰正面
+        //
+        rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+
+        // frontFace: 哪个面是"正面"
+        //
+        // VK_FRONT_FACE_COUNTER_CLOCKWISE: 逆时针为正面
+        // VK_FRONT_FACE_CLOCKWISE:          顺时针为正面（当前使用）
+        //
+        // 注意：Vulkan 的 Y 轴向下，所以顶点顺序与 OpenGL 相反
+        //
+        rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+
+        // lineWidth: 线宽（用于 LINE 模式）
+        //
+        // 范围：[1.0, maxWidth]（maxWidth 取决于硬件，通常是 1）
+        // 宽线需要启用 GPU 特性：wideLines
+        //
+        rasterizationState.lineWidth = 1.0f;
+
+        //.depthBiasEnable = VK_FALSE;  // 是否启用深度偏移（用于阴影贴图）
+
+        // ========================================================================
+        // 2.5 多重采样状态（Multisample State）
+        // ========================================================================
+        //
+        // 控制抗锯齿（多重采样）
+        //
         VkPipelineMultisampleStateCreateInfo multisampleState = {};
         multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+
+        // rasterizationSamples: 每个像素的采样数
+        //
+        // VK_SAMPLE_COUNT_1_BIT:  无多重采样（当前使用）
+        // VK_SAMPLE_COUNT_4_BIT:  4x 多重采样
+        // VK_SAMPLE_COUNT_8_BIT:  8x 多重采样
+        // VK_SAMPLE_COUNT_16_BIT: 16x 多重采样
+        //
+        // 多重采样抗锯齿（MSAA）：
+        // - 采样越多，边缘越平滑
+        // - 但性能开销越大（内存、带宽）
+        // - 需要配合 RenderPass 的 samples 字段
+        //
         multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+        //.sampleShadingEnable = VK_FALSE;  // 是否启用采样着色（高级特性）
+        //.minSampleShading = 0.0f;          // 最小采样比率
+
+        // ========================================================================
+        // 2.6 颜色混合状态（Color Blend State）
+        // ========================================================================
+        //
+        // 控制新片段与现有像素的颜色如何混合
+        //
+        // 分为两个层级：
+        // 1. 单个附件的混合配置（VkPipelineColorBlendAttachmentState）
+        // 2. 全局混合配置（VkPipelineColorBlendStateCreateInfo）
+        //
+
+        // ----------------------------------------------------------------------
+        // 单个附件的混合配置
+        // ----------------------------------------------------------------------
+        VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+
+        // blendEnable: 是否启用混合
+        //
+        // VK_TRUE:  启用混合（用于透明度、特效）
+        // VK_FALSE: 禁用混合（直接覆盖，当前使用）
+        //
+        colorBlendAttachment.blendEnable = VK_FALSE;
+
+        // colorWriteMask: 颜色写入掩码（哪些通道被写入）
+        //
+        // 可以禁用某些通道的写入（例如：只写入红色通道）
+        //
+        colorBlendAttachment.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT |  // 红色通道
+            VK_COLOR_COMPONENT_G_BIT |  // 绿色通道
+            VK_COLOR_COMPONENT_B_BIT |  // 蓝色通道
+            VK_COLOR_COMPONENT_A_BIT;   // Alpha 通道
+
+        // 当 blendEnable = VK_TRUE 时，还需要配置：
+        // .srcColorBlendFactor: 源颜色混合因子
+        // .dstColorBlendFactor: 目标颜色混合因子
+        // .colorBlendOp:        颜色混合运算
+        // .srcAlphaBlendFactor: 源 Alpha 混合因子
+        // .dstAlphaBlendFactor: 目标 Alpha 混合因子
+        // .alphaBlendOp:        Alpha 混合运算
+
+        // ----------------------------------------------------------------------
+        // 全局混合配置
+        // ----------------------------------------------------------------------
+        VkPipelineColorBlendStateCreateInfo colorBlendState = {};
+        colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+
+        // logicOpEnable: 是否启用逻辑运算
+        //
+        // VK_TRUE:  使用逻辑运算（AND, OR, XOR 等）
+        // VK_FALSE: 使用混合（当前使用）
+        // 注意：logicOp 和 blend 不能同时启用
+        //
+        colorBlendState.logicOpEnable = VK_FALSE;
+        //.logicOp = VK_LOGIC_OP_COPY;  // 逻辑运算类型
+
+        // blendConstants: 常量混合因子（当使用 CONSTANT_ALPHA/COLOR 时使用）
+        // colorBlendState.blendConstants[0] = 0.0f;  // R
+        // colorBlendState.blendConstants[1] = 0.0f;  // G
+        // colorBlendState.blendConstants[2] = 0.0f;  // B
+        // colorBlendState.blendConstants[3] = 0.0f;  // A
+
+        // 附件混合配置数组
+        colorBlendState.attachmentCount = 1;                     // 附件数量
+        colorBlendState.pAttachments = &colorBlendAttachment;    // 附件配置数组
 
         // ============================================================================
         // 创建着色器模块（Shader Module）
@@ -1464,43 +1716,181 @@ bool vk_init(VkContext* vkContext, void* window)
             delete fragmentCode;
         }
 
+        // ========================================================================
+        // 2.8 配置着色器阶段（Shader Stages）
+        // ========================================================================
+        //
+        // 着色器阶段定义了管线使用的着色器模块和入口函数
+        //
+
+        // ----------------------------------------------------------------------
+        // 顶点着色器阶段
+        // ----------------------------------------------------------------------
         VkPipelineShaderStageCreateInfo vertStage = {};
         vertStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+
+        // stage: 着色器阶段类型
+        //
+        // VK_SHADER_STAGE_VERTEX_BIT:      顶点着色器（当前使用）
+        // VK_SHADER_STAGE_FRAGMENT_BIT:    片段着色器
+        // VK_SHADER_STAGE_GEOMETRY_BIT:    几何着色器（可选）
+        // VK_SHADER_STAGE_COMPUTE_BIT:     计算着色器（独立管线）
+        //
         vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
-        vertStage.pName = "main";
+
+        // module: 着色器模块句柄
         vertStage.module = vertextshader;
 
+        // pName: 着色器入口函数名
+        //
+        // 必须与 GLSL 中的函数名匹配：
+        // void main() { ... }  ← pName = "main"
+        //
+        vertStage.pName = "main";
+
+        //.pSpecializationInfo = NULL;  // 特殊化信息（用于编译时常量）
+
+        // ----------------------------------------------------------------------
+        // 片段着色器阶段
+        // ----------------------------------------------------------------------
         VkPipelineShaderStageCreateInfo fragStage = {};
         fragStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         fragStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        fragStage.pName = "main";
         fragStage.module = fragmentShader;
+        fragStage.pName = "main";
 
+        // 着色器阶段数组（管线可以包含多个着色器阶段）
         VkPipelineShaderStageCreateInfo shaderStages[2] = {vertStage, fragStage};
 
-        VkDynamicState dynamicStates[]{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        // ========================================================================
+        // 2.9 动态状态（Dynamic State）
+        // ========================================================================
+        //
+        // 某些状态可以在运行时修改，而不需要重新创建管线
+        //
+        // 优势：
+        // - 灵活性：可以在渲染循环中修改视口、裁剪矩形等
+        // - 性能：不需要创建多个管线（不同视口大小）
+        //
+        // 常用动态状态：
+        // VK_DYNAMIC_STATE_VIEWPORT:        视口（当前使用）
+        // VK_DYNAMIC_STATE_SCISSOR:         裁剪矩形（当前使用）
+        // VK_DYNAMIC_STATE_LINE_WIDTH:      线宽
+        // VK_DYNAMIC_STATE_BLEND_CONSTANTS: 混合常量
+        //
+        // 注意：动态状态在创建管线时仍需提供初始值（占位符）
+        //       实际值通过 vkCmdSetViewport、vkCmdSetScissor 等命令设置
+        //
+        VkDynamicState dynamicStates[] = {
+            VK_DYNAMIC_STATE_VIEWPORT,  // 视口可以在运行时修改
+            VK_DYNAMIC_STATE_SCISSOR    // 裁剪矩形可以在运行时修改
+        };
+
         VkPipelineDynamicStateCreateInfo dynamicState = {};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        dynamicState.dynamicStateCount = ArraySize(dynamicStates);
-        dynamicState.pDynamicStates = dynamicStates;
+        dynamicState.dynamicStateCount = ArraySize(dynamicStates);  // 动态状态数量
+        dynamicState.pDynamicStates = dynamicStates;               // 动态状态数组
 
+        // ========================================================================
+        // 步骤 3：创建 Graphics Pipeline
+        // ========================================================================
+        //
+        // vkCreateGraphicsPipelines 是 Vulkan 中最复杂的函数之一
+        // 它一次性创建整个图形管线，包括所有状态和着色器
+        //
         VkGraphicsPipelineCreateInfo pipelineInfo = {};
         pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+        // ========================================================================
+        // 步骤 3.1：绑定 Render Pass
+        // ========================================================================
+        //
+        // renderPass: 此管线兼容的渲染通道
+        //
+        // 为什么需要 Render Pass？
+        // - 管线需要知道附件的格式、数量
+        // - 管线需要知道子阶段的配置
+        // - 驱动可以根据 RenderPass 优化管线
+        //
+        // 注意：管线与 RenderPass 兼容性检查：
+        //       - 附件数量必须匹配
+        //       - 附件格式必须兼容
+        //       - 子阶段配置必须匹配
+        //
         pipelineInfo.renderPass = vkContext->renderPass;
-        pipelineInfo.pVertexInputState = &vertextInputState;
-        pipelineInfo.pColorBlendState = &colorBlendState;
-        pipelineInfo.pInputAssemblyState = &inputAssembly;
-        pipelineInfo.pViewportState = &viewportState;
-        pipelineInfo.pRasterizationState = &rasterizationState;
-        pipelineInfo.pMultisampleState = &multisampleState;
-        pipelineInfo.stageCount = ArraySize(shaderStages);
-        pipelineInfo.pDynamicState = &dynamicState;
+
+        //.subpass = 0;  // 子阶段索引（默认为 0）
+
+        // ========================================================================
+        // 步骤 3.2：绑定各个状态
+        // ========================================================================
+        //
+        // 将之前配置的所有状态绑定到管线
+        //
+        pipelineInfo.pVertexInputState = &vertextInputState;      // 顶点输入状态
+        pipelineInfo.pInputAssemblyState = &inputAssembly;        // 输入装配状态
+        pipelineInfo.pViewportState = &viewportState;            // 视口状态
+        pipelineInfo.pRasterizationState = &rasterizationState;  // 光栅化状态
+        pipelineInfo.pMultisampleState = &multisampleState;      // 多重采样状态
+        pipelineInfo.pColorBlendState = &colorBlendState;        // 颜色混合状态
+        pipelineInfo.pDynamicState = &dynamicState;              // 动态状态
+
+        //.pDepthStencilState = NULL;  // 深度/模板状态（未使用）
+
+        // ========================================================================
+        // 步骤 3.3：绑定着色器阶段
+        // ========================================================================
+        //
+        pipelineInfo.stageCount = ArraySize(shaderStages);  // 着色器阶段数量（2）
+        pipelineInfo.pStages = shaderStages;               // 着色器阶段数组
+
+        // ========================================================================
+        // 步骤 3.4：绑定管线布局
+        // ========================================================================
+        //
+        // layout: 管线布局（定义资源访问）
+        //
         pipelineInfo.layout = vkContext->pipeLayout;
-        pipelineInfo.pStages = shaderStages;
 
-        VK_CHECK(vkCreateGraphicsPipelines(vkContext->device, 0, 1, &pipelineInfo, 0,
-                                           &vkContext->pipeline));
+        // ========================================================================
+        // 步骤 3.5：其他可选配置
+        // ========================================================================
+        //
+        //.basePipelineHandle = VK_NULL_HANDLE;  // 基础管线（用于派生管线）
+        //.basePipelineIndex = -1;               // 基础管线索引
+        //
+        // 派生管线：
+        // - 如果多个管线配置相似，可以基于一个管线创建另一个
+        // - 性能优化：驱动可以复用部分配置
+        //
 
+        // ========================================================================
+        // 步骤 3.6：创建管线
+        // ========================================================================
+        //
+        // vkCreateGraphicsPipelines 参数：
+        // - device: 逻辑设备
+        // - pipelineCache: 管线缓存（NULL = 不使用缓存）
+        //                   管线缓存可以加速后续的管线创建
+        // - createInfoCount: 创建的管线数量（支持批量创建）
+        // - pCreateInfos: 管线创建信息数组
+        // - pAllocator: 内存分配器（NULL = 使用默认分配器）
+        // - pPipelines: 输出的管线句柄数组
+        //
+        VK_CHECK(vkCreateGraphicsPipelines(vkContext->device,
+                                          0,          // pipelineCache（不使用缓存）
+                                          1,          // 创建 1 个管线
+                                          &pipelineInfo,
+                                          0,          // allocator
+                                          &vkContext->pipeline));
+
+        // ========================================================================
+        // 步骤 4：清理着色器模块
+        // ========================================================================
+        //
+        // 着色器模块在创建管线后就可以销毁了
+        // 管线已经编译并存储了着色器代码
+        //
         vkDestroyShaderModule(vkContext->device, vertextshader, 0);
         vkDestroyShaderModule(vkContext->device, fragmentShader, 0);
     }
@@ -1619,49 +2009,222 @@ bool vk_render(VkContext* vkContext)
     //
     VK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
 
-
-
     // ============================================================================
-    // 第四步：记录渲染命令
+    // 第四步：记录渲染命令（使用 Render Pass）
     // ============================================================================
     //
-    // 这里我们只做最简单的操作：清除图像为黄色
-    // 实际项目中会记录：
-    //   - 开始渲染通道
-    //   - 绑定管线
-    //   - 绑定资源
-    //   - 绘制物体
-    //   - 结束渲染通道
+    // 重要变化：不再使用 vkCmdClearColorImage + 手动布局转换
     //
-
+    // 旧方法（已弃用）：
+    //   1. transition_image_layout(UNDEFINED → TRANSFER_DST)
+    //   2. vkCmdClearColorImage()
+    //   3. transition_image_layout(TRANSFER_DST → PRESENT_SRC)
+    //
+    // 新方法（当前使用）：
+    //   1. vkCmdBeginRenderPass()  → 自动处理布局转换 + 清除
+    //   2. [渲染命令]
+    //   3. vkCmdEndRenderPass()    → 自动转换到 PRESENT_SRC
+    //
+    // RenderPass 的优势：
+    // - 自动处理图像布局转换（无需手动 transition）
+    // - 驱动可以优化整个渲染过程
+    // - 更符合 Vulkan 的设计理念
+    // - 支持多子阶段渲染（延迟渲染、后处理等）
+    //
+    // ========================================================================
+    // 步骤 4.1：配置清除值
+    // ========================================================================
+    //
+    // VkClearValue: 定义如何清除附件
+    //
+    // union {  // 联合体，可以是不同类型的清除值
+    //     VkClearColorValue color;    // 颜色清除值（RGBA）
+    //     VkClearDepthStencilValue depthStencil;  // 深度/模板清除值
+    // };
+    //
+    // VkClearColorValue 定义：
+    // union {
+    //     float float32[4];   // 浮点数 RGBA (当前使用)
+    //     int32_t int32[4];   // 整数 RGBA
+    //     uint32_t uint32[4]; // 无符号整数 RGBA
+    // };
+    //
     VkClearValue color = {1, 1, 0, 1};
+    //                 ↑  ↑  ↑  ↑
+    //                 R  G  B  A
+    //                 = 黄色，完全不透明
+    //
+    // 注意：这里使用 C++ 的初始化列表语法，等价于：
+    //       color.color.float32[0] = 1.0f;  // R
+    //       color.color.float32[1] = 1.0f;  // G
+    //       color.color.float32[2] = 0.0f;  // B
+    //       color.color.float32[3] = 1.0f;  // A
 
+    // ========================================================================
+    // 步骤 4.2：配置 RenderPass 开始信息
+    // ========================================================================
     VkRenderPassBeginInfo rpBeginInfo = {};
     rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rpBeginInfo.renderArea.extent = vkContext->screenSize;
-    rpBeginInfo.clearValueCount = 1;
-    rpBeginInfo.pClearValues = &color;
+
+    // renderPass: 要使用的渲染通道
+    // 必须与创建 Framebuffer 时使用的 RenderPass 兼容
     rpBeginInfo.renderPass = vkContext->renderPass;
+
+    // framebuffer: 要渲染到的帧缓冲
+    // 注意：根据当前获取的图像索引选择对应的 Framebuffer
     rpBeginInfo.framebuffer = vkContext->framebuffers[imgIdx];
+
+    // renderArea: 受影响的渲染区域
+    //
+    // VkRect2D 结构：
+    // struct {
+    //     VkOffset2D offset;  // 区域起始偏移（通常为 0, 0）
+    //     VkExtent2D extent;  // 区域大小（宽度、高度）
+    // };
+    //
+    // 清除操作会清除整个 renderArea，所以这里设置为整个屏幕
+    rpBeginInfo.renderArea.offset = {0, 0};  // 从左上角开始
+    rpBeginInfo.renderArea.extent = vkContext->screenSize;  // 整个屏幕大小
+
+    // clearValueCount: 清除值数组的大小
+    // 必须与 RenderPass 中附件的数量匹配
+    // （当前 RenderPass 只有 1 个颜色附件）
+    rpBeginInfo.clearValueCount = 1;
+
+    // pClearValues: 指向清除值数组的指针
+    // 每个附件对应一个清除值（按附件索引顺序）
+    rpBeginInfo.pClearValues = &color;
+
+    // ========================================================================
+    // 步骤 4.3：开始渲染通道
+    // ========================================================================
+    //
+    // vkCmdBeginRenderPass 会自动：
+    // 1. 将图像布局转换到初始布局（UNDEFINED → COLOR_ATTACHMENT_OPTIMAL）
+    // 2. 执行清除操作（使用 clearValue 中指定的颜色）
+    // 3. 准备好接收渲染命令
+    //
+    // 参数：
+    // - commandBuffer: 命令缓冲区
+    // - pRenderPassBegin: 渲染通道开始信息
+    // - contents: 子阶段内容类型
+    //   * VK_SUBPASS_CONTENTS_INLINE: 渲染命令直接记录在主命令缓冲区（当前使用）
+    //   * VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS: 使用次要命令缓冲区
+    //
     vkCmdBeginRenderPass(cmdBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-    
-    //rending command
+
+    // ========================================================================
+    // 步骤 4.4：记录渲染命令
+    // ========================================================================
     {
+        // ----------------------------------------------------------------------
+        // 配置视口（Viewport）
+        // ----------------------------------------------------------------------
+        //
+        // 视口定义了如何将 NDC 坐标映射到屏幕坐标
+        //
+        // VkViewport 结构：
+        // - x, y: 视口左上角位置
+        // - width, height: 视口大小
+        // - minDepth: 深度最小值（映射到 NDC 的 -1，默认 0.0）
+        // - maxDepth: 深度最大值（映射到 NDC 的 +1，默认 1.0）
+        //
         VkViewport viewPort = {};
-        viewPort.maxDepth = 1.0f;
-        viewPort.width = vkContext->screenSize.width;
-        viewPort.height = vkContext->screenSize.height;
+        viewPort.x = 0.0f;                           // 左上角 X
+        viewPort.y = 0.0f;                           // 左上角 Y
+        viewPort.width = (float)vkContext->screenSize.width;   // 宽度（屏幕宽度）
+        viewPort.height = (float)vkContext->screenSize.height; // 高度（屏幕高度）
+        viewPort.minDepth = 0.0f;                    // 深度最小值
+        viewPort.maxDepth = 1.0f;                    // 深度最大值
 
-        VkRect2D scissor = {};
-        scissor.extent = vkContext->screenSize;
-
+        // vkCmdSetViewport: 设置当前绑定的管线的视口
+        // 参数：
+        // - commandBuffer: 命令缓冲区
+        // - firstViewport: 第一个视口的索引（支持多个视口）
+        // - viewportCount: 视口数量
+        // - pViewports: 视口数组
+        //
         vkCmdSetViewport(cmdBuffer, 0, 1, &viewPort);
+
+        // ----------------------------------------------------------------------
+        // 配置裁剪矩形（Scissor）
+        // ----------------------------------------------------------------------
+        //
+        // 裁剪矩形定义了哪些像素会被渲染（之外的像素被丢弃）
+        //
+        // VkRect2D 结构：
+        // struct {
+        //     VkOffset2D offset;  // 裁剪区域起始偏移
+        //     VkExtent2D extent;  // 裁剪区域大小
+        // };
+        //
+        // 注意：如果设置裁剪区域小于视口，只有区域内的像素会被渲染
+        //
+        VkRect2D scissor = {};
+        scissor.offset = {0, 0};                    // 从左上角开始
+        scissor.extent = vkContext->screenSize;     // 整个屏幕（不裁剪）
+
+        // vkCmdSetScissor: 设置当前绑定的管线的裁剪矩形
+        // 参数：
+        // - commandBuffer: 命令缓冲区
+        // - firstScissor: 第一个裁剪矩形的索引
+        // - scissorCount: 裁剪矩形数量
+        // - pScissors: 裁剪矩形数组
+        //
         vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
+        // ----------------------------------------------------------------------
+        // 绑定图形管线
+        // ----------------------------------------------------------------------
+        //
+        // vkCmdBindPipeline: 将管线绑定到命令缓冲区
+        // 参数：
+        // - commandBuffer: 命令缓冲区
+        // - pipelinePoint: 管线绑定点
+        //   * VK_PIPELINE_BIND_POINT_GRAPHICS: 图形管线（当前使用）
+        //   * VK_PIPELINE_BIND_POINT_COMPUTE: 计算管线
+        // - pipeline: 管线对象句柄
+        //
+        // 注意：绑定管线后，后续的绘制命令会使用这个管线的状态
+        //       （着色器、混合模式、光栅化状态等）
+        //
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeline);
+
+        // ----------------------------------------------------------------------
+        // 绘制三角形
+        // ----------------------------------------------------------------------
+        //
+        // vkCmdDraw: 发起绘制调用
+        // 参数：
+        // - commandBuffer: 命令缓冲区
+        // - vertexCount: 要绘制的顶点数量（3 个顶点 = 三角形）
+        // - instanceCount: 实例数量（1 = 单个实例）
+        // - firstVertex: 第一个顶点的索引（0 = 从第 0 个顶点开始）
+        // - firstInstance: 第一个实例的索引（0 = 从第 0 个实例开始）
+        //
+        // 执行流程：
+        // 1. Vulkan 调用顶点着色器 3 次（vertexCount=3）
+        // 2. 每次调用 gl_VertexIndex 从 0 递增到 2
+        // 3. 顶点着色器从 vertices[gl_VertexIndex] 读取坐标
+        // 4. 3 个顶点组装成三角形
+        // 5. 光栅化为像素
+        // 6. 每个像素调用片段着色器
+        // 7. 输出颜色到 Framebuffer
+        //
         vkCmdDraw(cmdBuffer, 3, 1, 0, 0);
     }
 
+    // ========================================================================
+    // 步骤 4.5：结束渲染通道
+    // ========================================================================
+    //
+    // vkCmdEndRenderPass 会自动：
+    // 1. 完成所有渲染命令
+    // 2. 将图像布局转换到最终布局（COLOR_ATTACHMENT_OPTIMAL → PRESENT_SRC_KHR）
+    // 3. 准备好图像用于呈现
+    //
+    // 重要：不需要手动转换布局到 PRESENT_SRC_KHR，RenderPass 会自动处理！
+    //
     vkCmdEndRenderPass(cmdBuffer);
 
     // ============================================================================

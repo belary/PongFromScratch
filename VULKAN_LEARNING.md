@@ -770,8 +770,40 @@ bool vk_render(VkContext* vkContext) {
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
-    // 4. 记录渲染命令
-    // ... 记录绘制命令 ...
+    // 4. 记录渲染命令（使用 RenderPass）
+    //
+    // 旧方法（不推荐）：
+    //   - vkCmdClearColorImage() + 手动布局转换
+    //
+    // 新方法（推荐）：
+    //   - vkCmdBeginRenderPass() → 自动处理布局转换和清除
+    //   - vkCmdSetViewport()
+    //   - vkCmdSetScissor()
+    //   - vkCmdBindPipeline()
+    //   - vkCmdDraw()
+    //   - vkCmdEndRenderPass() → 自动转换到 PRESENT_SRC
+    //
+    VkClearValue clearColor = {1, 1, 0, 1};  // 黄色
+    VkRenderPassBeginInfo rpInfo = {};
+    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rpInfo.renderPass = renderPass;
+    rpInfo.framebuffer = framebuffers[imgIdx];
+    rpInfo.renderArea.extent = screenSize;
+    rpInfo.clearValueCount = 1;
+    rpInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(cmdBuffer, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport viewport = {0, 0, screenSize.width, screenSize.height, 0, 1};
+    vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor = {{0, 0}, screenSize};
+    vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdDraw(cmdBuffer, 3, 1, 0, 0);  // 绘制 3 个顶点（三角形）
+
+    vkCmdEndRenderPass(cmdBuffer);
 
     // 5. 结束录制
     vkEndCommandBuffer(cmdBuffer);
@@ -1366,9 +1398,13 @@ vkQueuePresentKHR → 显示 scImages[imageIdx]
 
 范围：[-1, 1] × [-1, 1] × [-1, 1]
 ```
+uint32_t 1
+uint32_t 2
+1111
+DOWRD 3 
 
-**重要区别**：
-- Vulkan：Y 轴正方向向下（与帧缓冲区坐标系一致）
+**重要区别** - Vulkan：Y 轴正方向向下（与帧缓冲区坐标系一致）
+
 - OpenGL：Y 轴正方向向上
 
 **示例代码**：
@@ -1435,6 +1471,132 @@ vkCmdDraw
    ↓
 [帧缓冲] - 写入图像
 ```
+
+---
+
+### 光栅化状态（Rasterization State）
+
+#### 什么是光栅化？
+
+光栅化是将几何图形（三角形、线等）转换为片段（像素）的过程。
+
+```
+三角形 (3 个顶点)  → 光栅化  →  像素阵列（例如 100×100 个像素）
+```
+
+#### 正面和背面（Front Face vs Back Face）
+
+**三角形像一张"薄纸"，有两个面：**
+
+```
+     观察者（你）
+        ↓
+    ┌─────────┐
+    │  屏幕  │
+    └─────────┘
+        ↓
+  ┌───────────┐
+  │ 背面      │ ← 朝向屏幕里面
+  │ ─────────│
+  │ 正面      │ ← 朝向观察者
+  └───────────┘
+```
+
+#### 如何判断正面/背面？
+
+**看顶点绘制顺序（在观察者眼里）：**
+
+```
+顺时针 (CW)  → 正面 → 朝向观察者
+逆时针 (CCW) → 背面 → 背向观察者
+```
+
+**示例 1：顺时针三角形（正面）**
+
+```
+    v0 ●
+        │ \
+        │   \  v0 → v1 → v2 是顺时针
+        │     \
+    v1 ●-------● v2
+
+    ✓ 正面朝向观察者 → 渲染
+```
+
+**示例 2：逆时针三角形（背面）**
+
+```
+    v2 ●
+        │ \
+        │   \  v2 → v1 → v0 是顺时针（相当于 v0→v1→v2 逆时针）
+        │     \
+    v1 ●-------● v0
+
+    ✗ 背面朝向观察者 → 剔除（不渲染）
+```
+
+#### Vulkan 的 Y 轴方向
+
+```
+Vulkan: Y 轴向下
+        +X
+         │
+         │
+         │
+         └──── +Y (向下)
+        ╱
+       ╱
+      +Z（指向屏幕外）
+```
+
+#### 顶点顺序判断示例
+
+```glsl
+// 顺时针三角形（Vulkan 中为正面）
+vec2 vertices[3] = vec2[3](
+    vec2(-0.5, 0.5),   // v0: 左下
+    vec2(0, -0.5),     // v1: 顶部
+    vec2(0.5, 0.5)     // v2: 右下
+);
+```
+
+```
+        v1 (0, -0.5)
+             │
+             │
+             │
+v0 (-0.5, 0.5) ────── v2 (0.5, 0.5)
+
+v0 → v1 → v2: 顺时针 → 正面
+```
+
+#### 背面剔除（Back Face Culling）
+
+**作用**：不渲染背对观察者的三角形，提升性能。
+
+| 配置 | 效果 |
+|------|------|
+| `frontFace = CLOCKWISE` | 顺时针 = 正面 |
+| `frontFace = COUNTER_CLOCKWISE` | 逆时针 = 正面 |
+| `cullMode = BACK` | 剔除背面 |
+| `cullMode = FRONT` | 剔除正面 |
+| `cullMode = NONE` | 不剔除 |
+
+**代码示例：**
+
+```cpp
+VkPipelineRasterizationStateCreateInfo rasterizationState = {};
+rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;  // 顺时针为正面
+rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;      // 剔除背面
+```
+
+#### 2D 渲染中为什么需要正面/背面？
+
+1. **性能优化**：避免渲染看不见的面
+2. **透明度问题**：防止背面干扰正面
+3. **2D 中的 3D 元素**：旋转卡片、翻转精灵等
+
+**纯 2D 图形**：如果所有三角形顶点顺序一致，背面剔除不会剔除任何东西。
 
 ---
 

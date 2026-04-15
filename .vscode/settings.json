@@ -6,35 +6,4 @@
     "C_Cpp.clang_format_path": "D:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\Llvm\\x64\\bin\\clang-format.exe",
     "editor.formatOnSave": true,
     "C_Cpp.formatting": "clangFormat",
-    "vim.handleKeys": {
-        "<C-p>": false,
-        "<C-t>": false,
-        "<C-o>": false,
-        "<C-b>": false,
-        "<C-f>": false,
-        "<C-d>": false,
-        "<C-u>": false,
-        "<C-e>": false,
-        "<C-y>": false,
-        "<C-w>": false
-    },
-    "vim.useCtrlKeys": false,
-    "vim.normalModeKeyBindingsNonRecursive": [
-        {
-            "before": [
-                "<C-p>"
-            ],
-            "commands": [
-                "workbench.action.quickOpen"
-            ]
-        },
-        {
-            "before": [
-                "<C-t>"
-            ],
-            "commands": [
-                "workbench.action.showAllSymbols"
-            ]
-        }
-    ],
 }
