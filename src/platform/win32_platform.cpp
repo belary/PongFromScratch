@@ -88,7 +88,7 @@ void platform_get_window_size(uint32_t* width, uint32_t* height)
     *height = rect.bottom - rect.top;
 }
 
-char* platform_read_file(char* path, int* length)
+char* platform_read_file(char* path, uint32_t* length)
 {
     char* result = 0;
     HANDLE file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);

@@ -1,6 +1,8 @@
 ﻿#include <vulkan/vulkan.h>
 
 #include "platform.h"
+#include "dds_structs.h"
+#include "vk_types.h"
 
 #ifdef WINDOWS_BUILD
 // ============================================================================
@@ -132,6 +134,7 @@ typedef struct VkContext
     VkImageView scImgViews[5];
     VkFramebuffer framebuffers[5];
 
+    Buffer stagingBuffer;
     int graphicsIdx;
 
 } VkContext;
@@ -1445,23 +1448,23 @@ bool vk_init(VkContext* vkContext, void* window)
         // 注意：这里设置为占位符（0），实际值在运行时通过 vkCmdSetViewport 设置
         //
         VkViewport viewport = {};
-        viewport.x = 0.0f;         // 视口 X 坐标（占位符）
-        viewport.y = 0.0f;         // 视口 Y 坐标（占位符）
-        viewport.width = 0;        // 视口宽度（占位符，运行时设置）
-        viewport.height = 0;       // 视口高度（占位符，运行时设置）
-        viewport.minDepth = 0.0f;  // 深度最小值
-        viewport.maxDepth = 1.0f;  // 深度最大值
+        viewport.x = 0.0f;        // 视口 X 坐标（占位符）
+        viewport.y = 0.0f;        // 视口 Y 坐标（占位符）
+        viewport.width = 0;       // 视口宽度（占位符，运行时设置）
+        viewport.height = 0;      // 视口高度（占位符，运行时设置）
+        viewport.minDepth = 0.0f; // 深度最小值
+        viewport.maxDepth = 1.0f; // 深度最大值
 
         VkRect2D scissor = {};
-        scissor.offset = {0, 0};       // 裁剪矩形起始位置（占位符）
-        scissor.extent = {0, 0};       // 裁剪矩形大小（占位符，运行时设置）
+        scissor.offset = {0, 0}; // 裁剪矩形起始位置（占位符）
+        scissor.extent = {0, 0}; // 裁剪矩形大小（占位符，运行时设置）
 
         VkPipelineViewportStateCreateInfo viewportState = {};
         viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        viewportState.viewportCount = 1;         // 视口数量
-        viewportState.pViewports = &viewport;    // 视口数组（占位符）
-        viewportState.scissorCount = 1;          // 裁剪矩形数量
-        viewportState.pScissors = &scissor;      // 裁剪矩形数组（占位符）
+        viewportState.viewportCount = 1;      // 视口数量
+        viewportState.pViewports = &viewport; // 视口数组（占位符）
+        viewportState.scissorCount = 1;       // 裁剪矩形数量
+        viewportState.pScissors = &scissor;   // 裁剪矩形数组（占位符）
 
         // ========================================================================
         // 2.4 光栅化状态（Rasterization State）
@@ -1578,11 +1581,10 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         // 可以禁用某些通道的写入（例如：只写入红色通道）
         //
-        colorBlendAttachment.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT |  // 红色通道
-            VK_COLOR_COMPONENT_G_BIT |  // 绿色通道
-            VK_COLOR_COMPONENT_B_BIT |  // 蓝色通道
-            VK_COLOR_COMPONENT_A_BIT;   // Alpha 通道
+        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | // 红色通道
+                                              VK_COLOR_COMPONENT_G_BIT | // 绿色通道
+                                              VK_COLOR_COMPONENT_B_BIT | // 蓝色通道
+                                              VK_COLOR_COMPONENT_A_BIT;  // Alpha 通道
 
         // 当 blendEnable = VK_TRUE 时，还需要配置：
         // .srcColorBlendFactor: 源颜色混合因子
@@ -1614,8 +1616,8 @@ bool vk_init(VkContext* vkContext, void* window)
         // colorBlendState.blendConstants[3] = 0.0f;  // A
 
         // 附件混合配置数组
-        colorBlendState.attachmentCount = 1;                     // 附件数量
-        colorBlendState.pAttachments = &colorBlendAttachment;    // 附件配置数组
+        colorBlendState.attachmentCount = 1;                  // 附件数量
+        colorBlendState.pAttachments = &colorBlendAttachment; // 附件配置数组
 
         // ============================================================================
         // 创建着色器模块（Shader Module）
@@ -1656,7 +1658,7 @@ bool vk_init(VkContext* vkContext, void* window)
             // 读取 SPIR-V 字节码文件
             // platform_read_file 返回文件内容的字节数组和大小
             // 注意：返回的是 uint32_t*，因为 SPIR-V 是 32 位字对齐的
-            int lengthInBytes;
+            uint32_t lengthInBytes;
             uint32_t* vertexCode =
                 (uint32_t*)platform_read_file("assets/shaders/shader.vert.spv", &lengthInBytes);
 
@@ -1699,7 +1701,7 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         {
             // 读取 SPIR-V 字节码文件
-            int lengthInBytes;
+            uint32_t lengthInBytes;
             uint32_t* fragmentCode =
                 (uint32_t*)platform_read_file("assets/shaders/shader.frag.spv", &lengthInBytes);
 
@@ -1782,13 +1784,13 @@ bool vk_init(VkContext* vkContext, void* window)
         //       实际值通过 vkCmdSetViewport、vkCmdSetScissor 等命令设置
         //
         VkDynamicState dynamicStates[] = {
-            VK_DYNAMIC_STATE_VIEWPORT,  // 视口可以在运行时修改
-            VK_DYNAMIC_STATE_SCISSOR    // 裁剪矩形可以在运行时修改
+            VK_DYNAMIC_STATE_VIEWPORT, // 视口可以在运行时修改
+            VK_DYNAMIC_STATE_SCISSOR   // 裁剪矩形可以在运行时修改
         };
 
         VkPipelineDynamicStateCreateInfo dynamicState = {};
         dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        dynamicState.dynamicStateCount = ArraySize(dynamicStates);  // 动态状态数量
+        dynamicState.dynamicStateCount = ArraySize(dynamicStates); // 动态状态数量
         dynamicState.pDynamicStates = dynamicStates;               // 动态状态数组
 
         // ========================================================================
@@ -1827,13 +1829,13 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         // 将之前配置的所有状态绑定到管线
         //
-        pipelineInfo.pVertexInputState = &vertextInputState;      // 顶点输入状态
-        pipelineInfo.pInputAssemblyState = &inputAssembly;        // 输入装配状态
-        pipelineInfo.pViewportState = &viewportState;            // 视口状态
-        pipelineInfo.pRasterizationState = &rasterizationState;  // 光栅化状态
-        pipelineInfo.pMultisampleState = &multisampleState;      // 多重采样状态
-        pipelineInfo.pColorBlendState = &colorBlendState;        // 颜色混合状态
-        pipelineInfo.pDynamicState = &dynamicState;              // 动态状态
+        pipelineInfo.pVertexInputState = &vertextInputState;    // 顶点输入状态
+        pipelineInfo.pInputAssemblyState = &inputAssembly;      // 输入装配状态
+        pipelineInfo.pViewportState = &viewportState;           // 视口状态
+        pipelineInfo.pRasterizationState = &rasterizationState; // 光栅化状态
+        pipelineInfo.pMultisampleState = &multisampleState;     // 多重采样状态
+        pipelineInfo.pColorBlendState = &colorBlendState;       // 颜色混合状态
+        pipelineInfo.pDynamicState = &dynamicState;             // 动态状态
 
         //.pDepthStencilState = NULL;  // 深度/模板状态（未使用）
 
@@ -1841,7 +1843,7 @@ bool vk_init(VkContext* vkContext, void* window)
         // 步骤 3.3：绑定着色器阶段
         // ========================================================================
         //
-        pipelineInfo.stageCount = ArraySize(shaderStages);  // 着色器阶段数量（2）
+        pipelineInfo.stageCount = ArraySize(shaderStages); // 着色器阶段数量（2）
         pipelineInfo.pStages = shaderStages;               // 着色器阶段数组
 
         // ========================================================================
@@ -1878,11 +1880,11 @@ bool vk_init(VkContext* vkContext, void* window)
         // - pPipelines: 输出的管线句柄数组
         //
         VK_CHECK(vkCreateGraphicsPipelines(vkContext->device,
-                                          0,          // pipelineCache（不使用缓存）
-                                          1,          // 创建 1 个管线
-                                          &pipelineInfo,
-                                          0,          // allocator
-                                          &vkContext->pipeline));
+                                           0, // pipelineCache（不使用缓存）
+                                           1, // 创建 1 个管线
+                                           &pipelineInfo,
+                                           0, // allocator
+                                           &vkContext->pipeline));
 
         // ========================================================================
         // 步骤 4：清理着色器模块
@@ -1893,6 +1895,205 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         vkDestroyShaderModule(vkContext->device, vertextshader, 0);
         vkDestroyShaderModule(vkContext->device, fragmentShader, 0);
+    }
+
+    // ============================================================================
+    // 创建 Staging Buffer（临时缓冲区）
+    // ============================================================================
+    //
+    // 什么是 Staging Buffer？
+    // ----------------------------------
+    // Staging Buffer 是一种特殊的缓冲区，用于在 CPU 和 GPU 之间传输数据。
+    //
+    // 类比理解：
+    // - Staging Buffer = 中转站
+    // - CPU 把数据放到中转站 → GPU 从中转站取数据 → 传到目的地
+    //
+    // 为什么需要 Staging Buffer？
+    // ----------------------------------
+    // GPU 内存通常分为两种类型：
+    // 1. HOST_VISIBLE（CPU 可访问）：慢，但 CPU 可以直接写入
+    // 2. DEVICE_LOCAL（GPU 本地）：快，但 CPU 不能直接访问
+    //
+    // 最佳实践：
+    // CPU → Staging Buffer (HOST_VISIBLE) → GPU Copy → Device Local Buffer
+    //
+    // Staging Buffer 的特点：
+    // ----------------------------------
+    // - HOST_VISIBLE: CPU 可以映射并写入
+    // - HOST_COHERENT: CPU 写入后自动同步到 GPU（无需手动 flush）
+    // - TRANSFER_SRC: 可以作为传输操作的源
+    //
+    {
+        // ========================================================================
+        // 步骤 1：创建 Buffer 对象
+        // ========================================================================
+        //
+        // VkBuffer: 缓冲区对象，描述了一块内存的用途和大小
+        // 注意：此时还没有分配实际的内存！
+        //
+        VkBufferCreateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;  // ← 修复：原为 BUFFER_VIEW_CREATE_INFO
+
+        // size: 缓冲区大小（字节）
+        // MB(1) = 1 兆字节 = 1024 * 1024 字节
+        bufferInfo.size = MB(1);
+
+        // usage: 缓冲区用途（位掩码）
+        //
+        // VK_BUFFER_USAGE_TRANSFER_SRC_BIT: 可以作为传输操作的源
+        // - 用于 vkCmdCopyBufferToImage 等命令
+        // - 表示这个缓冲区的数据可以复制到其他地方
+        //
+        bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+        //.sharingMode = VK_SHARING_MODE_EXCLUSIVE;  // 默认：独占模式
+
+        // 创建 Buffer 对象
+        // 注意：此时 Buffer 还没有绑定内存，不能使用！
+        VK_CHECK(vkCreateBuffer(vkContext->device, &bufferInfo, 0, &vkContext->stagingBuffer.buffer));
+
+        // ========================================================================
+        // 步骤 2：查询内存需求
+        // ========================================================================
+        //
+        // vkGetBufferMemoryRequirements: 查询 Buffer 需要什么样的内存
+        //
+        // VkMemoryRequirements 结构：
+        // - size:          需要的内存大小（可能大于 bufferInfo.size，因为对齐要求）
+        // - alignment:     内存对齐要求（偏移量必须是 alignment 的倍数）
+        // - memoryTypeBits: 位掩码，指示哪些内存类型兼容
+        //
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(vkContext->device, vkContext->stagingBuffer.buffer, &memRequirements);
+
+        // ========================================================================
+        // 步骤 3：查询 GPU 内存属性
+        // ========================================================================
+        //
+        // vkGetPhysicalDeviceMemoryProperties: 获取 GPU 的内存类型信息
+        //
+        // VkPhysicalDeviceMemoryProperties 结构：
+        // - memoryTypes[]:    内存类型数组（最多 32 种）
+        // - memoryHeaps[]:    内存堆数组（物理内存块）
+        //
+        // 每个 VkMemoryType 包含：
+        // - propertyFlags:    内存属性（HOST_VISIBLE, DEVICE_LOCAL 等）
+        // - heapIndex:        指向所属的内存堆
+        //
+        VkPhysicalDeviceMemoryProperties gpuMemProps;
+        vkGetPhysicalDeviceMemoryProperties(vkContext->gpu, &gpuMemProps);
+
+        // ========================================================================
+        // 步骤 4：查找合适的内存类型
+        // ========================================================================
+        //
+        // 内存类型查找逻辑：
+        // 1. 内存类型必须与 Buffer 兼容（memoryTypeBits）
+        // 2. 内存类型必须具备所需的属性（HOST_VISIBLE + HOST_COHERENT）
+        //
+        // memoryTypeBits: 位掩码，第 i 位为 1 表示内存类型 i 兼容
+        // 例如：memoryTypeBits = 0b00000101 表示内存类型 0 和 2 兼容
+        //
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = MB(1);  // 分配 1MB 内存
+
+        // 遍历所有内存类型，找到第一个符合条件的
+        for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
+        {
+            // 检查 1：这个内存类型与 Buffer 兼容吗？
+            // memoryTypeBits & (1 << i) 检查第 i 位是否为 1
+            uint32_t isCompatible = memRequirements.memoryTypeBits & (1 << i);
+
+            // 检查 2：这个内存类型具备所需的属性吗？
+            //
+            // VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT: CPU 可以映射（可见）
+            // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT: 自动同步（一致性）
+            //
+            // 注意：需要同时具备两个属性，所以用 AND 运算
+            VkMemoryPropertyFlags requiredFlags =
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+            uint32_t hasRequiredFlags =
+                (gpuMemProps.memoryTypes[i].propertyFlags & requiredFlags) == requiredFlags;
+
+            if (isCompatible && hasRequiredFlags)
+            {
+                // 找到了！使用这个内存类型
+                allocInfo.memoryTypeIndex = i;
+                break;
+            }
+        }
+
+        // ========================================================================
+        // 步骤 5：分配内存
+        // ========================================================================
+        //
+        // vkAllocateMemory: 从 GPU 堆中分配内存
+        //
+        // 注意：内存分配是昂贵操作，应该尽量减少分配次数
+        //       实际项目中通常会创建一个大的内存池，从中分配小块内存
+        //
+        VK_CHECK(vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->stagingBuffer.memory));
+
+        // ========================================================================
+        // 步骤 6：映射内存（获取 CPU 指针）
+        // ========================================================================
+        //
+        // vkMapMemory: 将 GPU 内存映射到 CPU 地址空间
+        //
+        // 参数：
+        // - memory:      要映射的内存
+        // - offset:      偏移量（0 = 从头开始）
+        // - size:        映射大小（WHOLE_SIZE = 0 表示全部）
+        // - flags:       保留标志（通常为 0）
+        // - ppData:      输出的 CPU 指针
+        //
+        // 映射后，CPU 可以通过 stagingBuffer.data 指针直接写入数据
+        //
+        VK_CHECK(vkMapMemory(vkContext->device,
+                            vkContext->stagingBuffer.memory,
+                            0,              // offset
+                            MB(1),          // size
+                            0,              // flags
+                            &vkContext->stagingBuffer.data));
+
+        // ========================================================================
+        // 步骤 7：绑定内存到 Buffer
+        // ========================================================================
+        //
+        // vkBindBufferMemory: 将内存绑定到 Buffer 对象
+        //
+        // 参数：
+        // - buffer:  要绑定的 Buffer
+        // - memory:  要绑定的内存
+        // - offset:  内存的起始偏移（0 = 从头开始，必须满足 alignment 要求）
+        //
+        // 绑定后，Buffer 才能真正使用！
+        //
+        VK_CHECK(vkBindBufferMemory(vkContext->device,
+                                    vkContext->stagingBuffer.buffer,
+                                    vkContext->stagingBuffer.memory,
+                                    0));  // offset
+
+        // ========================================================================
+        // 现在可以使用 Staging Buffer 了！
+        // ========================================================================
+        //
+        // 使用流程：
+        // 1. memcpy(stagingBuffer.data, srcData, size);  ← CPU 写入数据
+        // 2. vkCmdCopyBufferToImage(...);                 ← GPU 复制数据
+        //
+    }
+
+    // create image
+    {
+        uint32_t fileSize;
+        DDSFile* data = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
+        uint32_t textureSize = data->header.Width * data->header.Height * 4;
+        memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
+        
     }
 
     return true;
@@ -2083,8 +2284,8 @@ bool vk_render(VkContext* vkContext)
     // };
     //
     // 清除操作会清除整个 renderArea，所以这里设置为整个屏幕
-    rpBeginInfo.renderArea.offset = {0, 0};  // 从左上角开始
-    rpBeginInfo.renderArea.extent = vkContext->screenSize;  // 整个屏幕大小
+    rpBeginInfo.renderArea.offset = {0, 0};                // 从左上角开始
+    rpBeginInfo.renderArea.extent = vkContext->screenSize; // 整个屏幕大小
 
     // clearValueCount: 清除值数组的大小
     // 必须与 RenderPass 中附件的数量匹配
@@ -2130,12 +2331,12 @@ bool vk_render(VkContext* vkContext)
         // - maxDepth: 深度最大值（映射到 NDC 的 +1，默认 1.0）
         //
         VkViewport viewPort = {};
-        viewPort.x = 0.0f;                           // 左上角 X
-        viewPort.y = 0.0f;                           // 左上角 Y
+        viewPort.x = 0.0f;                                     // 左上角 X
+        viewPort.y = 0.0f;                                     // 左上角 Y
         viewPort.width = (float)vkContext->screenSize.width;   // 宽度（屏幕宽度）
         viewPort.height = (float)vkContext->screenSize.height; // 高度（屏幕高度）
-        viewPort.minDepth = 0.0f;                    // 深度最小值
-        viewPort.maxDepth = 1.0f;                    // 深度最大值
+        viewPort.minDepth = 0.0f;                              // 深度最小值
+        viewPort.maxDepth = 1.0f;                              // 深度最大值
 
         // vkCmdSetViewport: 设置当前绑定的管线的视口
         // 参数：
@@ -2161,8 +2362,8 @@ bool vk_render(VkContext* vkContext)
         // 注意：如果设置裁剪区域小于视口，只有区域内的像素会被渲染
         //
         VkRect2D scissor = {};
-        scissor.offset = {0, 0};                    // 从左上角开始
-        scissor.extent = vkContext->screenSize;     // 整个屏幕（不裁剪）
+        scissor.offset = {0, 0};                // 从左上角开始
+        scissor.extent = vkContext->screenSize; // 整个屏幕（不裁剪）
 
         // vkCmdSetScissor: 设置当前绑定的管线的裁剪矩形
         // 参数：
