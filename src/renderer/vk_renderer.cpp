@@ -568,10 +568,11 @@ bool vk_init(VkContext* vkContext, void* window)
             // VK_FORMAT_B8G8R8_SRGB: Windows 标准格式
             // B8G8R8: 蓝 8位，绿 8位，红 8位（注意顺序是 BGR）
             // SRGB: sRGB 颜色空间，适合显示（经过 gamma 校正）
-            if (format.format == VK_FORMAT_B8G8R8_SRGB)
+            if (format.format == VK_FORMAT_B8G8R8A8_SRGB)
             {
                 vkContext->surfaceFormat = format;
                 foundFormat = true;
+                std::cout << "Find Correct Surface Format!"<< std::endl;
                 break;
             }
         }
@@ -618,12 +619,12 @@ bool vk_init(VkContext* vkContext, void* window)
 
         // 确保不超过最大值
         // maxImageCount = 0 表示没有限制（除了内存）
-        // if (surfaceCaps.maxImageCount > 0 && imgCount > surfaceCaps.maxImageCount)
-        // {
-        //     imgCount = surfaceCaps.maxImageCount;
-        // }
+        if (surfaceCaps.maxImageCount > 0 && imgCount > surfaceCaps.maxImageCount)
+        {
+            imgCount = surfaceCaps.maxImageCount;
+        }
 
-        imgCount = imgCount > surfaceCaps.maxImageCount ? imgCount - 1 : imgCount;
+    
 
         // ----------------------------------------------------------------------
         // 第四步：创建交换链
@@ -644,7 +645,7 @@ bool vk_init(VkContext* vkContext, void* window)
         scInfo.minImageCount = imgCount;
 
         // imageFormat: 图像的像素格式
-        // 使用之前查询和选择的格式（如 VK_FORMAT_B8G8R8_SRGB）
+        // 使用之前查询和选择的格式（如 VK_FORMAT_B8G8R8A8_SRGB）
         scInfo.imageFormat = vkContext->surfaceFormat.format;
 
         // imageColorSpace: 颜色空间
@@ -1933,7 +1934,7 @@ bool vk_init(VkContext* vkContext, void* window)
         // 注意：此时还没有分配实际的内存！
         //
         VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;  // ← 修复：原为 BUFFER_VIEW_CREATE_INFO
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;  
 
         // size: 缓冲区大小（字节）
         // MB(1) = 1 兆字节 = 1024 * 1024 字节
@@ -2098,7 +2099,6 @@ bool vk_init(VkContext* vkContext, void* window)
 
     return true;
 }
-
 // ============================================================================
 // 渲染函数（vk_render）
 // ============================================================================

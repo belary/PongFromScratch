@@ -1,5 +1,14 @@
 # Vulkan 学习会话历史
 
+> 📁 **文档位置**：本文件记录了 Vulkan 学习的完整会话历史，包括每个会话的学习内容、遇到的问题和解决方案。
+>
+> 📚 **相关文档**：
+> - [VULKAN_LEARNING.md](./VULKAN_LEARNING.md) - 知识库和核心概念
+> - [src/renderer/vk_renderer.cpp](../src/renderer/vk_renderer.cpp) - 主要实现代码
+> - [src/renderer/vk_init.cpp](../src/renderer/vk_init.cpp) - 初始化辅助函数
+
+---
+
 ## 2025-03-26 - 第1天会话
 
 ### 学习目标
@@ -886,5 +895,216 @@ rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;      // 剔除背面
 
 - ✅ 在 VULKAN_LEARNING.md 添加了"光栅化状态"章节
 - ✅ 包含：正面/背面概念、顶点顺序判断、背面剔除原理、2D 应用场景
+
+---
+
+## 2025-04-15 - 信号量数量设计理解
+
+### 核心问题
+
+**为什么 acquireSemaphore 只要 1 个，submitSemaphores 需要 N 个（N = 交换链图像数量）？**
+
+```cpp
+VkSemaphore acquireSemaphore;        // 1 个（所有帧共享）
+VkSemaphore submitSemaphores[5];     // 5 个（每个交换链图像一个）
+```
+
+### 原因分析
+
+#### acquireSemaphore 只需 1 个
+
+```
+每帧渲染流程：
+vkAcquireNextImageKHR(..., acquireSemaphore, ...);  // ← 阻塞等待
+vkWaitForFences(...);  // ← 等待上一帧完成
+```
+
+**原因：**
+1. `vkAcquireNextImageKHR` 会**阻塞**直到有图像可用
+2. CPU 在这里等待，不会有并发竞争
+3. Fence 确保了 CPU 不会超前 GPU 太多
+
+#### submitSemaphores 需要 N 个
+
+```
+GPU 流水线并行：
+帧 N:   使用 submitSemaphores[0] → 渲染中
+帧 N+1: 使用 submitSemaphores[1] → 渲染中
+帧 N+2: 使用 submitSemaphores[2] → 渲染中
+```
+
+**原因：**
+1. GPU 可以同时处理多帧（流水线并行）
+2. 每个交换链图像需要独立的完成状态追踪
+3. 避免信号量竞争：不同帧不会相互干扰
+
+### 核心区别
+
+| 特性 | acquireSemaphore | submitSemaphores |
+|------|------------------|------------------|
+| **数量** | 1 个 | N 个（N = 交换链图像数） |
+| **原因** | 获取操作阻塞，CPU 串行 | GPU 并行渲染，每帧独立 |
+| **重用方式** | 立即复用 | 每个 GPU 帧独立使用 |
+| **竞争风险** | 无 | 有（需要独立追踪） |
+
+### 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 的"信号量与同步"章节添加了"信号量数量设计"小节
+- ✅ 包含：数量对比、原因分析、GPU 流水线时间线、状态追踪表、代码示例
+- ✅ 添加了"驱动分配 imgIdx 机制"详细说明
+
+### 核心理解：驱动分配 imgIdx 机制
+
+**关键发现**：虽然 GPU 并行渲染多帧，但 CPU 通过驱动返回的 imgIdx 来选择对应的信号量，确保不会冲突。
+
+**完整流程**：
+
+```
+1. CPU 调用 vkAcquireNextImageKHR
+   ↓
+2. 驱动检查哪个图像可用（不在显示、不在渲染）
+   ↓
+3. 驱动返回 imgIdx（比如 2）
+   ↓
+4. CPU 使用 submitSemaphores[imgIdx]（即 submitSemaphores[2]）
+   ↓
+5. GPU 渲染完成后，触发 submitSemaphores[2]
+```
+
+**为什么不会冲突？**
+
+1. 驱动只返回"可用"的图像索引
+2. 可用的图像 = 不在显示 + 不在渲染
+3. 如果图像在渲染，对应的 submitSemaphores[i] 必然正在使用
+4. 因此驱动不会返回这个 imgIdx
+5. CPU 使用 submitSemaphores[imgIdx] 时，该信号量必然是空闲的
+
+**代码中的关键点**：
+
+```cpp
+// 1. 驱动分配 imgIdx（CPU 不能指定）
+vkAcquireNextImageKHR(..., &imgIdx);
+
+// 2. CPU 根据 imgIdx 选择对应的信号量
+submitInfo.pSignalSemaphores = &submitSemaphores[imgIdx];
+//                                        ^^^^^^^
+//                                        驱动返回的索引，信号量必然可用
+```
+
+**角色分工**：
+
+| 角色 | 职责 |
+|------|------|
+| **CPU** | 根据 imgIdx 选择对应的信号量 |
+| **GPU** | 并行渲染多帧，每帧独立追踪 |
+| **驱动** | 分配可用的 imgIdx，避免冲突 |
+
+---
+
+## 2025-04-15 - 显示顺序机制理解
+
+### 核心发现
+
+**虽然 CPU 提交和 GPU 渲染的顺序可能是乱的，但显示顺序必须严格。**
+
+### 三个顺序的对比
+
+```
+CPU 提交顺序（可能乱序）：
+帧 A: submitSemaphores[2] → image[2]
+帧 B: submitSemaphores[0] → image[0]
+帧 C: submitSemaphores[1] → image[1]
+
+GPU 渲染完成顺序（可能乱序）：
+submitSemaphores[0] 先完成
+submitSemaphores[2] 其次完成  
+submitSemaphores[1] 最后完成
+
+显示顺序（必须严格）：
+image[0] → image[1] → image[2] → image[3] → image[4] → image[0] → ...
+```
+
+### 为什么显示顺序不能乱？
+
+```
+如果乱序显示：
+显示器: image[2] → image[0] → image[1]
+结果: 画面跳变、闪烁、时间旅行效果 ❌
+
+正确顺序显示：
+显示器: image[0] → image[1] → image[2]
+结果: 流畅的动画 ✓
+```
+
+### 交换链的显示循环
+
+```
+交换链维护严格的显示顺序（60 FPS = 每 16.6ms 切换一次）：
+
+T=0ms:    显示 image[0]
+T=16.6ms: 显示 image[1]
+T=33.3ms: 显示 image[2]
+T=50ms:   显示 image[3]
+T=66.6ms: 显示 image[4]
+T=83.3ms: 显示 image[0]（循环）
+```
+
+### vkQueuePresentKHR 如何确保顺序？
+
+**交换链内部维护显示队列**
+
+```
+显示队列: [0, 1, 2, 3, 4]
+           ↑ 当前显示到 image[1]
+
+下一帧必须显示 image[2]，不能跳
+
+vkQueuePresentKHR 内部流程：
+1. 等待 submitSemaphores[imgIdx] 触发（渲染完成）
+2. 检查 imgIdx 是否在显示队列的当前位置
+3. 如果轮到了，立即显示
+4. 如果没轮到，等待（图像在队列中排队）
+```
+
+### 完整的时间线示例
+
+```
+时刻 | CPU 提交 | GPU 渲染 | 显示器 | 说明
+-----|----------|----------|--------|------
+t=0  | 帧 A: submitSemaphores[2] | 开始渲染 image[2] | 显示 image[0] |
+t=5  | 帧 B: submitSemaphores[0] | 同时渲染 image[2], image[0] | 显示 image[0] |
+t=10 | 帧 C: submitSemaphores[1] | 同时渲染 3 个图像 | 显示 image[0] |
+t=16 | - | submitSemaphores[0] 完成 | 显示 image[1] | 0 的轮次结束
+t=20 | - | submitSemaphores[2] 完成 | 显示 image[1] | 2 还没轮到，等待
+t=25 | - | submitSemaphores[1] 完成 | 显示 image[1] | 1 还没轮到，等待
+t=33 | - | 所有帧都完成 | 显示 image[2] | 轮到 2 了
+```
+
+### 三个顺序对比总结
+
+| 阶段 | 顺序 | 谁控制？ |
+|------|------|----------|
+| **CPU 提交** | 可能乱序（根据 imgIdx 可用性） | 驱动 |
+| **GPU 渲染** | 可能乱序（不同帧完成时间不同） | GPU |
+| **显示顺序** | **必须严格（0 → 1 → 2 → 3 → 4 → 0）** | **交换链** |
+
+### 关键理解
+
+**虽然我们以任意顺序提交和渲染帧，但交换链保证显示顺序正确。**
+
+类比：电影院排座
+- 你有 3 张电影票，座位号是 [0, 1, 2]
+- 你可以任意顺序入场（先入 1 号座，再入 0 号座）
+- 但电影按顺序播放，你不能跳着看
+
+同样的：
+- 我们可以任意顺序渲染帧
+- 但显示器按顺序显示（0 → 1 → 2 → ...）
+- 交换链和显示系统保证这个顺序
+
+### 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"显示顺序机制"小节
+- ✅ 包含：三个顺序对比、交换链显示循环、vkQueuePresentKHR 机制、完整时间线示例
 
 ---
