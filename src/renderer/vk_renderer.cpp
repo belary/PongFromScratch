@@ -2012,12 +2012,21 @@ bool vk_init(VkContext* vkContext, void* window)
             // VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT: CPU 可以映射（可见）
             // VK_MEMORY_PROPERTY_HOST_COHERENT_BIT: 自动同步（一致性）
             //
-            // 注意：需要同时具备两个属性，所以用 AND 运算
+            // 位运算符说明：
+            // - | (按位或 OR): 用于组合多个标志位
+            // - & (按位与 AND): 用于检查是否所有位都设置
+            //
+            // 步骤 1：用 OR（|）组合所需的标志位
             VkMemoryPropertyFlags requiredFlags =
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+            //                                                 ^
+            //                                            按位或：组合两个标志
 
+            // 步骤 2：用 AND（&）检查是否同时具备所有标志
             uint32_t hasRequiredFlags =
                 (gpuMemProps.memoryTypes[i].propertyFlags & requiredFlags) == requiredFlags;
+                //                                                ^
+                //                                   按位与：检查是否所有位都设置
 
             if (isCompatible && hasRequiredFlags)
             {

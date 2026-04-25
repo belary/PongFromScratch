@@ -2178,6 +2178,200 @@ vkQueueSubmit(queue, 1, &submitInfo, fence);  // 不是 NULL
 
 ---
 
+## 纹理与格式
+
+### Staging Buffer（临时缓冲区）
+
+#### 什么是 Staging Buffer？
+
+Staging Buffer 是一种特殊的缓冲区，用于在 CPU 和 GPU 之间传输数据。
+
+```
+错误理解：
+CPU 内存 → Staging Buffer → GPU 内存
+
+正确理解：
+                 ┌─────────────────┐
+CPU 内存         │   GPU 内存      │
+  [系统 RAM]     │                │
+    │            │ ┌─────────────┐│
+    │ 写入       │ │Staging Buffer││ ← HOST_VISIBLE（CPU可见）
+    └───────────→│ │(中转站)     ││
+                 │ └──────┬──────┘│
+                 │        │ 复制  │
+                 │        ↓       │
+                 │ ┌─────────────┐│
+                 │ │纹理/顶点缓冲││ ← DEVICE_LOCAL（只有GPU可见）
+                 │ │(最终目的地) ││
+                 │ └─────────────┘│
+                 └─────────────────┘
+```
+
+#### 关键理解
+
+```
+Staging Buffer 不是"起点"，
+而是"中转站"或"临时存储"
+
+起点：CPU 内存中的纹理数据
+中转：Staging Buffer（GPU 内存，但 CPU 可见）
+终点：纹理 Image（GPU 内存，只有 GPU 可见）
+```
+
+#### 为什么需要 Staging Buffer？
+
+```
+直接写入 DEVICE_LOCAL 内存？
+→ 不行，CPU 无法访问
+
+用 Staging Buffer 中转？
+→ 可以，CPU 写入 Staging Buffer
+→ GPU 从 Staging Buffer 复制到纹理
+→ 虽然多了一步，但这是唯一的方法
+```
+
+#### `VK_BUFFER_USAGE_TRANSFER_SRC_BIT` 的含义
+
+```cpp
+bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+```
+
+**含义**：这个缓冲区可以作为 **vkCmdCopyBufferToImage** 等命令的**源**
+
+```
+vkCmdCopyBufferToImage(
+    srcBuffer,      // ← 这里需要 TRANSFER_SRC_BIT
+    dstImage,       // ← 这里需要 TRANSFER_DST_BIT
+    ...
+);
+```
+
+#### 内存类型对比
+
+| 内存类型 | CPU 访问 | 速度 | 用途 |
+|----------|----------|------|------|
+| **HOST_VISIBLE** | ✓ 可写入 | 慢 | Staging Buffer |
+| **DEVICE_LOCAL** | ✗ 不可访问 | 快 | 纹理、顶点缓冲 |
+
+#### Staging Buffer 的特性
+
+```cpp
+// 1. HOST_VISIBLE：CPU 可以映射并写入
+VkMemoryPropertyFlags flags =
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+// 2. HOST_COHERENT：CPU 写入后自动同步到 GPU（无需手动 flush）
+flags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+// 3. TRANSFER_SRC：可以作为传输操作的源
+VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+```
+
+#### 完整的数据传输流程
+
+```
+步骤 1: CPU 写入 Staging Buffer
+memcpy(stagingBuffer.data, textureData, size);
+  ↑
+  CPU 直接写入（因为 stagingBuffer 是 HOST_VISIBLE）
+
+步骤 2: GPU 从 Staging Buffer 复制到纹理
+vkCmdCopyBufferToImage(
+    stagingBuffer,  // ← TRANSFER_SRC（源）
+    textureImage,   // ← TRANSFER_DST（目标）
+    ...
+);
+  ↑
+  GPU 执行复制命令
+```
+
+#### Staging Buffer 创建流程
+
+```
+1. 创建 Buffer 对象（未分配内存）
+   ↓
+2. 查询内存需求（size, alignment, memoryTypeBits）
+   ↓
+3. 查询 GPU 内存属性
+   ↓
+4. 查找合适的内存类型（HOST_VISIBLE + HOST_COHERENT）
+   ↓
+5. 分配内存
+   ↓
+6. 映射内存（获取 CPU 指针）
+   ↓
+7. 绑定内存到 Buffer
+```
+
+#### 使用示例
+
+```cpp
+// 创建
+VkBuffer stagingBuffer;
+VkDeviceMemory stagingMemory;
+void* stagingData;
+
+// 1. 创建 Buffer
+VkBufferCreateInfo bufferInfo = {};
+bufferInfo.size = textureSize;
+bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+vkCreateBuffer(device, &bufferInfo, nullptr, &stagingBuffer);
+
+// 2. 分配 HOST_VISIBLE 内存
+VkMemoryAllocateInfo allocInfo = {};
+allocInfo.allocationSize = textureSize;
+allocInfo.memoryTypeIndex = findMemoryType(
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+);
+vkAllocateMemory(device, &allocInfo, nullptr, &stagingMemory);
+
+// 3. 映射并绑定
+vkMapMemory(device, stagingMemory, 0, textureSize, 0, &stagingData);
+vkBindBufferMemory(device, stagingBuffer, stagingMemory, 0);
+
+// 4. CPU 写入数据
+memcpy(stagingData, texturePixels, textureSize);
+
+// 5. GPU 复制到纹理
+vkCmdCopyBufferToImage(cmdBuffer, stagingBuffer, textureImage, ...);
+```
+
+#### 关键要点总结
+
+| 概念 | 说明 |
+|------|------|
+| **位置** | 在 GPU 内存中（不是 CPU 内存） |
+| **特性** | HOST_VISIBLE（CPU 可见）+ HOST_COHERENT（自动同步） |
+| **用途** | 中转站，CPU 写入 → GPU 复制到最终目的地 |
+| **TRANSFER_SRC** | 可以作为传输操作的源 |
+| **为什么需要** | DEVICE_LOCAL 内存 CPU 无法直接访问 |
+
+---
+
+### DDS 格式与 `FourCC` 字段
+
+在 DDS 纹理文件格式的 `DDSPixelFormat` 结构体中，`FourCC` 字段的作用是用来**标识纹理的压缩格式或特殊的像素格式**。
+
+#### 1. 什么是 FourCC？
+**FourCC** 是 **Four-Character Code**（四字符代码）的缩写。它是一个 32 位的无符号整数（`uint32_t`），通常由 4 个 ASCII 字符组成。比如 `'D'`, `'X'`, `'T'`, `'1'` 这四个字符就可以组合成一个 32 位的数字。
+
+#### 2. 在 DDS 文件中的主要作用
+DDS 文件经常被用来存储压缩过的图像数据（比如供 GPU 直接读取的格式）。当图像数据被压缩时，普通的 RGB 位深（RGBBitCount）或颜色掩码（RBitMask 等）已经无法描述这些数据了。此时就需要借助 `FourCC` 字段来告诉解析器：“这是一张某种特定压缩算法编码的纹理”。
+
+#### 3. 常见的值
+在游戏开发和图形学中，你会经常遇到以下 `FourCC` 值：
+*   **`DXT1`** (即 `0x31545844`)：表示 BC1 压缩格式（常见的没有 Alpha 通道或只有 1 bit Alpha 的压缩纹理）。
+*   **`DXT3`** (即 `0x33545844`)：表示 BC2 压缩格式。
+*   **`DXT5`** (即 `0x35545844`)：表示 BC3 压缩格式（带有平滑的 Alpha 通道压缩）。
+*   **`DX10`** (即 `0x30315844`)：这是一个特殊标记。当 `FourCC` 是 `DX10` 时，意味着紧跟在基础 `DDSHeader` 之后，还有一个额外的扩展结构体（`DDS_HEADER_DXT10`），用来支持更新的 DirectX 10/11 格式（比如 BC6H、BC7、或者纹理数组、Cube Map 数组等）。
+
+#### 4. 什么时候生效？
+这个字段并不是总是有效的。只有当 `DDSPixelFormat` 的 `Flags` 字段中包含了 `DDPF_FOURCC` 标志位（通常其值为 `0x00000004`）时，程序才会去读取并解析这个 `FourCC` 字段。
+如果是一张未压缩的纯 RGB 或 RGBA 纹理，`Flags` 中通常包含的是 `DDPF_RGB`，此时 `FourCC` 字段通常被置为 0，程序转而使用 `RGBBitCount` 以及各个通道的 `BitMask` 来解析像素。
+
+---
+
 ## 学习资源
 
 ### 官方文档

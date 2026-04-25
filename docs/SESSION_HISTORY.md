@@ -1108,3 +1108,125 @@ t=33 | - | 所有帧都完成 | 显示 image[2] | 轮到 2 了
 - ✅ 包含：三个顺序对比、交换链显示循环、vkQueuePresentKHR 机制、完整时间线示例
 
 ---
+
+## 2025-04-15 - Staging Buffer 理解
+
+### 核心理解修正
+
+**之前错误的理解**：
+```
+CPU 内存 → Staging Buffer → GPU 内存
+```
+
+**正确的理解**：
+```
+                 ┌─────────────────┐
+CPU 内存         │   GPU 内存      │
+  [系统 RAM]     │                │
+    │            │ ┌─────────────┐│
+    │ 写入       │ │Staging Buffer││ ← HOST_VISIBLE（CPU可见）
+    └───────────→│ │(中转站)     ││
+                 │ └──────┬──────┘│
+                 │        │ 复制  │
+                 │        ↓       │
+                 │ ┌─────────────┐│
+                 │ │纹理/顶点缓冲││ ← DEVICE_LOCAL（只有GPU可见）
+                 │ │(最终目的地) ││
+                 │ └─────────────┘│
+                 └─────────────────┘
+```
+
+### 关键要点
+
+| 概念 | 说明 |
+|------|------|
+| **位置** | 在 GPU 内存中（不是 CPU 内存） |
+| **特性** | HOST_VISIBLE（CPU 可见）+ HOST_COHERENT（自动同步） |
+| **用途** | 中转站，CPU 写入 → GPU 复制到最终目的地 |
+| **TRANSFER_SRC** | 可以作为传输操作的源 |
+| **为什么需要** | DEVICE_LOCAL 内存 CPU 无法直接访问 |
+
+### `VK_BUFFER_USAGE_TRANSFER_SRC_BIT` 的含义
+
+```cpp
+bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+```
+
+**含义**：这个缓冲区可以作为 **vkCmdCopyBufferToImage** 等命令的**源**
+
+```
+vkCmdCopyBufferToImage(
+    srcBuffer,      // ← 这里需要 TRANSFER_SRC_BIT
+    dstImage,       // ← 这里需要 TRANSFER_DST_BIT
+    ...
+);
+```
+
+### 完整的数据传输流程
+
+```
+步骤 1: CPU 写入 Staging Buffer
+memcpy(stagingBuffer.data, textureData, size);
+  ↑
+  CPU 直接写入（因为 stagingBuffer 是 HOST_VISIBLE）
+
+步骤 2: GPU 从 Staging Buffer 复制到纹理
+vkCmdCopyBufferToImage(
+    stagingBuffer,  // ← TRANSFER_SRC（源）
+    textureImage,   // ← TRANSFER_DST（目标）
+    ...
+);
+  ↑
+  GPU 执行复制命令
+```
+
+### 为什么这样设计？
+
+```
+直接写入 DEVICE_LOCAL 内存？
+→ 不行，CPU 无法访问
+
+用 Staging Buffer 中转？
+→ 可以，CPU 写入 Staging Buffer
+→ GPU 从 Staging Buffer 复制到纹理
+→ 虽然多了一步，但这是唯一的方法
+```
+
+### 内存类型对比
+
+| 内存类型 | CPU 访问 | 速度 | 用途 |
+|----------|----------|------|------|
+| **HOST_VISIBLE** | ✓ 可写入 | 慢 | Staging Buffer |
+| **DEVICE_LOCAL** | ✗ 不可访问 | 快 | 纹理、顶点缓冲 |
+
+### Staging Buffer 的特性
+
+```cpp
+// 1. HOST_VISIBLE：CPU 可以映射并写入
+VkMemoryPropertyFlags flags =
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+// 2. HOST_COHERENT：CPU 写入后自动同步到 GPU（无需手动 flush）
+flags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+// 3. TRANSFER_SRC：可以作为传输操作的源
+VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+```
+
+### 关键理解总结
+
+```
+Staging Buffer 不是"起点"，
+而是"中转站"或"临时存储"
+
+起点：CPU 内存中的纹理数据
+中转：Staging Buffer（GPU 内存，但 CPU 可见）
+终点：纹理 Image（GPU 内存，只有 GPU 可见）
+```
+
+### 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"Staging Buffer"章节
+- ✅ 包含：位置图解、TRANSFER_SRC 含义、内存类型对比、完整传输流程
+
+---
