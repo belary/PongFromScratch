@@ -2434,6 +2434,284 @@ vkCmdCopyBufferToImage(cmdBuffer, stagingBuffer, textureImage, ...);
 
 ---
 
+### 纹理加载流程（Texture Loading）
+
+#### 完整流程概览
+
+```
+磁盘 DDS 文件 → CPU 内存 → Staging Buffer → VkImage → GPU 本地内存
+      ↓            ↓            ↓              ↓            ↓
+   platform_read   memcpy     CPU 可见      图像规格    DEVICE_LOCAL
+                  (CPU写入)    GPU内存      (不含数据)   (最终存储)
+```
+
+#### 为什么需要这个流程？
+
+1. **DEVICE_LOCAL 内存 CPU 无法访问**
+   - GPU 本地内存速度快，但 CPU 无法直接写入
+   - 必须通过 Staging Buffer 中转
+
+2. **VkImage 只是规格描述**
+   - `vkCreateImage` 创建的是"壳子"，不包含数据
+   - 需要分配内存并绑定
+
+3. **布局转换是必需的**
+   - Image 初始状态是 `UNDEFINED`
+   - 要复制数据必须先转换为 `TRANSFER_DST_OPTIMAL`
+
+#### 步骤详解
+
+##### 步骤 1: 读取 DDS 文件
+
+```cpp
+uint32_t fileSize;
+DDSFile* data = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
+uint32_t textureSize = data->header.Width * data->header.Height * 4;
+```
+
+- DDS (DirectDraw Surface) 是微软定义的纹理格式
+- 包含文件头（宽度、高度、格式）和像素数据
+- 4 字节/像素 = RGBA (每通道 1 字节)
+
+##### 步骤 2: 复制到 Staging Buffer
+
+```cpp
+memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
+```
+
+- `stagingBuffer.data` 是通过 `vkMapMemory` 获取的 CPU 指针
+- `memcpy` 是 CPU 写入 GPU 可见内存的操作
+- Staging Buffer 是 HOST_VISIBLE，CPU 可以直接访问
+
+##### 步骤 3: 创建 VkImage 对象
+
+```cpp
+VkImageCreateInfo imgInfo = {};
+imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+imgInfo.imageType = VK_IMAGE_TYPE_2D;           // 2D 纹理
+imgInfo.format = VK_FORMAT_R8G8B8_UNORM;        // RGB 格式，每通道 8 位
+imgInfo.extent = {data->header.Width, data->header.Height, 1};
+imgInfo.mipLevels = 1;                          // 无 mipmap
+imgInfo.arrayLayers = 1;                        // 单层纹理
+imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;        // 无多重采样
+imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+// TRANSFER_DST: 可作为传输目标（从 Staging Buffer 复制）
+// SAMPLED: 可在 Shader 中采样
+
+vkCreateImage(vkContext->device, &imgInfo, 0, &vkContext->image.image);
+```
+
+**VkImage 是什么？**
+- 图像的"规格描述"（尺寸、格式、用途）
+- 不包含实际的像素数据
+- 类似于"照片的规格标签"
+
+##### 步骤 4: 获取内存需求
+
+```cpp
+VkMemoryRequirements memRequirements;
+vkGetImageMemoryRequirements(vkContext->device, vkContext->image.image, &memRequirements);
+
+VkPhysicalDeviceMemoryProperties gpuMemProps;
+vkGetPhysicalDeviceMemoryProperties(vkContext->gpu, &gpuMemProps);
+```
+
+- Vulkan 需要查询：需要多少内存、支持哪些内存类型、对齐要求
+- 每个硬件平台有不同的内存类型
+
+##### 步骤 5: 查找 DEVICE_LOCAL 内存类型
+
+```cpp
+VkMemoryAllocateInfo allocInfo = {};
+for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
+{
+    // 检查两个条件：
+    // 1. 这个内存类型是否满足 Image 的需求（memoryTypeBits 是位掩码）
+    // 2. 这个内存类型是否有 DEVICE_LOCAL 属性
+    if (memRequirements.memoryTypeBits & (1 << i) &&
+        (gpuMemProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ==
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+    {
+        allocInfo.memoryTypeIndex = i;  // 找到了，记录索引
+    }
+}
+```
+
+**位运算解析：**
+- `memRequirements.memoryTypeBits & (1 << i)`：检查第 i 位是否为 1
+- 如果第 i 位为 1，表示内存类型 i 满足 Image 的需求
+- 然后检查该内存类型是否有 DEVICE_LOCAL 属性
+
+##### 步骤 6: 分配并绑定内存
+
+```cpp
+allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+allocInfo.allocationSize = textureSize;
+vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->image.memory);
+
+// 绑定内存到 Image
+vkBindImageMemory(vkContext->device, vkContext->image.image,
+                  vkContext->image.memory, 0);
+```
+
+- 有了 VkImage（规格）和 VkDeviceMemory（存储），现在绑定在一起
+- offset = 0 表示从内存开头使用
+
+##### 步骤 7: 记录布局转换命令
+
+```cpp
+// 创建临时命令缓冲
+VkCommandBuffer cmd;
+VkCommandBufferAllocateInfo cmdAlloc = cmd_alloc_info(vkContext->commandPool);
+vkAllocateCommandBuffers(vkContext->device, &cmdAlloc, &cmd);
+
+// 开始录制
+vkBeginCommandBuffer(cmd, &beginIngo);
+
+// 定义要操作的图像子资源范围
+VkImageSubresourceRange range = {};
+range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;  // 颜色数据
+range.layerCount = 1;   // 第 0 层
+range.levelCount = 1;   // 第 0 级 mipmap
+
+// 布局转换：UNDEFINED → TRANSFER_DST_OPTIMAL
+VkImageMemoryBarrier imgMemBarrier = {};
+imgMemBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+imgMemBarrier.image = vkContext->image.image;
+imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+imgMemBarrier.subresourceRange = range;
+
+vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                     0, 0, 0, 0, 1, &imgMemBarrier);
+```
+
+**为什么需要布局转换？**
+- Image 初始状态是 UNDEFINED（未定义）
+- 要执行 vkCmdCopyBufferToImage，必须先转换为 TRANSFER_DST_OPTIMAL
+- Pipeline Barrier 确保 GPU 完成布局转换后再进行后续操作
+
+##### 步骤 8: 提交并等待
+
+```cpp
+vkEndCommandBuffer(cmd);  // 结束录制
+
+// 创建 Fence（CPU 等待 GPU 完成）
+VkFence uploadFence;
+vkCreateFence(vkContext->device, &fenceInfo, 0, &uploadFence);
+
+// 提交命令
+VkSubmitInfo submitInfo = submit_info(&cmd);
+vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, uploadFence);
+
+// 等待完成（CPU 阻塞）
+vkWaitForFences(vkContext->device, 1, &uploadFence, true, UINT64_MAX);
+```
+
+**为什么用 Fence 而不是 Semaphore？**
+- Fence：CPU 等待 GPU 完成（同步操作）
+- Semaphore：GPU-GPU 同步（异步操作）
+- 这里需要在函数返回前确保纹理上传完成
+
+#### 关键概念总结
+
+| 概念 | 说明 |
+|------|------|
+| **DDS 文件** | 纹理数据文件格式，包含头信息和像素数据 |
+| **Staging Buffer** | HOST_VISIBLE 内存，CPU 可写入，作为中转站 |
+| **VkImage** | 图像对象，描述规格（尺寸、格式、用途），不包含数据 |
+| **DEVICE_LOCAL** | GPU 本地内存，速度快但 CPU 无法访问 |
+| **布局转换** | 必须从 UNDEFINED 转换到 TRANSFER_DST_OPTIMAL 才能复制数据 |
+| **Pipeline Barrier** | GPU 内部同步，确保布局转换完成 |
+| **Fence** | CPU 等待 GPU 完成的同步原语 |
+
+#### 完整流程图
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ 1. 读取 DDS 文件                                                 │
+│    platform_read_file("cakez.DDS") → DDSFile*                    │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 2. 复制到 Staging Buffer                                         │
+│    memcpy(stagingBuffer.data, data->dataBegin, textureSize)      │
+│    ↑                                                              │
+│    CPU 写入 GPU 可见内存                                          │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 3. 创建 VkImage 对象                                             │
+│    vkCreateImage(...) → vkContext->image.image                   │
+│    ↑                                                              │
+│    定义规格（尺寸、格式、用途）                                    │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 4. 查询内存需求                                                  │
+│    vkGetImageMemoryRequirements(...) → memRequirements           │
+│    vkGetPhysicalDeviceMemoryProperties(...) → gpuMemProps        │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 5. 查找 DEVICE_LOCAL 内存类型                                    │
+│    遍历 gpuMemProps.memoryTypes                                  │
+│    检查：memoryTypeBits & DEVICE_LOCAL                           │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 6. 分配并绑定内存                                                │
+│    vkAllocateMemory(...) → vkContext->image.memory               │
+│    vkBindImageMemory(...)  ← 绑定 Image 和 Memory                │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 7. 记录布局转换命令                                              │
+│    vkBeginCommandBuffer(cmd)                                     │
+│    vkCmdPipelineBarrier(UNDEFINED → TRANSFER_DST_OPTIMAL)        │
+│    vkEndCommandBuffer(cmd)                                       │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ 8. 提交并等待完成                                                │
+│    vkQueueSubmit(..., fence)                                     │
+│    vkWaitForFences(...) ← CPU 阻塞等待 GPU 完成                  │
+└──────────────────────────────────────────────────────────────────┘
+                              ↓
+                        纹理加载完成 ✓
+```
+
+#### 注意事项
+
+1. **VkImageCreateInfo 的 usage 字段很重要**
+   ```cpp
+   imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+   ```
+   - `TRANSFER_DST_BIT`：必须设置，否则无法从 Staging Buffer 复制
+   - `SAMPLED_BIT`：如果要在 Shader 中采样，也必须设置
+
+2. **内存类型查找的位运算**
+   ```cpp
+   memRequirements.memoryTypeBits & (1 << i)
+   ```
+   - `memoryTypeBits` 是位掩码，第 i 位为 1 表示内存类型 i 可用
+   - `(1 << i)` 创建只有第 i 位为 1 的掩码
+   - `&` 运算检查是否匹配
+
+3. **布局转换是异步的**
+   - Pipeline Barrier 只是记录命令
+   - 实际转换在 GPU 执行命令时进行
+   - Fence 确保转换完成才返回
+
+4. **临时命令缓冲的生命周期**
+   - 这个命令缓冲只用一次
+   - 执行后可以释放或重置
+   - 不需要像渲染循环那样持久存在
+
+---
+
 ### Framebuffer vs Staging Buffer
 
 这是两个容易混淆但完全不同的概念，它们的用途和生命周期都不同。
@@ -2567,6 +2845,330 @@ Staging Buffer 定义"怎么搬"（数据传输）
 ```
 
 **两个完全不同的阶段和用途！**
+
+---
+
+### 纹理渲染设置流程
+
+#### 整体流程概览
+
+要让 Shader 能够采样纹理，需要完成以下步骤：
+
+```
+VkImage (纹理数据)
+    ↓
+ImageView (视图：定义如何访问 Image)
+    ↓
+Sampler (采样器：定义如何采样纹理)
+    ↓
+DescriptorSet (描述符集：将 Image+Sampler 绑定到 Shader)
+    ↓
+Shader 可以使用纹理
+```
+
+#### 核心概念关系
+
+| 概念 | 作用 | 类比 |
+|------|------|------|
+| **Image** | 存储像素数据 | 照片 |
+| **ImageView** | 定义如何访问 Image | 相机取景框（看照片的哪个部分） |
+| **Sampler** | 定义采样方式 | 读图方式（模糊/清晰） |
+| **DescriptorPool** | 管理 DescriptorSet 内存 | 内存池 |
+| **DescriptorSet** | 连接 Shader 和资源 | 资源绑定表 |
+| **SetLayout** | 定义 Shader 需要什么资源 | 资源需求清单 |
+
+#### 步骤 1: 创建 ImageView
+
+```cpp
+VkImageViewCreateInfo viewInfo = {};
+viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+viewInfo.image = vkContext->image.image;        // 要创建视图的 Image
+viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;    // 像素格式
+viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;     // 2D 纹理
+viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;  // 颜色数据
+viewInfo.subresourceRange.levelCount = 1;      // mipmap 层级
+viewInfo.subresourceRange.layerCount = 1;      // 数组层数
+vkCreateImageView(vkContext->device, &viewInfo, 0, &vkContext->image.view);
+```
+
+**ImageView 是什么？**
+- 定义"如何查看/访问 Image"
+- Image 可能是 2D、3D、Cube Map
+- 可能只看某个 mipmap 层级
+- 可能只看某个颜色通道
+
+**为什么需要？**
+- GPU 需要知道纹理的类型（2D/3D/Cube）
+- 需要知道访问哪个 mipmap 层级
+- 需要知道访问哪个颜色通道（COLOR/DEPTH/STENCIL）
+
+**常见的 ImageView 类型：**
+
+| viewType | 用途 |
+|----------|------|
+| `IMAGE_VIEW_TYPE_2D` | 普通 2D 纹理 |
+| `IMAGE_VIEW_TYPE_3D` | 3D 纹理（体积数据） |
+| `IMAGE_VIEW_TYPE_CUBE` | 立方体纹理（天空盒、环境反射） |
+| `IMAGE_VIEW_TYPE_2D_ARRAY` | 纹理数组 |
+
+#### 步骤 2: 创建 Sampler
+
+```cpp
+VkSamplerCreateInfo samplerInfo = {};
+samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+samplerInfo.minFilter = VK_FILTER_NEAREST;  // 缩小过滤：最近邻
+samplerInfo.magFilter = VK_FILTER_NEAREST;  // 放大过滤：最近邻
+vkCreateSampler(vkContext->device, &samplerInfo, 0, &vkContext->sampler);
+```
+
+**Sampler 是什么？**
+- 定义"如何从纹理读取像素"
+- 控制纹理采样时的过滤方式
+
+**过滤模式对比：**
+
+| 过滤器 | 效果 | 用途 |
+|--------|------|------|
+| `NEAREST` | 像素化（马赛克） | 像素风格游戏 |
+| `LINEAR` | 平滑模糊 | 真实感渲染 |
+
+**视觉对比：**
+
+```
+NEAREST (最近邻):
+┌─────────┐
+│ ██ ████ │  清晰的像素块
+│ ██ ████ │
+│ ██ ████ │
+└─────────┘
+
+LINEAR (线性):
+┌─────────┐
+│ ▓▓░▓▓░▓ │  平滑过渡
+│ ░▓▓░▓▓░▓ │
+│ ▓▓░▓▓░▓▓ │
+└─────────┘
+```
+
+**为什么需要单独的 Sampler？**
+- 一个 Image 可以配合多个 Sampler 使用
+- 示例：同一张纹理，一个用 NEAREST（像素风），一个用 LINEAR（平滑）
+
+#### 步骤 3: 创建 DescriptorPool
+
+```cpp
+VkDescriptorPoolSize poolSize = {};
+poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;  // 组合图像采样器
+poolSize.descriptorCount = 1;  // 数量
+
+VkDescriptorPoolCreateInfo poolInfo = {};
+poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+poolInfo.maxSets = 1;  // 最多分配多少个 DescriptorSet
+poolInfo.poolSizeCount = 1;
+poolInfo.pPoolSizes = &poolSize;
+vkCreateDescriptorPool(vkContext->device, &poolInfo, 0, &vkContext->descPool);
+```
+
+**DescriptorPool 是什么？**
+- DescriptorSet 的内存池
+- 类比：CommandPool 管理命令缓冲区，DescriptorPool 管理描述符集
+
+**COMBINED_IMAGE_SAMPLER 含义：**
+- 同时包含 Image + Sampler
+- Shader 中绑定一次就可以同时使用两者
+- 比 UNIFORM_BUFFER 更灵活
+
+#### 步骤 4: 创建 DescriptorSet
+
+```cpp
+VkDescriptorSetAllocateInfo allocInfo = {};
+allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+allocInfo.pSetLayouts = &vkContext->setLayout;  // 使用之前创建的 SetLayout
+allocInfo.descriptorPool = vkContext->descPool; // 从哪个池分配
+allocInfo.descriptorSetCount = 1;
+vkAllocateDescriptorSets(vkContext->device, &allocInfo, &vkContext->descSet);
+```
+
+**DescriptorSet 是什么？**
+- 连接 Shader 和资源的"桥梁"
+- Shader 说"我需要一个纹理"，DescriptorSet 说"这是纹理"
+
+**SetLayout 是什么？**
+- 定义"Shader 需要什么资源"
+- 在创建 Pipeline 时创建
+- 包含 binding 位置和类型信息
+
+#### 步骤 5: 更新 DescriptorSet
+
+```cpp
+VkDescriptorImageInfo imgInfo = {};
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // 只读布局
+imgInfo.imageView = vkContext->image.view;  // 纹理视图
+imgInfo.sampler = vkContext->sampler;       // 采样器
+
+VkWriteDescriptorSet write = {};
+write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+write.dstSet = vkContext->descSet;         // 目标 DescriptorSet
+write.dstBinding = 0;                      // 绑定位置（对应 Shader 中的 binding = 0）
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+write.descriptorCount = 1;
+write.pImageInfo = &imgInfo;
+
+vkUpdateDescriptorSets(vkContext->device, 1, &write, 0, 0);
+```
+
+**这步做什么？**
+- 把 ImageView + Sampler 写入 DescriptorSet
+- 让 Shader 可以访问纹理
+
+**为什么需要 update？**
+- DescriptorSet 创建时是空的
+- 需要通过 update 来填充数据
+- update 一次性写入，之后可以重复使用
+
+#### Shader 中的对应关系
+
+```glsl
+// Fragment Shader
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+//                         ↑
+//                    对应 dstBinding = 0
+
+void main() {
+    vec4 color = texture(texSampler, uv);
+    //                       ↑
+    //              通过 DescriptorSet 访问纹理
+}
+```
+
+#### 完整关系图
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Shader 端                                           │
+│ layout(set=0, binding=0) sampler2D texSampler;     │
+└─────────────────────────────────────────────────────┘
+                        ↑
+                        │ 绑定
+                        │
+┌─────────────────────────────────────────────────────┐
+│ Vulkan 端                                          │
+│                                                    │
+│  DescriptorSet (桥梁)                             │
+│  ┌─────────────────────────────────────┐          │
+│  │ binding = 0:                        │          │
+│  │   - ImageView (纹理视图)            │          │
+│  │   - Sampler (采样方式)              │          │
+│  └─────────────────────────────────────┘          │
+│           │                       │                │
+│           ↓                       ↓                │
+│     VkImage (数据)         VkSampler (过滤)       │
+│     (RGBA 像素)            (NEAREST/LINEAR)       │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 创建流程图
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 1. 创建 ImageView                                            │
+│    vkCreateImageView(...)                                    │
+│    └─ 定义如何访问 Image（2D、mipmap 层级等）               │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 2. 创建 Sampler                                              │
+│    vkCreateSampler(...)                                      │
+│    └─ 定义采样方式（NEAREST/LINEAR 过滤）                    │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 3. 创建 DescriptorPool                                       │
+│    vkCreateDescriptorPool(...)                               │
+│    └─ 管理 DescriptorSet 的内存池                            │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 4. 创建 DescriptorSet                                        │
+│    vkAllocateDescriptorSets(...)                             │
+│    └─ 从池中分配 DescriptorSet（桥梁）                       │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 5. 更新 DescriptorSet                                        │
+│    vkUpdateDescriptorSets(...)                               │
+│    └─ 把 ImageView + Sampler 写入 DescriptorSet              │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+                        Shader 可以使用纹理
+```
+
+#### 常见错误
+
+**错误 1：忘记布局转换**
+```cpp
+// ❌ 错误：Image 还是 UNDEFINED 布局
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+// ✅ 正确：先转换为 SHADER_READ_ONLY_OPTIMAL
+transition_image_layout(..., SHADER_READ_ONLY_OPTIMAL);
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+```
+
+**错误 2：binding 不匹配**
+```cpp
+// Shader: binding = 0
+layout(set=0, binding=0) sampler2D tex;
+
+// Vulkan: write.dstBinding = 1 ❌
+write.dstBinding = 1;  // 不匹配！
+
+// ✅ 正确：binding 必须一致
+write.dstBinding = 0;
+```
+
+**错误 3：DescriptorType 不匹配**
+```cpp
+// Shader: sampler2D (COMBINED_IMAGE_SAMPLER)
+layout(set=0, binding=0) sampler2D tex;
+
+// Vulkan: UNIFORM_BUFFER ❌
+write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+// ✅ 正确：使用 COMBINED_IMAGE_SAMPLER
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+```
+
+#### 为什么这么复杂？
+
+Vulkan 的设计哲学：**显式、可控、高效**
+
+```
+OpenGL:
+glBindTexture(GL_TEXTURE_2D, tex);  // 一行搞定，但隐藏了很多细节
+
+Vulkan:
+创建 Image → 创建 ImageView → 创建 Sampler
+→ 创建 DescriptorPool → 创建 DescriptorSet → 更新
+// 麻烦，但每一步都清晰可控
+```
+
+**优势：**
+1. **性能优化**：驱动可以提前知道所有资源使用方式
+2. **多线程友好**：资源绑定可以在渲染前完成
+3. **灵活性**：一个 DescriptorSet 可以包含多个资源
+
+#### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **ImageView** | 定义如何访问 Image（类型、mipmap、图层） |
+| **Sampler** | 定义采样方式（NEAREST/LINEAR 过滤） |
+| **DescriptorPool** | DescriptorSet 的内存池 |
+| **DescriptorSet** | 连接 Shader 和资源的桥梁 |
+| **SetLayout** | 定义 Shader 需要什么资源（在 Pipeline 创建时定义） |
+| **COMBINED_IMAGE_SAMPLER** | 同时包含 Image + Sampler 的描述符类型 |
+| **SHADER_READ_ONLY_OPTIMAL** | Shader 采样纹理时的正确布局 |
 
 ---
 

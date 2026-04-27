@@ -1231,6 +1231,166 @@ Staging Buffer 不是"起点"，
 
 ---
 
+## 2025-04-27 - 纹理加载流程学习
+
+### 完成内容
+
+#### 1. 代码注释
+- ✅ 为 [vk_renderer.cpp:2121-2193](src/renderer/vk_renderer.cpp#L2121-L2193) 添加详细中文注释
+- ✅ 解释了完整的纹理加载流程
+- ✅ 说明了每个步骤的作用和原理
+
+#### 2. 核心概念学习
+
+**完整流程概览：**
+```
+磁盘 DDS 文件 → CPU 内存 → Staging Buffer → VkImage → GPU 本地内存
+      ↓            ↓            ↓              ↓            ↓
+   platform_read   memcpy     CPU 可见      图像规格    DEVICE_LOCAL
+                  (CPU写入)    GPU内存      (不含数据)   (最终存储)
+```
+
+**为什么需要这个流程？**
+1. **DEVICE_LOCAL 内存 CPU 无法访问**
+   - GPU 本地内存速度快，但 CPU 无法直接写入
+   - 必须通过 Staging Buffer 中转
+
+2. **VkImage 只是规格描述**
+   - `vkCreateImage` 创建的是"壳子"，不包含数据
+   - 需要分配内存并绑定
+
+3. **布局转换是必需的**
+   - Image 初始状态是 `UNDEFINED`
+   - 要复制数据必须先转换为 `TRANSFER_DST_OPTIMAL`
+
+#### 3. 关键步骤详解
+
+**步骤 1: 读取 DDS 文件**
+```cpp
+DDSFile* data = (DDSFile*)platform_read_file("cakez.DDS", &fileSize);
+uint32_t textureSize = data->header.Width * data->header.Height * 4;
+```
+- DDS 是微软定义的纹理格式
+- 包含文件头和像素数据
+- 4 字节/像素 = RGBA
+
+**步骤 2: 复制到 Staging Buffer**
+```cpp
+memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
+```
+- `stagingBuffer.data` 是通过 `vkMapMemory` 获取的 CPU 指针
+- CPU 直接写入 GPU 可见内存
+
+**步骤 3: 创建 VkImage 对象**
+```cpp
+VkImageCreateInfo imgInfo = {};
+imgInfo.imageType = VK_IMAGE_TYPE_2D;
+imgInfo.format = VK_FORMAT_R8G8B8_UNORM;
+imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+```
+- 定义图像规格（尺寸、格式、用途）
+- 不包含实际像素数据
+
+**步骤 4-5: 查询内存需求并查找 DEVICE_LOCAL 内存**
+```cpp
+vkGetImageMemoryRequirements(..., &memRequirements);
+vkGetPhysicalDeviceMemoryProperties(..., &gpuMemProps);
+
+// 位运算查找合适的内存类型
+for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++) {
+    if (memRequirements.memoryTypeBits & (1 << i) &&
+        (gpuMemProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+        allocInfo.memoryTypeIndex = i;
+    }
+}
+```
+
+**步骤 6: 分配并绑定内存**
+```cpp
+vkAllocateMemory(..., &vkContext->image.memory);
+vkBindImageMemory(..., vkContext->image.image, vkContext->image.memory, 0);
+```
+
+**步骤 7: 记录布局转换命令**
+```cpp
+VkImageMemoryBarrier imgMemBarrier = {};
+imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, ...);
+```
+
+**步骤 8: 提交并等待**
+```cpp
+vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, uploadFence);
+vkWaitForFences(vkContext->device, 1, &uploadFence, true, UINT64_MAX);
+```
+- 使用 Fence 而不是 Semaphore
+- CPU 阻塞等待 GPU 完成纹理上传
+
+#### 4. 核心概念总结
+
+| 概念 | 说明 |
+|------|------|
+| **DDS 文件** | 纹理数据文件格式，包含头信息和像素数据 |
+| **Staging Buffer** | HOST_VISIBLE 内存，CPU 可写入，作为中转站 |
+| **VkImage** | 图像对象，描述规格（尺寸、格式、用途），不包含数据 |
+| **DEVICE_LOCAL** | GPU 本地内存，速度快但 CPU 无法访问 |
+| **布局转换** | 必须从 UNDEFINED 转换到 TRANSFER_DST_OPTIMAL 才能复制数据 |
+| **Pipeline Barrier** | GPU 内部同步，确保布局转换完成 |
+| **Fence** | CPU 等待 GPU 完成的同步原语 |
+
+#### 5. 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"纹理加载流程"章节
+- ✅ 包含：完整流程图解、8 个步骤详解、关键概念总结、注意事项
+
+#### 6. 重要注意事项
+
+1. **VkImageCreateInfo 的 usage 字段**
+   ```cpp
+   imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+   ```
+   - `TRANSFER_DST_BIT`：必须设置，否则无法从 Staging Buffer 复制
+   - `SAMPLED_BIT`：如果要在 Shader 中采样，也必须设置
+
+2. **内存类型查找的位运算**
+   ```cpp
+   memRequirements.memoryTypeBits & (1 << i)
+   ```
+   - `memoryTypeBits` 是位掩码，第 i 位为 1 表示内存类型 i 可用
+   - `(1 << i)` 创建只有第 i 位为 1 的掩码
+   - `&` 运算检查是否匹配
+
+3. **布局转换是异步的**
+   - Pipeline Barrier 只是记录命令
+   - 实际转换在 GPU 执行命令时进行
+   - Fence 确保转换完成才返回
+
+4. **临时命令缓冲的生命周期**
+   - 这个命令缓冲只用一次
+   - 执行后可以释放或重置
+   - 不需要像渲染循环那样持久存在
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建（Vertex + Fragment）
+- ✅ Graphics Pipeline 创建
+- ✅ RenderPass 渲染
+- ✅ 三角形绘制
+- ✅ 纹理加载流程
+
+**下一步：**
+- 创建 ImageView
+- 创建 Sampler
+- 在 Shader 中采样纹理
+- 实现纹理映射
+
+---
+
 ## 2025-04-15 - Framebuffer vs Staging Buffer 对比
 
 ### 核心区别
@@ -1362,5 +1522,208 @@ Staging Buffer 定义"怎么搬"（数据传输）
 
 - ✅ 在 VULKAN_LEARNING.md 添加了"Framebuffer vs Staging Buffer"章节
 - ✅ 包含：完整对比表、各自详解、使用场景、流程图解
+
+---
+
+## 2025-04-27 - 纹理渲染设置流程学习
+
+### 完成内容
+
+#### 1. 核心概念理解
+
+**整体流程：**
+```
+VkImage (纹理数据)
+    ↓
+ImageView (视图：定义如何访问 Image)
+    ↓
+Sampler (采样器：定义如何采样纹理)
+    ↓
+DescriptorSet (描述符集：将 Image+Sampler 绑定到 Shader)
+    ↓
+Shader 可以使用纹理
+```
+
+**关键概念对比：**
+
+| 概念 | 作用 | 类比 |
+|------|------|------|
+| **Image** | 存储像素数据 | 照片 |
+| **ImageView** | 定义如何访问 Image | 相机取景框 |
+| **Sampler** | 定义采样方式 | 读图方式（模糊/清晰） |
+| **DescriptorPool** | 管理 DescriptorSet 内存 | 内存池 |
+| **DescriptorSet** | 连接 Shader 和资源 | 资源绑定表 |
+| **SetLayout** | 定义 Shader 需要什么资源 | 资源需求清单 |
+
+#### 2. 五个创建步骤详解
+
+**步骤 1: 创建 ImageView**
+```cpp
+VkImageViewCreateInfo viewInfo = {};
+viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;     // 2D 纹理
+viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+viewInfo.subresourceRange.levelCount = 1;      // mipmap 层级
+viewInfo.subresourceRange.layerCount = 1;      // 数组层数
+```
+- 定义如何访问 Image（类型、mipmap、图层）
+- GPU 需要知道纹理的类型才能正确采样
+
+**步骤 2: 创建 Sampler**
+```cpp
+VkSamplerCreateInfo samplerInfo = {};
+samplerInfo.minFilter = VK_FILTER_NEAREST;  // 缩小过滤
+samplerInfo.magFilter = VK_FILTER_NEAREST;  // 放大过滤
+```
+- 定义采样方式（NEAREST vs LINEAR）
+- NEAREST: 像素化（马赛克效果）
+- LINEAR: 平滑模糊
+
+**步骤 3: 创建 DescriptorPool**
+```cpp
+VkDescriptorPoolSize poolSize = {};
+poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+poolSize.descriptorCount = 1;
+```
+- DescriptorSet 的内存池
+- COMBINED_IMAGE_SAMPLER: 同时包含 Image + Sampler
+
+**步骤 4: 创建 DescriptorSet**
+```cpp
+VkDescriptorSetAllocateInfo allocInfo = {};
+allocInfo.pSetLayouts = &vkContext->setLayout;  // 使用 Pipeline 创建时的 Layout
+allocInfo.descriptorPool = vkContext->descPool;
+```
+- 连接 Shader 和资源的"桥梁"
+- Shader 说"我需要一个纹理"，DescriptorSet 说"这是纹理"
+
+**步骤 5: 更新 DescriptorSet**
+```cpp
+VkDescriptorImageInfo imgInfo = {};
+imgInfo.imageView = vkContext->image.view;
+imgInfo.sampler = vkContext->sampler;
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+VkWriteDescriptorSet write = {};
+write.dstSet = vkContext->descSet;
+write.dstBinding = 0;  // 对应 Shader 中的 binding = 0
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+```
+- 把 ImageView + Sampler 写入 DescriptorSet
+- 让 Shader 可以访问纹理
+
+#### 3. Shader 中的对应关系
+
+```glsl
+// Fragment Shader
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+//                         ↑
+//                    对应 dstBinding = 0
+
+void main() {
+    vec4 color = texture(texSampler, uv);
+}
+```
+
+**关键匹配：**
+- `binding = 0` ↔ `write.dstBinding = 0`
+- `sampler2D` ↔ `COMBINED_IMAGE_SAMPLER`
+
+#### 4. 常见错误
+
+**错误 1：忘记布局转换**
+```cpp
+// ❌ 错误：Image 还是 UNDEFINED 布局
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+// ✅ 正确：先转换为 SHADER_READ_ONLY_OPTIMAL
+```
+
+**错误 2：binding 不匹配**
+```cpp
+// Shader: binding = 0
+// Vulkan: write.dstBinding = 1 ❌
+// 必须一致！
+```
+
+**错误 3：DescriptorType 不匹配**
+```cpp
+// Shader: sampler2D (COMBINED_IMAGE_SAMPLER)
+// Vulkan: UNIFORM_BUFFER ❌
+```
+
+#### 5. 理解 Vulkan 设计哲学
+
+```
+OpenGL:
+glBindTexture(GL_TEXTURE_2D, tex);  // 一行搞定
+
+Vulkan:
+创建 Image → 创建 ImageView → 创建 Sampler
+→ 创建 DescriptorPool → 创建 DescriptorSet → 更新
+// 麻烦，但每一步都清晰可控
+```
+
+**优势：**
+1. 性能优化：驱动可以提前知道所有资源使用方式
+2. 多线程友好：资源绑定可以在渲染前完成
+3. 灵活性：一个 DescriptorSet 可以包含多个资源
+
+#### 6. 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"纹理渲染设置流程"章节
+- ✅ 包含：整体流程图解、5 个创建步骤详解、Shader 对应关系、常见错误
+
+#### 7. 额外学习：UNORM 格式
+
+**UNORM** = **Unsigned Normalized**（无符号归一化）
+
+表示像素值以**整数存储**，但在 Shader 中使用时会被**自动归一化到 [0, 1] 范围**。
+
+**格式解析：**
+```
+VK_FORMAT_R8G8B8A8_UNORM
+  ││  │ │ │ │  └─ UNORM: 无符号归一化
+  ││  │ │ │ └─── A: Alpha 通道
+  ││  │ │ └───── B: Blue 通道
+  ││  │ └─────── G: Green 通道
+  ││  └───────── R: Red 通道
+  │└──────────── 8: 每通道 8 位（1 字节）
+  └───────────── 4 个通道
+```
+
+**存储与使用对比：**
+| 阶段 | 格式 | 示例值 |
+|------|------|--------|
+| **存储** | 8 位整数 [0, 255] | `R = 128, G = 64, B = 255` |
+| **Shader 读取** | 归一化浮点数 [0.0, 1.0] | `R = 0.502, G = 0.251, B = 1.0` |
+
+**转换公式：**
+```
+浮点数 = 整数值 / 255.0
+
+示例：
+  0   → 0.0 / 255.0 = 0.0
+  128 → 128.0 / 255.0 ≈ 0.502
+  255 → 255.0 / 255.0 = 1.0
+```
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建（Vertex + Fragment）
+- ✅ Graphics Pipeline 创建
+- ✅ RenderPass 渲染
+- ✅ 三角形绘制
+- ✅ 纹理加载流程（DDS → Staging Buffer → Image）
+- ✅ 纹理渲染设置（ImageView → Sampler → DescriptorSet）
+
+**下一步：**
+- 在 Fragment Shader 中添加纹理采样代码
+- 将纹理坐标从 Vertex Shader 传递到 Fragment Shader
+- 实现纹理映射效果
 
 ---

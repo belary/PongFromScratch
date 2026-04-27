@@ -129,6 +129,11 @@ typedef struct VkContext
     VkPipelineLayout pipeLayout;
     VkPipeline pipeline;
 
+    VkDescriptorPool descPool;
+    VkSampler sampler;
+    VkDescriptorSet descSet;
+    VkDescriptorSetLayout setLayout;
+
     uint32_t scImgCount;
     VkImage scImages[5];
     VkImageView scImgViews[5];
@@ -1374,16 +1379,48 @@ bool vk_init(VkContext* vkContext, void* window)
     //
     // 当前项目：
     // - 不使用 Uniform 缓冲区
-    // - 不使用纹理
+    // - 使用纹理采样器
     // - 不使用推送常量
-    // - 所以 Pipeline Layout 是空的（只需基础配置）
+    // - 所以 Pipeline Layout 包含一个 DescriptorSetLayout（用于纹理）
     //
+
+    // ========================================================================
+    // 步骤 1.5：创建 DescriptorSetLayout（必须在 Pipeline Layout 之前）
+    // ========================================================================
+    //
+    // DescriptorSetLayout 定义 "Shader 需要什么资源"
+    // 它是一个"资源需求清单"，告诉 Vulkan 我们的 Shader 期望使用什么类型的资源
+    //
+    // 对应 Shader 中的声明：
+    //   layout(set = 0, binding = 0) uniform sampler2D texSampler;
+    //
+    {
+        // 单个绑定（Binding）的配置
+        VkDescriptorSetLayoutBinding binding = {};
+        binding.binding = 0;  // binding 索引（对应 Shader 中的 binding = 0）
+        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;  // 类型：组合图像采样器
+        binding.descriptorCount = 1;  // 数量：1 个纹理
+        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;  // 在哪个 Shader 阶段使用（片段着色器）
+        // pImmutableSamplers: NULL 表示采样器可变（可以从 DescriptorSet 更新）
+
+        // 创建 DescriptorSetLayout
+        VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1;  // 绑定数量
+        layoutInfo.pBindings = &binding;  // 绑定数组
+
+        VK_CHECK(vkCreateDescriptorSetLayout(vkContext->device, &layoutInfo, 0, &vkContext->setLayout));
+    }
+
+    // ============================================================================
+    // 步骤 1.6：创建 Pipeline Layout
+    // ============================================================================
     {
         VkPipelineLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-        //.setLayoutCount = 0;  // 默认：无 Descriptor Set Layout
-        // .pSetLayouts = NULL;
+        layoutInfo.setLayoutCount = 1;  // 包含 1 个 DescriptorSetLayout
+        layoutInfo.pSetLayouts = &vkContext->setLayout;  // 指向纹理的 DescriptorSetLayout
         // .pushConstantRangeCount = 0;  // 默认：无推送常量
         // .pPushConstantRanges = NULL;
 
@@ -2117,72 +2154,129 @@ bool vk_init(VkContext* vkContext, void* window)
         //
     }
 
-    // create image
+    // ========================================================================
+    // 纹理加载流程：从 DDS 文件到 GPU Image
+    // ========================================================================
+    //
+    // 完整流程：
+    // 1. 读取 DDS 纹理文件（CPU 内存）
+    // 2. 复制到 Staging Buffer（GPU 可见的 CPU 可访问内存）
+    // 3. 创建 VkImage 对象（描述纹理的规格）
+    // 4. 分配 DEVICE_LOCAL 内存（GPU 本地内存，速度快）
+    // 5. 记录布局转换命令（UNDEFINED → TRANSFER_DST_OPTIMAL）
+    // 6. 提交命令并等待完成（通过 Fence）
+    //
+    // 为什么需要 Staging Buffer？
+    // - DEVICE_LOCAL 内存速度快，但 CPU 无法直接访问
+    // - 所以先用 Staging Buffer（HOST_VISIBLE）作为中转站
+    // - 然后通过 GPU 内部复制命令（vkCmdCopyBufferToImage）传输到 DEVICE_LOCAL
+    //
     {
+        // 步骤 1: 读取 DDS 纹理文件
+        // DDS (DirectDraw Surface) 是微软定义的纹理格式
+        // 包含纹理头信息（宽度、高度、格式等）和像素数据
         uint32_t fileSize;
         DDSFile* data = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
+
+        // 计算纹理数据大小（宽 × 高 × 4 字节/像素）
+        // 4 字节 = RGBA，每个通道 1 字节（R8G8B8A8）
         uint32_t textureSize = data->header.Width * data->header.Height * 4;
+
+        // 步骤 2: 复制纹理数据到 Staging Buffer
+        // stagingBuffer.data 是已映射的 CPU 指针（通过 vkMapMemory 获取）
+        // 这个 memcpy 是 CPU 写入 GPU 可见内存的操作
         memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
 
+        // 步骤 3: 创建 VkImage 对象
+        // VkImage 只是"规格描述"，不包含实际像素数据
         VkImageCreateInfo imgInfo = {};
         imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imgInfo.mipLevels = 1;
-        imgInfo.arrayLayers = 1;
-        imgInfo.imageType = VK_IMAGE_TYPE_2D;
-        imgInfo.format = VK_FORMAT_R8G8B8_UNORM;
-        imgInfo.extent = {data->header.Width, data->header.Height, 1};
-        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imgInfo.mipLevels = 1;           // Mipmap 层级数（1 = 无 mipmap）
+        imgInfo.arrayLayers = 1;         // 数组层数（1 = 单层纹理，不是纹理数组）
+        imgInfo.imageType = VK_IMAGE_TYPE_2D;  // 图像类型：2D 纹理
+        imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;  // 像素格式：每个通道 8 位（0-255 归一化到 0.0-1.0）
+        imgInfo.extent = {data->header.Width, data->header.Height, 1};  // 纹理尺寸（宽、高、深度）
+        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;  // 采样数（1 = 无多重采样抗锯齿）
         imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        // usage 说明：
+        // - TRANSFER_DST_BIT: 可作为传输目标（从 Staging Buffer 复制到这个 Image）
+        // - SAMPLED_BIT: 可在 Shader 中采样（作为纹理贴图使用）
         VK_CHECK(vkCreateImage(vkContext->device, &imgInfo, 0, &vkContext->image.image));
 
+        // 步骤 4: 获取 Image 的内存需求
+        // Vulkan 需要查询：需要多少内存、支持哪些内存类型、对齐要求
         VkMemoryRequirements memRequirements;
         vkGetImageMemoryRequirements(vkContext->device, vkContext->image.image, &memRequirements);
 
+        // 获取 GPU 的所有内存类型属性
         VkPhysicalDeviceMemoryProperties gpuMemProps;
         vkGetPhysicalDeviceMemoryProperties(vkContext->gpu, &gpuMemProps);
 
+        // 步骤 5: 找到 DEVICE_LOCAL 内存类型
+        // DEVICE_LOCAL = GPU 本地内存（如 VRAM），访问速度快
         VkMemoryAllocateInfo allocInfo = {};
         for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
         {
-            if (memRequirements.memoryTypeBits & (1 << i) &&
+            // 检查两个条件：
+            // 1. 这个内存类型是否满足 Image 的需求（memoryTypeBits 是一个位掩码）
+            // 2. 这个内存类型是否有 DEVICE_LOCAL 属性
+            if (memRequirements.memoryTypeBits & (1 << i) &&  // 位运算：检查第 i 位是否为 1
                 (gpuMemProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ==
                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
             {
-                allocInfo.memoryTypeIndex = i;
+                allocInfo.memoryTypeIndex = i;  // 找到了，记录索引
             }
         }
+
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = textureSize;
         VK_CHECK(vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->image.memory));
-        VK_CHECK(vkBindImageMemory(vkContext->device, vkContext->image.image,
-                                   vkContext->image.memory, 0));
 
+        // 绑定内存到 Image
+        // 有了 VkImage（规格）和 VkDeviceMemory（存储），现在把它们绑定在一起
+        VK_CHECK(vkBindImageMemory(vkContext->device, vkContext->image.image,
+                                   vkContext->image.memory, 0));  // offset = 0
+
+        // 步骤 6: 记录布局转换命令
+        // 创建临时命令缓冲（只用于这一次布局转换）
         VkCommandBuffer cmd;
         VkCommandBufferAllocateInfo cmdAlloc = cmd_alloc_info(vkContext->commandPool);
         VK_CHECK(vkAllocateCommandBuffers(vkContext->device, &cmdAlloc, &cmd));
 
+        // 开始记录命令
         VkCommandBufferBeginInfo beginIngo = cmd_begin_info();
         VK_CHECK(vkBeginCommandBuffer(cmd, &beginIngo));
 
+        // 定义要操作的图像子资源范围
         VkImageSubresourceRange range = {};
-        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        range.layerCount = 1;
-        range.levelCount = 1;
+        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;  // 操作颜色数据（不是深度/模板）
+        range.layerCount = 1;  // 操作第 0 层（单层纹理）
+        range.levelCount = 1;  // 操作第 0 级 mipmap
 
-        // transition layout to transfer optimal
+        // 布局转换：UNDEFINED → TRANSFER_DST_OPTIMAL
+        // 这个转换是必需的，因为：
+        // - Image 初始状态是 UNDEFINED（布局未定义）
+        // - 要用 vkCmdCopyBufferToImage 复制数据，必须先转换为 TRANSFER_DST_OPTIMAL
         VkImageMemoryBarrier imgMemBarrier = {};
         imgMemBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         imgMemBarrier.image = vkContext->image.image;
-        imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // 当前布局
+        imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;  // 目标布局（传输目标最优）
+        imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;   // 转换前的访问权限（实际未使用，因为是 UNDEFINED）
+        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;  // 转换后的访问权限（作为传输目标可写）
         imgMemBarrier.subresourceRange = range;
 
+        // 执行 Pipeline Barrier（布局转换是一种 Barrier 操作）
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                              0, 0, 0, 0, 1, &imgMemBarrier);
-        VK_CHECK(vkEndCommandBuffer(cmd));
+        // 参数说明：
+        // - srcStageMask = TRANSFER_BIT: 转换前的阶段（传输阶段）
+        // - dstStageMask = TRANSFER_BIT: 转换后的阶段（传输阶段）
+        // - imageMemoryBarrierCount = 1, imgMemBarrier: 要执行的图像屏障
 
+        VK_CHECK(vkEndCommandBuffer(cmd));  // 结束命令记录
+
+        // 步骤 7: 提交命令并等待完成
         VkFence uploadFence;
         VkFenceCreateInfo fenceInfo = fence_info();
         VK_CHECK(vkCreateFence(vkContext->device, &fenceInfo, 0, &uploadFence));
@@ -2190,7 +2284,83 @@ bool vk_init(VkContext* vkContext, void* window)
         VkSubmitInfo submitInfo = submit_info(&cmd);
         VK_CHECK(vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, uploadFence));
         VK_CHECK(vkWaitForFences(vkContext->device, 1, &uploadFence, true, UINT64_MAX));
+        // 注意：这里使用 Fence 而不是 Semaphore
+        // - Fence: CPU 等待 GPU 完成（同步操作）
+        // - Semaphore: GPU-GPU 同步（异步操作）
+        // 因为我们需要在函数返回前确保纹理上传完成，所以用 Fence
+        /*
+            Fence：解决 “CPU 什么时候可以卸载素材” 的问题。
+            Image Barrier：解决 “GPU 内部 Shader 什么时候可以开始读图” 的问题，并处理数据布局的物理转换
+        */ 
     }
+
+    // create image view
+    {
+        VkImageViewCreateInfo viewInfo = {};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = vkContext->image.image;
+        viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.layerCount = 1;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        VK_CHECK(vkCreateImageView(vkContext->device, &viewInfo, 0, &vkContext->image.view));
+    }
+
+    // create sampler
+    {
+        VkSamplerCreateInfo samplerInfo = {};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.minFilter = VK_FILTER_NEAREST;
+        samplerInfo.magFilter = VK_FILTER_NEAREST;
+
+        VK_CHECK(vkCreateSampler(vkContext->device, &samplerInfo, 0, &vkContext->sampler));
+    }
+
+    // create descriptor pool
+    {
+        VkDescriptorPoolSize poolSize = {};
+        poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        poolSize.descriptorCount = 1;
+
+        VkDescriptorPoolCreateInfo poolInfo = {};
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.maxSets = 1;
+        poolInfo.poolSizeCount = 1;
+        poolInfo.pPoolSizes = &poolSize;
+        VK_CHECK(vkCreateDescriptorPool(vkContext->device, &poolInfo, 0, &vkContext->descPool));
+    }
+
+    // create descriptor set
+    {
+        VkDescriptorSetAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.pSetLayouts = &vkContext->setLayout;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.descriptorPool = vkContext->descPool;
+        VK_CHECK(vkAllocateDescriptorSets(vkContext->device, &allocInfo, &vkContext->descSet));
+    }
+
+    // update descriptor set
+    {
+        VkDescriptorImageInfo imgInfo = {};
+        imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imgInfo.imageView = vkContext->image.view;
+        imgInfo.sampler = vkContext->sampler;
+
+        VkWriteDescriptorSet write = {};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = vkContext->descSet;
+        write.pImageInfo = &imgInfo;
+        write.dstBinding = 0;
+        write.descriptorCount = 1;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+        vkUpdateDescriptorSets(vkContext->device, 1, &write,  0, 0);
+    }
+
+
+
 
     return true;
 }
