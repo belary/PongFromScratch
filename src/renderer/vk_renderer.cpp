@@ -134,6 +134,7 @@ typedef struct VkContext
     VkImageView scImgViews[5];
     VkFramebuffer framebuffers[5];
 
+    Image image;
     Buffer stagingBuffer;
     int graphicsIdx;
 
@@ -572,7 +573,7 @@ bool vk_init(VkContext* vkContext, void* window)
             {
                 vkContext->surfaceFormat = format;
                 foundFormat = true;
-                std::cout << "Find Correct Surface Format!"<< std::endl;
+                std::cout << "Find Correct Surface Format!" << std::endl;
                 break;
             }
         }
@@ -623,8 +624,6 @@ bool vk_init(VkContext* vkContext, void* window)
         {
             imgCount = surfaceCaps.maxImageCount;
         }
-
-    
 
         // ----------------------------------------------------------------------
         // 第四步：创建交换链
@@ -1934,7 +1933,7 @@ bool vk_init(VkContext* vkContext, void* window)
         // 注意：此时还没有分配实际的内存！
         //
         VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;  
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 
         // size: 缓冲区大小（字节）
         // MB(1) = 1 兆字节 = 1024 * 1024 字节
@@ -1952,7 +1951,8 @@ bool vk_init(VkContext* vkContext, void* window)
 
         // 创建 Buffer 对象
         // 注意：此时 Buffer 还没有绑定内存，不能使用！
-        VK_CHECK(vkCreateBuffer(vkContext->device, &bufferInfo, 0, &vkContext->stagingBuffer.buffer));
+        VK_CHECK(
+            vkCreateBuffer(vkContext->device, &bufferInfo, 0, &vkContext->stagingBuffer.buffer));
 
         // ========================================================================
         // 步骤 2：查询内存需求
@@ -1966,7 +1966,8 @@ bool vk_init(VkContext* vkContext, void* window)
         // - memoryTypeBits: 位掩码，指示哪些内存类型兼容
         //
         VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(vkContext->device, vkContext->stagingBuffer.buffer, &memRequirements);
+        vkGetBufferMemoryRequirements(vkContext->device, vkContext->stagingBuffer.buffer,
+                                      &memRequirements);
 
         // ========================================================================
         // 步骤 3：查询 GPU 内存属性
@@ -1998,7 +1999,7 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         VkMemoryAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = MB(1);  // 分配 1MB 内存
+        allocInfo.allocationSize = MB(1); // 分配 1MB 内存
 
         // 遍历所有内存类型，找到第一个符合条件的
         for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
@@ -2019,14 +2020,14 @@ bool vk_init(VkContext* vkContext, void* window)
             // 步骤 1：用 OR（|）组合所需的标志位
             VkMemoryPropertyFlags requiredFlags =
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-            //                                                 ^
-            //                                            按位或：组合两个标志
+            //                                      ^
+            //                                按位或：组合两个标志
 
             // 步骤 2：用 AND（&）检查是否同时具备所有标志
             uint32_t hasRequiredFlags =
                 (gpuMemProps.memoryTypes[i].propertyFlags & requiredFlags) == requiredFlags;
-                //                                                ^
-                //                                   按位与：检查是否所有位都设置
+            //                                        ^
+            //                                   按位与：检查是否所有位都设置
 
             if (isCompatible && hasRequiredFlags)
             {
@@ -2045,7 +2046,8 @@ bool vk_init(VkContext* vkContext, void* window)
         // 注意：内存分配是昂贵操作，应该尽量减少分配次数
         //       实际项目中通常会创建一个大的内存池，从中分配小块内存
         //
-        VK_CHECK(vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->stagingBuffer.memory));
+        VK_CHECK(
+            vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->stagingBuffer.memory));
 
         // ========================================================================
         // 步骤 6：映射内存（获取 CPU 指针）
@@ -2062,12 +2064,11 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         // 映射后，CPU 可以通过 stagingBuffer.data 指针直接写入数据
         //
-        VK_CHECK(vkMapMemory(vkContext->device,
-                            vkContext->stagingBuffer.memory,
-                            0,              // offset
-                            MB(1),          // size
-                            0,              // flags
-                            &vkContext->stagingBuffer.data));
+        VK_CHECK(vkMapMemory(vkContext->device, vkContext->stagingBuffer.memory,
+                             0,     // offset
+                             MB(1), // size
+                             0,     // flags
+                             &vkContext->stagingBuffer.data));
 
         // ========================================================================
         // 步骤 7：绑定内存到 Buffer
@@ -2082,10 +2083,29 @@ bool vk_init(VkContext* vkContext, void* window)
         //
         // 绑定后，Buffer 才能真正使用！
         //
-        VK_CHECK(vkBindBufferMemory(vkContext->device,
-                                    vkContext->stagingBuffer.buffer,
-                                    vkContext->stagingBuffer.memory,
-                                    0));  // offset
+        // vkBindBufferMemory：将内存绑定到 Buffer 对象
+        //
+        // 参数详解：
+        // - device: 逻辑设备
+        // - buffer: 要绑定的 Buffer 对象
+        // - memory: 要绑定的内存对象
+        // - memoryOffset: 内存的起始偏移（从该内存的什么位置开始）
+        //
+        // 为什么要绑定？
+        // Buffer 对象只是描述（大小、用途），不包含实际内存
+        // 必须绑定内存后才能使用
+        //
+        // Offset 的作用：
+        // - 允许一个内存对象绑定多个 Buffer（通过不同偏移）
+        // - Offset 必须满足内存对齐要求（VkMemoryRequirements::alignment）
+        // - Offset = 0 表示从内存开头开始使用
+        //
+
+        // 将一个逻辑上的 Buffer 对象与物理上的内存块正式绑定在一起
+        VK_CHECK(vkBindBufferMemory(vkContext->device,               // 逻辑设备
+                                    vkContext->stagingBuffer.buffer, // Buffer 对象
+                                    vkContext->stagingBuffer.memory, // 内存对象
+                                    0));                             // 偏移（0 = 从内存开头）
 
         // ========================================================================
         // 现在可以使用 Staging Buffer 了！
@@ -2103,7 +2123,73 @@ bool vk_init(VkContext* vkContext, void* window)
         DDSFile* data = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
         uint32_t textureSize = data->header.Width * data->header.Height * 4;
         memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
-        
+
+        VkImageCreateInfo imgInfo = {};
+        imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imgInfo.mipLevels = 1;
+        imgInfo.arrayLayers = 1;
+        imgInfo.imageType = VK_IMAGE_TYPE_2D;
+        imgInfo.format = VK_FORMAT_R8G8B8_UNORM;
+        imgInfo.extent = {data->header.Width, data->header.Height, 1};
+        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        VK_CHECK(vkCreateImage(vkContext->device, &imgInfo, 0, &vkContext->image.image));
+
+        VkMemoryRequirements memRequirements;
+        vkGetImageMemoryRequirements(vkContext->device, vkContext->image.image, &memRequirements);
+
+        VkPhysicalDeviceMemoryProperties gpuMemProps;
+        vkGetPhysicalDeviceMemoryProperties(vkContext->gpu, &gpuMemProps);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
+        {
+            if (memRequirements.memoryTypeBits & (1 << i) &&
+                (gpuMemProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ==
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+            {
+                allocInfo.memoryTypeIndex = i;
+            }
+        }
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = textureSize;
+        VK_CHECK(vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->image.memory));
+        VK_CHECK(vkBindImageMemory(vkContext->device, vkContext->image.image,
+                                   vkContext->image.memory, 0));
+
+        VkCommandBuffer cmd;
+        VkCommandBufferAllocateInfo cmdAlloc = cmd_alloc_info(vkContext->commandPool);
+        VK_CHECK(vkAllocateCommandBuffers(vkContext->device, &cmdAlloc, &cmd));
+
+        VkCommandBufferBeginInfo beginIngo = cmd_begin_info();
+        VK_CHECK(vkBeginCommandBuffer(cmd, &beginIngo));
+
+        VkImageSubresourceRange range = {};
+        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.layerCount = 1;
+        range.levelCount = 1;
+
+        // transition layout to transfer optimal
+        VkImageMemoryBarrier imgMemBarrier = {};
+        imgMemBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imgMemBarrier.image = vkContext->image.image;
+        imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imgMemBarrier.subresourceRange = range;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                             0, 0, 0, 0, 1, &imgMemBarrier);
+        VK_CHECK(vkEndCommandBuffer(cmd));
+
+        VkFence uploadFence;
+        VkFenceCreateInfo fenceInfo = fence_info();
+        VK_CHECK(vkCreateFence(vkContext->device, &fenceInfo, 0, &uploadFence));
+
+        VkSubmitInfo submitInfo = submit_info(&cmd);
+        VK_CHECK(vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, uploadFence));
+        VK_CHECK(vkWaitForFences(vkContext->device, 1, &uploadFence, true, UINT64_MAX));
     }
 
     return true;

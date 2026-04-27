@@ -1230,3 +1230,137 @@ Staging Buffer 不是"起点"，
 - ✅ 包含：位置图解、TRANSFER_SRC 含义、内存类型对比、完整传输流程
 
 ---
+
+## 2025-04-15 - Framebuffer vs Staging Buffer 对比
+
+### 核心区别
+
+```
+Framebuffer  = 渲染目标（画布）    → 用于"画图"
+Staging Buffer = 数据中转站        → 用于"搬运数据"
+```
+
+### 完整对比表
+
+| 特性 | Framebuffer | Staging Buffer |
+|------|-------------|----------------|
+| **用途** | 定义渲染目标 | 数据传输中转 |
+| **作用** | 绑定 RenderPass 到实际图像 | CPU 到 GPU 的数据搬运 |
+| **生命周期** | 程序全程存在 | 传输时使用 |
+| **数量** | 每个交换链图像一个 | 通常是 1-2 个 |
+| **CPU 访问** | 不可访问 | 可访问（HOST_VISIBLE） |
+| **绑定对象** | ImageView 数组 | Buffer + Memory |
+| **内存类型** | 任意 | HOST_VISIBLE + COHERENT |
+| **主要函数** | vkCmdBeginRenderPass | vkCmdCopyBufferToImage |
+| **使用阶段** | 渲染时 | 资源加载时 |
+
+### Framebuffer 详解
+
+**作用**：定义"画在哪里"
+
+```
+Framebuffer 将 RenderPass 和实际图像绑定起来：
+
+RenderPass 说： "我需要一个颜色附件"
+Framebuffer 回答： "这是实际的图像（ImageView）"
+```
+
+**用途**：
+```
+渲染循环：
+vkCmdBeginRenderPass → 使用 Framebuffer
+   ↓
+[渲染命令：画三角形]
+   ↓
+vkCmdEndRenderPass
+```
+
+**类比**：
+```
+Framebuffer = 画框 + 画布
+- RenderPass 定义"要画什么"
+- Framebuffer 提供"画布"
+- 每个交换链图像一个 Framebuffer
+```
+
+### Staging Buffer 详解
+
+**作用**：数据传输的中转站
+
+```
+CPU 内存 → Staging Buffer → GPU 纹理/顶点缓冲
+   ↓            ↓              ↓
+ CPU 可见    CPU 可见      GPU 本地（快）
+  (系统)    (GPU 内存中)   (GPU 内存)
+```
+
+**用途**：
+```
+纹理加载：
+1. CPU 读 DDS 文件到系统内存
+2. memcpy 到 Staging Buffer（CPU 可见）
+3. vkCmdCopyBufferToImage（GPU 复制）
+4. 数据到达纹理 Image（GPU 本地）
+```
+
+**类比**：
+```
+Staging Buffer = 快递中转站
+- 数据从 CPU 到 GPU 必须经过
+- CPU 可以访问（HOST_VISIBLE）
+- 然后复制到最终目的地
+```
+
+### 渲染流程中的位置
+
+```
+初始化阶段：
+创建 Staging Buffer  ← 用于纹理加载
+创建 Framebuffer     ← 用于渲染
+
+每帧渲染：
+vkCmdBeginRenderPass
+   ↓ 使用 Framebuffer
+[渲染命令：画三角形]
+   ↓
+vkCmdEndRenderPass
+
+纹理加载：
+memcpy(stagingBuffer.data, textureData, size)
+   ↓
+vkCmdCopyBufferToImage(stagingBuffer, textureImage, ...)
+```
+
+### 何时使用哪个？
+
+**使用 Framebuffer**：
+- ✅ 渲染时定义画布
+- ✅ 绑定 RenderPass 到实际图像
+- ✅ 每个交换链图像一个
+
+**使用 Staging Buffer**：
+- ✅ 加载纹理
+- ✅ 加载模型数据
+- ✅ CPU 写入数据后 GPU 复制
+- ✅ 传输完成后可以销毁或复用
+
+### 关键理解
+
+```
+Framebuffer  定义"画什么"（渲染目标）
+              ↓
+            绘图时使用
+
+Staging Buffer 定义"怎么搬"（数据传输）
+              ↓
+            加载资源时使用
+
+两个完全不同的阶段和用途！
+```
+
+### 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"Framebuffer vs Staging Buffer"章节
+- ✅ 包含：完整对比表、各自详解、使用场景、流程图解
+
+---
