@@ -1524,3 +1524,535 @@ Staging Buffer 定义"怎么搬"（数据传输）
 - ✅ 包含：完整对比表、各自详解、使用场景、流程图解
 
 ---
+
+## 2025-04-27 - 纹理渲染设置流程学习
+
+### 完成内容
+
+#### 1. 核心概念理解
+
+**整体流程：**
+```
+VkImage (纹理数据)
+    ↓
+ImageView (视图：定义如何访问 Image)
+    ↓
+Sampler (采样器：定义如何采样纹理)
+    ↓
+DescriptorSet (描述符集：将 Image+Sampler 绑定到 Shader)
+    ↓
+Shader 可以使用纹理
+```
+
+**关键概念对比：**
+
+| 概念 | 作用 | 类比 |
+|------|------|------|
+| **Image** | 存储像素数据 | 照片 |
+| **ImageView** | 定义如何访问 Image | 相机取景框 |
+| **Sampler** | 定义采样方式 | 读图方式（模糊/清晰） |
+| **DescriptorPool** | 管理 DescriptorSet 内存 | 内存池 |
+| **DescriptorSet** | 连接 Shader 和资源 | 资源绑定表 |
+| **SetLayout** | 定义 Shader 需要什么资源 | 资源需求清单 |
+
+#### 2. 五个创建步骤详解
+
+**步骤 1: 创建 ImageView**
+```cpp
+VkImageViewCreateInfo viewInfo = {};
+viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;     // 2D 纹理
+viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+viewInfo.subresourceRange.levelCount = 1;      // mipmap 层级
+viewInfo.subresourceRange.layerCount = 1;      // 数组层数
+```
+- 定义如何访问 Image（类型、mipmap、图层）
+- GPU 需要知道纹理的类型才能正确采样
+
+**步骤 2: 创建 Sampler**
+```cpp
+VkSamplerCreateInfo samplerInfo = {};
+samplerInfo.minFilter = VK_FILTER_NEAREST;  // 缩小过滤
+samplerInfo.magFilter = VK_FILTER_NEAREST;  // 放大过滤
+```
+- 定义采样方式（NEAREST vs LINEAR）
+- NEAREST: 像素化（马赛克效果）
+- LINEAR: 平滑模糊
+
+**步骤 3: 创建 DescriptorPool**
+```cpp
+VkDescriptorPoolSize poolSize = {};
+poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+poolSize.descriptorCount = 1;
+```
+- DescriptorSet 的内存池
+- COMBINED_IMAGE_SAMPLER: 同时包含 Image + Sampler
+
+**步骤 4: 创建 DescriptorSet**
+```cpp
+VkDescriptorSetAllocateInfo allocInfo = {};
+allocInfo.pSetLayouts = &vkContext->setLayout;  // 使用 Pipeline 创建时的 Layout
+allocInfo.descriptorPool = vkContext->descPool;
+```
+- 连接 Shader 和资源的"桥梁"
+- Shader 说"我需要一个纹理"，DescriptorSet 说"这是纹理"
+
+**步骤 5: 更新 DescriptorSet**
+```cpp
+VkDescriptorImageInfo imgInfo = {};
+imgInfo.imageView = vkContext->image.view;
+imgInfo.sampler = vkContext->sampler;
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+VkWriteDescriptorSet write = {};
+write.dstSet = vkContext->descSet;
+write.dstBinding = 0;  // 对应 Shader 中的 binding = 0
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+```
+- 把 ImageView + Sampler 写入 DescriptorSet
+- 让 Shader 可以访问纹理
+
+#### 3. Shader 中的对应关系
+
+```glsl
+// Fragment Shader
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+//                         ↑
+//                    对应 dstBinding = 0
+
+void main() {
+    vec4 color = texture(texSampler, uv);
+}
+```
+
+**关键匹配：**
+- `binding = 0` ↔ `write.dstBinding = 0`
+- `sampler2D` ↔ `COMBINED_IMAGE_SAMPLER`
+
+#### 4. 常见错误
+
+**错误 1：忘记布局转换**
+```cpp
+// ❌ 错误：Image 还是 UNDEFINED 布局
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+// ✅ 正确：先转换为 SHADER_READ_ONLY_OPTIMAL
+```
+
+**错误 2：binding 不匹配**
+```cpp
+// Shader: binding = 0
+// Vulkan: write.dstBinding = 1 ❌
+// 必须一致！
+```
+
+**错误 3：DescriptorType 不匹配**
+```cpp
+// Shader: sampler2D (COMBINED_IMAGE_SAMPLER)
+// Vulkan: UNIFORM_BUFFER ❌
+```
+
+#### 5. 理解 Vulkan 设计哲学
+
+```
+OpenGL:
+glBindTexture(GL_TEXTURE_2D, tex);  // 一行搞定
+
+Vulkan:
+创建 Image → 创建 ImageView → 创建 Sampler
+→ 创建 DescriptorPool → 创建 DescriptorSet → 更新
+// 麻烦，但每一步都清晰可控
+```
+
+**优势：**
+1. 性能优化：驱动可以提前知道所有资源使用方式
+2. 多线程友好：资源绑定可以在渲染前完成
+3. 灵活性：一个 DescriptorSet 可以包含多个资源
+
+#### 6. 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 添加了"纹理渲染设置流程"章节
+- ✅ 包含：整体流程图解、5 个创建步骤详解、Shader 对应关系、常见错误
+
+#### 7. 额外学习：UNORM 格式
+
+**UNORM** = **Unsigned Normalized**（无符号归一化）
+
+表示像素值以**整数存储**，但在 Shader 中使用时会被**自动归一化到 [0, 1] 范围**。
+
+**格式解析：**
+```
+VK_FORMAT_R8G8B8A8_UNORM
+  ││  │ │ │ │  └─ UNORM: 无符号归一化
+  ││  │ │ │ └─── A: Alpha 通道
+  ││  │ │ └───── B: Blue 通道
+  ││  │ └─────── G: Green 通道
+  ││  └───────── R: Red 通道
+  │└──────────── 8: 每通道 8 位（1 字节）
+  └───────────── 4 个通道
+```
+
+**存储与使用对比：**
+| 阶段 | 格式 | 示例值 |
+|------|------|--------|
+| **存储** | 8 位整数 [0, 255] | `R = 128, G = 64, B = 255` |
+| **Shader 读取** | 归一化浮点数 [0.0, 1.0] | `R = 0.502, G = 0.251, B = 1.0` |
+
+**转换公式：**
+```
+浮点数 = 整数值 / 255.0
+
+示例：
+  0   → 0.0 / 255.0 = 0.0
+  128 → 128.0 / 255.0 ≈ 0.502
+  255 → 255.0 / 255.0 = 1.0
+```
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建（Vertex + Fragment）
+- ✅ Graphics Pipeline 创建
+- ✅ RenderPass 渲染
+- ✅ 三角形绘制
+- ✅ 纹理加载流程（DDS → Staging Buffer → Image）
+- ✅ 纹理渲染设置（ImageView → Sampler → DescriptorSet）
+
+**下一步：**
+- 在 Fragment Shader 中添加纹理采样代码
+- 将纹理坐标从 Vertex Shader 传递到 Fragment Shader
+- 实现纹理映射效果
+
+---
+
+## 2025-04-27 - 顶点着色器纹理坐标学习
+
+### 完成内容
+
+#### 1. 代码注释更新
+
+- ✅ 为 [shader.vert](../assets/shaders/shader.vert) 添加详细中文注释
+- ✅ 解释了顶点数据编码技巧（vec4 同时存储位置和纹理坐标）
+- ✅ 说明了每个顶点的坐标和纹理坐标含义
+- ✅ 注释了主函数的工作原理
+
+#### 2. 核心概念理解
+
+**顶点数据编码方式：**
+
+使用 `vec4` 同时存储位置和纹理坐标：
+```glsl
+vec4 vertices[6] = {
+    // xy 分量：顶点位置（NDC 坐标）
+    // zw 分量：纹理坐标（UV 坐标）
+    vec4(-0.5, 0.5, 0.0, 1.0),  // 左上角
+    vec4(-0.5, -0.5, 0.0, 0.0), // 左下角
+    vec4(0.5, -0.5, 1.0, 0.0),  // 右下角
+    vec4(0.5, -0.5, 1.0, 0.0),  // 右下角（复用）
+    vec4(0.5, 0.5, 1.0, 1.0),   // 右上角
+    vec4(-0.5, 0.5, 0.0, 1.0),  // 左上角（复用）
+};
+```
+
+**为什么有 6 个顶点？**
+- 四边形由 2 个三角形组成
+- 每个三角形 3 个顶点 = 共 6 个顶点
+- 其中 2 个顶点被复用（对角线共享）
+
+#### 3. 几何布局理解
+
+**四边形顶点布局：**
+
+```
+        (-0.5, -0.5)         (0.5, -0.5)
+              UV(0,0)──────────UV(1,0)
+                 │ ╲            │
+                 │   ╲    T1    │
+                 │     ╲        │
+        左上──────┼───────右上────
+      UV(0,1)    │      ╲   │    UV(1,1)
+                 │  T2     ╲│
+                 │          ╲│
+                 └───────────┘
+        (-0.5, 0.5)          (0.5, 0.5)
+
+T1 = 三角形 1 (顶点 0, 1, 2) - 顺时针
+T2 = 三角形 2 (顶点 3, 4, 5) - 顺时针
+```
+
+**顶点数据表：**
+
+| 索引 | 位置 (xy) | 纹理坐标 (zw) | 三角形 |
+|------|-----------|---------------|--------|
+| 0 | `(-0.5, 0.5)` | `(0.0, 1.0)` | T1 |
+| 1 | `(-0.5, -0.5)` | `(0.0, 0.0)` | T1 |
+| 2 | `(0.5, -0.5)` | `(1.0, 0.0)` | T1 |
+| 3 | `(0.5, -0.5)` | `(1.0, 0.0)` | T2（复用） |
+| 4 | `(0.5, 0.5)` | `(1.0, 1.0)` | T2 |
+| 5 | `(-0.5, 0.5)` | `(0.0, 1.0)` | T2（复用） |
+
+#### 4. 三角形绕序验证
+
+**三角形 1 (T1)：**
+```
+顶点顺序: 0 → 1 → 2
+(-0.5, 0.5) → (-0.5, -0.5) → (0.5, -0.5)
+      ↓              ↓               ↓
+    左上           左下            右下
+```
+在 Vulkan 坐标系中（Y 向下）：
+- 从左上 → 左下 → 右下
+- 这是 **顺时针 (CW)** → 正面 ✓
+
+**三角形 2 (T2)：**
+```
+顶点顺序: 3 → 4 → 5
+(0.5, -0.5) → (0.5, 0.5) → (-0.5, 0.5)
+      ↓              ↓              ↓
+    右下           右上            左上
+```
+- 从右下 → 右上 → 左上
+- 这是 **顺时针 (CW)** → 正面 ✓
+
+#### 5. 主函数解析
+
+```glsl
+void main()
+{
+    // 输出顶点位置（裁剪空间）
+    gl_Position = vec4(vertices[gl_VertexIndex].xy, 0.0, 1.0);
+    //                  ↑                                ↑
+    //                  取 xy 分量（位置）           z=0, w=1
+
+    // 输出纹理坐标（传递给片段着色器）
+    uv = vertices[gl_VertexIndex].zw;
+    //    ↑                            ↑
+    //    输出变量                    取 zw 分量（纹理坐标）
+}
+```
+
+#### 6. uv 插值机制
+
+GPU 会在三角形内部对 uv 进行**透视插值**：
+- 每个像素获得对应的纹理坐标
+- 插值考虑深度，确保正确的透视效果
+
+**片段着色器配合：**
+```glsl
+layout(location = 0) in vec2 uv;  // 接收插值后的纹理坐标
+
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+
+void main() {
+    vec4 color = texture(texSampler, uv);
+    //                        ↑
+    //                    使用纹理坐标采样
+}
+```
+
+#### 7. 数据编码优势
+
+| 方式 | 优点 | 缺点 |
+|------|------|------|
+| **vec4 编码**（当前） | 数据紧凑、缓存友好、一次索引 | 硬编码、不易扩展 |
+| **分开定义** | 清晰直观、易于修改 | 需要两次查找 |
+
+#### 8. 纹理映射效果
+
+```
+纹理空间 (UV):           屏幕空间:
+(0,0) ──────── (1,0)     (-0.5, 0.5)────(0.5, 0.5)
+  │             │             │    │
+  │    纹理     │             │    │
+  │    图像     │             │    │
+  │             │             │    │
+(0,1) ──────── (1,1)    (-0.5, -0.5)───(0.5, -0.5)
+```
+
+纹理会完整地映射到四边形上。
+
+#### 9. 知识库更新
+
+- ✅ 在 VULKAN_LEARNING.md 的"着色器"章节添加了"顶点着色器：带纹理坐标的四边形渲染"小节
+- ✅ 包含：顶点数据编码技巧、几何布局图解、顶点数据表、三角形绕序验证、uv 插值机制
+
+#### 10. 代码更新
+
+- ✅ 更新了 [shader.vert](../assets/shaders/shader.vert) 文件，添加详细的中文注释
+- ✅ 每个顶点都有清晰的注释说明其位置和纹理坐标
+- ✅ 主函数的每行代码都有详细解释
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建（Vertex + Fragment）
+- ✅ Graphics Pipeline 创建
+- ✅ RenderPass 渲染
+- ✅ 三角形绘制
+- ✅ 纹理加载流程（DDS → Staging Buffer → Image）
+- ✅ 纹理渲染设置（DescriptorSetLayout → ImageView → Sampler → DescriptorSet）
+- ✅ 顶点着色器纹理坐标传递（vec4 编码方式）
+
+**下一步：**
+- 在 Fragment Shader 中添加纹理采样代码
+- 测试纹理映射效果
+- 调整纹理过滤模式（NEAREST vs LINEAR）
+
+---
+
+## 2025-04-27 - 修正：顶点位置和坐标系统理解
+
+### 完成内容
+
+#### 1. 顶点位置修正
+
+**问题发现：**
+- 用户指出：`(-0.5, 0.5)` 在 Vulkan 坐标系中应该是**左下角**，不是左上角
+- 原因：Vulkan 的 Y 轴**向下为正**
+
+**修正后的顶点位置：**
+
+| 索引 | 坐标 | 正确位置 | 之前错误 |
+|------|------|----------|----------|
+| 0 | `(-0.5, 0.5)` | 左下 (y=0.5, 向下) | ✗ 左上 |
+| 1 | `(-0.5, -0.5)` | 左上 (y=-0.5, 向上) | ✗ 左下 |
+| 2 | `(0.5, -0.5)` | 右上 (y=-0.5, 向上) | ✗ 右下 |
+| 4 | `(0.5, 0.5)` | 右下 (y=0.5, 向下) | ✗ 右上 |
+
+#### 2. 裁剪坐标 vs NDC 坐标理解
+
+**关键概念：**
+
+`gl_Position` 输出的是**裁剪坐标**，不是 NDC 坐标！
+
+**坐标变换流程：**
+
+```
+模型空间
+    ↓
+世界空间
+    ↓
+观察空间
+    ↓
+裁剪空间 (Clip Space)
+    ↓ gl_Position 输出（顶点着色器）
+GPU 透视除法
+    ↓ xyz / w
+NDC 空间 (Normalized Device Coordinates)
+    ↓ 范围: [-1, 1] × [-1, 1] × [-1, 1]
+视口变换
+    ↓
+屏幕空间
+```
+
+**透视除法：**
+
+```glsl
+// 顶点着色器输出（裁剪坐标）
+gl_Position = vec4(x, y, z, w);
+
+// GPU 自动执行（开发者无需手动计算）
+vec3 ndc = gl_Position.xyz / gl_Position.w;
+```
+
+**2D 渲染时的情况：**
+
+```glsl
+gl_Position = vec4(vertices[gl_VertexIndex].xy, 0.0, 1.0);
+//                                                         ↑
+//                                                         w = 1.0
+
+// GPU 透视除法
+ndc = vec3(xy, 0.0) / 1.0 = vec3(xy, 0.0);
+//                           ↑
+//                           数值相等，但概念不同！
+```
+
+**关键理解：**
+- 即使 `w = 1.0` 时数值相等，`gl_Position` **仍然是裁剪坐标**
+- GPU 会自动执行透视除法
+- 这是图形管线的固定功能阶段
+
+#### 3. 知识库更新
+
+**新增内容：**
+
+- ✅ 在 VULKAN_LEARNING.md 的"顶点着色器"章节添加了"坐标变换流程"小节
+- ✅ 包含：完整的图形管线坐标变换流程图、裁剪坐标 vs NDC 坐标对比表、透视除法详解
+- ✅ 修正了顶点数据表中的位置说明
+- ✅ 修正了几何布局图解
+
+**新增对比表：**
+
+| 阶段 | 坐标系 | 范围 | 说明 |
+|------|--------|------|------|
+| **顶点着色器输出** | 裁剪坐标 | `[-w, w]` | `gl_Position` |
+| **GPU 透视除法后** | NDC 坐标 | `[-1, 1]` | 自动执行 `xyz / w` |
+| **视口变换后** | 屏幕坐标 | 像素值 | 最终位置 |
+
+#### 4. 代码更新
+
+**shader.vert 更新：**
+
+- ✅ 添加了完整的图形管线坐标变换流程说明
+- ✅ 修正了所有顶点的位置注释
+- ✅ 添加了关于裁剪坐标和透视除法的详细解释
+- ✅ 修正了主函数中的注释，明确说明 gl_Position 是裁剪坐标
+
+#### 5. 三角形绕序重新验证
+
+**修正后的三角形绕序：**
+
+```
+三角形 1: 0 → 1 → 2
+(-0.5, 0.5) → (-0.5, -0.5) → (0.5, -0.5)
+     ↓              ↓               ↓
+   左下           左上            右上
+
+在 Vulkan 坐标系中（Y 向下）：
+从左下 → 左上 → 右上 = 逆时针 ✗ 背面
+
+三角形 2: 3 → 4 → 5
+(0.5, -0.5) → (0.5, 0.5) → (-0.5, 0.5)
+     ↓              ↓              ↓
+   右上           右下            左下
+
+从右上 → 右下 → 左下 = 逆时针 ✗ 背面
+```
+
+**注意：** 当前顶点顺序是**逆时针**，如果 Pipeline 设置了 `frontFace = CLOCKWISE`，这些三角形会被判定为**背面**而剔除。
+
+### 核心要点总结
+
+1. **Vulkan Y 轴向下**：y=0.5 是下边，y=-0.5 是上边
+2. **gl_Position 是裁剪坐标**：不是 NDC 坐标，GPU 会自动执行透视除法
+3. **w = 1 时数值相等但概念不同**：仍然要理解这是两个不同的坐标系
+4. **透视除法是自动的**：开发者只需设置 gl_Position，GPU 会处理剩下的转换
+
+### 当前进度总结
+
+**已完成的初始化步骤 (13/13)：**
+1-13. ✅ Instance → Surface → GPU → Device → Swapchain → RenderPass → Framebuffer
+
+**已完成的功能：**
+- ✅ 着色器模块创建（Vertex + Fragment）
+- ✅ Graphics Pipeline 创建
+- ✅ RenderPass 渲染
+- ✅ 三角形绘制
+- ✅ 纹理加载流程（DDS → Staging Buffer → Image）
+- ✅ 纹理渲染设置（DescriptorSetLayout → ImageView → Sampler → DescriptorSet）
+- ✅ 顶点着色器纹理坐标传递（vec4 编码方式）
+- ✅ 顶点位置和坐标系统理解修正
+
+**下一步：**
+- 在 Fragment Shader 中添加纹理采样代码
+- 测试纹理映射效果
+- 可能需要调整顶点顺序或 Pipeline 设置（绕序问题）
+
+---

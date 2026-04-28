@@ -1760,9 +1760,87 @@ vkQueuePresentKHR → 显示 scImages[imageIdx]
 
 **内置变量**：
 - `gl_VertexIndex`：当前顶点的索引
-- `gl_Position`：顶点的最终位置（输出）
+- `gl_Position`：顶点的最终位置（输出裁剪坐标）
 
-**坐标系统（Vulkan NDC）**：
+#### 坐标变换流程
+
+**完整的图形管线坐标变换：**
+
+```
+模型空间 (Model Space)
+    ↓ 模型矩阵
+世界空间 (World Space)
+    ↓ 视图矩阵
+观察空间 (View Space)
+    ↓ 投影矩阵
+裁剪空间 (Clip Space)
+    ↓ gl_Position 输出（顶点着色器）
+GPU 透视除法
+    ↓ xyz / w
+NDC 空间 (Normalized Device Coordinates)
+    ↓ 范围: [-1, 1] × [-1, 1] × [-1, 1]
+视口变换
+    ↓
+屏幕空间 (Screen Space)
+    ↓ 像素坐标
+```
+
+**关键概念：裁剪坐标 vs NDC 坐标**
+
+| 阶段 | 坐标系 | 范围 | 说明 |
+|------|--------|------|------|
+| **顶点着色器输出** | 裁剪坐标 | `[-w, w]` | `gl_Position` |
+| **GPU 透视除法后** | NDC 坐标 | `[-1, 1]` | 自动执行 `xyz / w` |
+| **视口变换后** | 屏幕坐标 | 像素值 | 最终位置 |
+
+**透视除法详解：**
+
+```glsl
+// 顶点着色器输出
+gl_Position = vec4(x, y, z, w);
+
+// GPU 自动执行（开发者无需手动计算）
+vec3 ndc = gl_Position.xyz / gl_Position.w;
+//       ↑                      ↑
+//       NDC 坐标              裁剪坐标
+```
+
+**为什么需要 w 分量？**
+
+1. **透视投影（w ≠ 1）：**
+   ```glsl
+   // 3D 透视投影
+   gl_Position = projectionMatrix * vec4(position, 1.0);
+   // 结果: vec4(0.5, 1.0, -2.0, 2.0)
+   //                              ↑
+   //                              w = 2.0
+   
+   // GPU 透视除法
+   ndc = vec3(0.5, 1.0, -2.0) / 2.0 = vec3(0.25, 0.5, -1.0);
+   //                     ↑
+   //                     远处的物体被"压缩"（透视效果）
+   ```
+
+2. **2D 正交投影（w = 1）：**
+   ```glsl
+   // 2D 渲染
+   gl_Position = vec4(position, 0.0, 1.0);
+   // 结果: vec4(-0.5, 0.5, 0.0, 1.0)
+   //                               ↑
+   //                               w = 1.0
+   
+   // GPU 透视除法
+   ndc = vec3(-0.5, 0.5, 0.0) / 1.0 = vec3(-0.5, 0.5, 0.0);
+   //                           ↑
+   //                           数值不变，但概念不同！
+   ```
+
+**关键理解：**
+- 即使 `w = 1.0` 时数值相等，`gl_Position` **仍然是裁剪坐标**，不是 NDC 坐标
+- GPU 会自动执行透视除法，将裁剪坐标转换为 NDC 坐标
+- 这是图形管线的固定功能阶段
+
+#### 坐标系统（Vulkan NDC）
 ```
       +X
        │
@@ -1796,6 +1874,149 @@ vec2 vertices[3] = vec2[3](
 
 void main() {
     gl_Position = vec4(vertices[gl_VertexIndex], 0.0, 1.0);
+}
+```
+
+#### 顶点着色器：带纹理坐标的四边形渲染
+
+**功能：**
+- 渲染一个四边形（由两个三角形组成）
+- 每个顶点包含位置和纹理坐标
+
+**顶点数据编码技巧：**
+
+使用 `vec4` 同时存储位置和纹理坐标：
+```glsl
+vec4 vertices[6] = {
+    // xy 分量：顶点位置（NDC 坐标）
+    // zw 分量：纹理坐标（UV 坐标）
+    vec4(-0.5, 0.5, 0.0, 1.0),  // 左上角
+    vec4(-0.5, -0.5, 0.0, 0.0), // 左下角
+    vec4(0.5, -0.5, 1.0, 0.0),  // 右下角
+    vec4(0.5, -0.5, 1.0, 0.0),  // 右下角（复用）
+    vec4(0.5, 0.5, 1.0, 1.0),   // 右上角
+    vec4(-0.5, 0.5, 0.0, 1.0),  // 左上角（复用）
+};
+```
+
+**为什么有 6 个顶点？**
+- 四边形由 2 个三角形组成
+- 每个三角形 3 个顶点 = 共 6 个顶点
+- 其中 2 个顶点被复用（对角线共享）
+
+**主函数解析：**
+```glsl
+void main()
+{
+    // 输出顶点位置（裁剪坐标）
+    // gl_Position: 顶点着色器的输出，表示裁剪坐标
+    //
+    // 坐标变换流程：
+    //   1. 顶点着色器输出 gl_Position（裁剪坐标，范围：[-w, w]）
+    //   2. GPU 自动执行透视除法: ndc = xyz / w
+    //   3. 得到 NDC 坐标（范围：[-1, 1]）
+    //
+    // 当前代码：w = 1.0
+    //   - 透视除法后：ndc = vec3(xy, 0.0) / 1.0 = vec3(xy, 0.0)
+    //   - 因为 w = 1，所以裁剪坐标和 NDC 坐标在数值上相等
+    //   - 但概念上仍然是裁剪坐标！
+    gl_Position = vec4(vertices[gl_VertexIndex].xy, 0.0, 1.0);
+    //                  ↑                                ↑
+    //                  取 xy 分量（位置）           z=0(深度), w=1(齐次坐标)
+
+    // 输出纹理坐标（传递给片段着色器）
+    uv = vertices[gl_VertexIndex].zw;
+    //    ↑                            ↑
+    //    输出变量                    取 zw 分量（纹理坐标）
+}
+```
+
+**几何布局（Vulkan 坐标系：Y 向下）：**
+
+```
+        (-0.5, -0.5)         (0.5, -0.5)
+              UV(0,0)──────────UV(1,0)
+                 │ ╲            │
+                 │   ╲    T1    │
+                 │     ╲        │
+        左下──────┼───────右上────
+      UV(0,1)    │      ╲   │    UV(1,1)
+                 │  T2     ╲│
+                 │          ╲│
+                 └───────────┘
+        (-0.5, 0.5)          (0.5, 0.5)
+
+T1 = 三角形 1 (顶点 0, 1, 2)
+T2 = 三角形 2 (顶点 3, 4, 5)
+```
+
+**顶点数据表（修正后）：**
+
+| 索引 | 位置 (xy) | 位置说明 | 纹理坐标 (zw) | 三角形 |
+|------|-----------|----------|---------------|--------|
+| 0 | `(-0.5, 0.5)` | 左下 | `(0.0, 1.0)` | T1 |
+| 1 | `(-0.5, -0.5)` | 左上 | `(0.0, 0.0)` | T1 |
+| 2 | `(0.5, -0.5)` | 右上 | `(1.0, 0.0)` | T1 |
+| 3 | `(0.5, -0.5)` | 右上（复用） | `(1.0, 0.0)` | T2 |
+| 4 | `(0.5, 0.5)` | 右下 | `(1.0, 1.0)` | T2 |
+| 5 | `(-0.5, 0.5)` | 左下（复用） | `(0.0, 1.0)` | T2 |
+
+**三角形绕序验证：**
+
+```
+三角形 1: 0 → 1 → 2
+(-0.5, 0.5) → (-0.5, -0.5) → (0.5, -0.5)
+     ↓              ↓               ↓
+   左下           左上            右上
+
+在 Vulkan 坐标系中（Y 向下）：
+从左下 → 左上 → 右上 = 逆时针 ✗ 背面
+
+三角形 2: 3 → 4 → 5
+(0.5, -0.5) → (0.5, 0.5) → (-0.5, 0.5)
+     ↓              ↓              ↓
+   右上           右下            左下
+
+从右上 → 右下 → 左下 = 逆时针 ✗ 背面
+```
+
+**注意：** 如果 `frontFace` 设置为 `CLOCKWISE`（顺时针为正面），则需要调整顶点顺序或交换 frontFace 设置。
+
+**纹理映射效果：**
+
+```
+纹理空间 (UV):           屏幕空间 (Vulkan NDC):
+(0,0) ──────── (1,0)     (-0.5, -0.5)────(0.5, -0.5)
+  │             │             │    │
+  │    纹理     │             │    │
+  │    图像     │             │    │
+  │             │             │    │
+(0,1) ──────── (1,1)    (-0.5, 0.5)────(0.5, 0.5)
+```
+
+**数据编码优势：**
+
+| 方式 | 优点 | 缺点 |
+|------|------|------|
+| **vec4 编码**（当前） | 数据紧凑、缓存友好、一次索引 | 硬编码、不易扩展 |
+| **分开定义** | 清晰直观、易于修改 | 需要两次查找 |
+
+**uv 插值机制：**
+
+GPU 会在三角形内部对 uv 进行**透视插值**：
+- 每个像素获得对应的纹理坐标
+- 插值考虑深度，确保正确的透视效果
+
+**片段着色器配合：**
+```glsl
+layout(location = 0) in vec2 uv;  // 接收插值后的纹理坐标
+
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+
+void main() {
+    vec4 color = texture(texSampler, uv);
+    //                        ↑
+    //                    使用纹理坐标采样
 }
 ```
 
@@ -2845,6 +3066,330 @@ Staging Buffer 定义"怎么搬"（数据传输）
 ```
 
 **两个完全不同的阶段和用途！**
+
+---
+
+### 纹理渲染设置流程
+
+#### 整体流程概览
+
+要让 Shader 能够采样纹理，需要完成以下步骤：
+
+```
+VkImage (纹理数据)
+    ↓
+ImageView (视图：定义如何访问 Image)
+    ↓
+Sampler (采样器：定义如何采样纹理)
+    ↓
+DescriptorSet (描述符集：将 Image+Sampler 绑定到 Shader)
+    ↓
+Shader 可以使用纹理
+```
+
+#### 核心概念关系
+
+| 概念 | 作用 | 类比 |
+|------|------|------|
+| **Image** | 存储像素数据 | 照片 |
+| **ImageView** | 定义如何访问 Image | 相机取景框（看照片的哪个部分） |
+| **Sampler** | 定义采样方式 | 读图方式（模糊/清晰） |
+| **DescriptorPool** | 管理 DescriptorSet 内存 | 内存池 |
+| **DescriptorSet** | 连接 Shader 和资源 | 资源绑定表 |
+| **SetLayout** | 定义 Shader 需要什么资源 | 资源需求清单 |
+
+#### 步骤 1: 创建 ImageView
+
+```cpp
+VkImageViewCreateInfo viewInfo = {};
+viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+viewInfo.image = vkContext->image.image;        // 要创建视图的 Image
+viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;    // 像素格式
+viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;     // 2D 纹理
+viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;  // 颜色数据
+viewInfo.subresourceRange.levelCount = 1;      // mipmap 层级
+viewInfo.subresourceRange.layerCount = 1;      // 数组层数
+vkCreateImageView(vkContext->device, &viewInfo, 0, &vkContext->image.view);
+```
+
+**ImageView 是什么？**
+- 定义"如何查看/访问 Image"
+- Image 可能是 2D、3D、Cube Map
+- 可能只看某个 mipmap 层级
+- 可能只看某个颜色通道
+
+**为什么需要？**
+- GPU 需要知道纹理的类型（2D/3D/Cube）
+- 需要知道访问哪个 mipmap 层级
+- 需要知道访问哪个颜色通道（COLOR/DEPTH/STENCIL）
+
+**常见的 ImageView 类型：**
+
+| viewType | 用途 |
+|----------|------|
+| `IMAGE_VIEW_TYPE_2D` | 普通 2D 纹理 |
+| `IMAGE_VIEW_TYPE_3D` | 3D 纹理（体积数据） |
+| `IMAGE_VIEW_TYPE_CUBE` | 立方体纹理（天空盒、环境反射） |
+| `IMAGE_VIEW_TYPE_2D_ARRAY` | 纹理数组 |
+
+#### 步骤 2: 创建 Sampler
+
+```cpp
+VkSamplerCreateInfo samplerInfo = {};
+samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+samplerInfo.minFilter = VK_FILTER_NEAREST;  // 缩小过滤：最近邻
+samplerInfo.magFilter = VK_FILTER_NEAREST;  // 放大过滤：最近邻
+vkCreateSampler(vkContext->device, &samplerInfo, 0, &vkContext->sampler);
+```
+
+**Sampler 是什么？**
+- 定义"如何从纹理读取像素"
+- 控制纹理采样时的过滤方式
+
+**过滤模式对比：**
+
+| 过滤器 | 效果 | 用途 |
+|--------|------|------|
+| `NEAREST` | 像素化（马赛克） | 像素风格游戏 |
+| `LINEAR` | 平滑模糊 | 真实感渲染 |
+
+**视觉对比：**
+
+```
+NEAREST (最近邻):
+┌─────────┐
+│ ██ ████ │  清晰的像素块
+│ ██ ████ │
+│ ██ ████ │
+└─────────┘
+
+LINEAR (线性):
+┌─────────┐
+│ ▓▓░▓▓░▓ │  平滑过渡
+│ ░▓▓░▓▓░▓ │
+│ ▓▓░▓▓░▓▓ │
+└─────────┘
+```
+
+**为什么需要单独的 Sampler？**
+- 一个 Image 可以配合多个 Sampler 使用
+- 示例：同一张纹理，一个用 NEAREST（像素风），一个用 LINEAR（平滑）
+
+#### 步骤 3: 创建 DescriptorPool
+
+```cpp
+VkDescriptorPoolSize poolSize = {};
+poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;  // 组合图像采样器
+poolSize.descriptorCount = 1;  // 数量
+
+VkDescriptorPoolCreateInfo poolInfo = {};
+poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+poolInfo.maxSets = 1;  // 最多分配多少个 DescriptorSet
+poolInfo.poolSizeCount = 1;
+poolInfo.pPoolSizes = &poolSize;
+vkCreateDescriptorPool(vkContext->device, &poolInfo, 0, &vkContext->descPool);
+```
+
+**DescriptorPool 是什么？**
+- DescriptorSet 的内存池
+- 类比：CommandPool 管理命令缓冲区，DescriptorPool 管理描述符集
+
+**COMBINED_IMAGE_SAMPLER 含义：**
+- 同时包含 Image + Sampler
+- Shader 中绑定一次就可以同时使用两者
+- 比 UNIFORM_BUFFER 更灵活
+
+#### 步骤 4: 创建 DescriptorSet
+
+```cpp
+VkDescriptorSetAllocateInfo allocInfo = {};
+allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+allocInfo.pSetLayouts = &vkContext->setLayout;  // 使用之前创建的 SetLayout
+allocInfo.descriptorPool = vkContext->descPool; // 从哪个池分配
+allocInfo.descriptorSetCount = 1;
+vkAllocateDescriptorSets(vkContext->device, &allocInfo, &vkContext->descSet);
+```
+
+**DescriptorSet 是什么？**
+- 连接 Shader 和资源的"桥梁"
+- Shader 说"我需要一个纹理"，DescriptorSet 说"这是纹理"
+
+**SetLayout 是什么？**
+- 定义"Shader 需要什么资源"
+- 在创建 Pipeline 时创建
+- 包含 binding 位置和类型信息
+
+#### 步骤 5: 更新 DescriptorSet
+
+```cpp
+VkDescriptorImageInfo imgInfo = {};
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // 只读布局
+imgInfo.imageView = vkContext->image.view;  // 纹理视图
+imgInfo.sampler = vkContext->sampler;       // 采样器
+
+VkWriteDescriptorSet write = {};
+write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+write.dstSet = vkContext->descSet;         // 目标 DescriptorSet
+write.dstBinding = 0;                      // 绑定位置（对应 Shader 中的 binding = 0）
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+write.descriptorCount = 1;
+write.pImageInfo = &imgInfo;
+
+vkUpdateDescriptorSets(vkContext->device, 1, &write, 0, 0);
+```
+
+**这步做什么？**
+- 把 ImageView + Sampler 写入 DescriptorSet
+- 让 Shader 可以访问纹理
+
+**为什么需要 update？**
+- DescriptorSet 创建时是空的
+- 需要通过 update 来填充数据
+- update 一次性写入，之后可以重复使用
+
+#### Shader 中的对应关系
+
+```glsl
+// Fragment Shader
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+//                         ↑
+//                    对应 dstBinding = 0
+
+void main() {
+    vec4 color = texture(texSampler, uv);
+    //                       ↑
+    //              通过 DescriptorSet 访问纹理
+}
+```
+
+#### 完整关系图
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Shader 端                                           │
+│ layout(set=0, binding=0) sampler2D texSampler;     │
+└─────────────────────────────────────────────────────┘
+                        ↑
+                        │ 绑定
+                        │
+┌─────────────────────────────────────────────────────┐
+│ Vulkan 端                                          │
+│                                                    │
+│  DescriptorSet (桥梁)                             │
+│  ┌─────────────────────────────────────┐          │
+│  │ binding = 0:                        │          │
+│  │   - ImageView (纹理视图)            │          │
+│  │   - Sampler (采样方式)              │          │
+│  └─────────────────────────────────────┘          │
+│           │                       │                │
+│           ↓                       ↓                │
+│     VkImage (数据)         VkSampler (过滤)       │
+│     (RGBA 像素)            (NEAREST/LINEAR)       │
+└─────────────────────────────────────────────────────┘
+```
+
+#### 创建流程图
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ 1. 创建 ImageView                                            │
+│    vkCreateImageView(...)                                    │
+│    └─ 定义如何访问 Image（2D、mipmap 层级等）               │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 2. 创建 Sampler                                              │
+│    vkCreateSampler(...)                                      │
+│    └─ 定义采样方式（NEAREST/LINEAR 过滤）                    │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 3. 创建 DescriptorPool                                       │
+│    vkCreateDescriptorPool(...)                               │
+│    └─ 管理 DescriptorSet 的内存池                            │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 4. 创建 DescriptorSet                                        │
+│    vkAllocateDescriptorSets(...)                             │
+│    └─ 从池中分配 DescriptorSet（桥梁）                       │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│ 5. 更新 DescriptorSet                                        │
+│    vkUpdateDescriptorSets(...)                               │
+│    └─ 把 ImageView + Sampler 写入 DescriptorSet              │
+└──────────────────────────────────────────────────────────────┘
+                              ↓
+                        Shader 可以使用纹理
+```
+
+#### 常见错误
+
+**错误 1：忘记布局转换**
+```cpp
+// ❌ 错误：Image 还是 UNDEFINED 布局
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+// ✅ 正确：先转换为 SHADER_READ_ONLY_OPTIMAL
+transition_image_layout(..., SHADER_READ_ONLY_OPTIMAL);
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+```
+
+**错误 2：binding 不匹配**
+```cpp
+// Shader: binding = 0
+layout(set=0, binding=0) sampler2D tex;
+
+// Vulkan: write.dstBinding = 1 ❌
+write.dstBinding = 1;  // 不匹配！
+
+// ✅ 正确：binding 必须一致
+write.dstBinding = 0;
+```
+
+**错误 3：DescriptorType 不匹配**
+```cpp
+// Shader: sampler2D (COMBINED_IMAGE_SAMPLER)
+layout(set=0, binding=0) sampler2D tex;
+
+// Vulkan: UNIFORM_BUFFER ❌
+write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+// ✅ 正确：使用 COMBINED_IMAGE_SAMPLER
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+```
+
+#### 为什么这么复杂？
+
+Vulkan 的设计哲学：**显式、可控、高效**
+
+```
+OpenGL:
+glBindTexture(GL_TEXTURE_2D, tex);  // 一行搞定，但隐藏了很多细节
+
+Vulkan:
+创建 Image → 创建 ImageView → 创建 Sampler
+→ 创建 DescriptorPool → 创建 DescriptorSet → 更新
+// 麻烦，但每一步都清晰可控
+```
+
+**优势：**
+1. **性能优化**：驱动可以提前知道所有资源使用方式
+2. **多线程友好**：资源绑定可以在渲染前完成
+3. **灵活性**：一个 DescriptorSet 可以包含多个资源
+
+#### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **ImageView** | 定义如何访问 Image（类型、mipmap、图层） |
+| **Sampler** | 定义采样方式（NEAREST/LINEAR 过滤） |
+| **DescriptorPool** | DescriptorSet 的内存池 |
+| **DescriptorSet** | 连接 Shader 和资源的桥梁 |
+| **SetLayout** | 定义 Shader 需要什么资源（在 Pipeline 创建时定义） |
+| **COMBINED_IMAGE_SAMPLER** | 同时包含 Image + Sampler 的描述符类型 |
+| **SHADER_READ_ONLY_OPTIMAL** | Shader 采样纹理时的正确布局 |
 
 ---
 
