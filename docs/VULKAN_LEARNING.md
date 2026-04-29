@@ -3619,6 +3619,291 @@ Vulkan:
 2. **多线程友好**：资源绑定可以在渲染前完成
 3. **灵活性**：一个 DescriptorSet 可以包含多个资源
 
+#### 绑定描述符集：`vkCmdBindDescriptorSets`
+
+创建并更新好 DescriptorSet 后，需要在命令缓冲区中绑定它，才能让着色器访问资源。
+
+##### 函数签名
+
+```cpp
+void vkCmdBindDescriptorSets(
+    VkCommandBuffer commandBuffer,           // 命令缓冲区
+    VkPipelineBindPoint pipelineBindPoint,   // 绑定点（图形/计算）
+    VkPipelineLayout layout,                 // 管线布局
+    uint32_t firstSet,                       // 第一个描述符集索引
+    uint32_t descriptorSetCount,             // 描述符集数量
+    const VkDescriptorSet* pDescriptorSets,  // 描述符集数组
+    uint32_t dynamicOffsetCount,             // 动态偏移数量
+    const uint32_t* pDynamicOffsets          // 动态偏移数组
+);
+```
+
+##### 参数详解
+
+| 参数 | 类型 | 含义 |
+|------|------|------|
+| `commandBuffer` | `VkCommandBuffer` | 记录命令的目标缓冲区 |
+| `pipelineBindPoint` | `VkPipelineBindPoint` | `GRAPHICS`（图形）或 `COMPUTE`（计算） |
+| `layout` | `VkPipelineLayout` | 创建管线时使用的布局（定义描述符集布局） |
+| `firstSet` | `uint32_t` | 描述符集起始索引，对应着色器中的 `set = N` |
+| `descriptorSetCount` | `uint32_t` | 要绑定的描述符集数量 |
+| `pDescriptorSets` | `VkDescriptorSet[]` | 描述符集数组指针 |
+| `dynamicOffsetCount` | `uint32_t` | 动态偏移数量（用于动态 uniform buffer） |
+| `pDynamicOffsets` | `uint32_t[]` | 动态偏移数组 |
+
+##### 代码示例
+
+```cpp
+// 绑定描述符集到图形管线
+vkCmdBindDescriptorSets(
+    cmd,                                    // 命令缓冲区
+    VK_PIPELINE_BIND_POINT_GRAPHICS,       // 图形管线
+    vkContext->pipeLayout,                 // 管线布局
+    0,                                      // set = 0
+    1,                                      // 绑定 1 个描述符集
+    &vkContext->descSet,                    // 描述符集指针
+    0,                                      // 不使用动态偏移
+    0                                       //
+);
+```
+
+##### 着色器对应关系
+
+```glsl
+// 着色器中声明
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+//        ↑
+//        对应 firstSet = 0
+```
+
+##### 类比理解
+
+```
+DescriptorSet = 资源的工具箱
+绑定操作    = 把工具箱放到工作台上
+绘制调用    = 工人使用工具箱里的工具工作
+```
+
+##### 多个描述符集绑定
+
+```cpp
+// 同时绑定多个描述符集
+VkDescriptorSet sets[] = { descriptorSet0, descriptorSet1 };
+vkCmdBindDescriptorSets(
+    cmd,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    pipelineLayout,
+    0,              // 从 set = 0 开始
+    2,              // 绑定 2 个描述符集（set 0 和 set 1）
+    sets,
+    0, nullptr
+);
+```
+
+##### 本项目使用
+
+在 [vk_renderer.cpp:783](../src/renderer/vk_renderer.cpp#L783) 的渲染循环中绑定描述符集：
+
+```cpp
+vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                        vkContext->pipeLayout, 0, 1,
+                        &vkContext->descSet, 0, 0);
+```
+
+这使得顶点/片段着色器可以访问绑定的纹理资源。
+
+##### 关键要点
+
+- **绑定时机**：必须在绘制调用（`vkCmdDraw*`）之前
+- **绑定范围**：一次绑定影响之后的所有绘制调用，直到再次绑定或命令缓冲区结束
+- **管线布局**：必须与创建管线时使用的布局一致
+- **线程安全**：可以在不同线程的命令缓冲区中同时绑定
+
+---
+
+### 实例化渲染与着色器对应关系
+
+本项目使用**实例化渲染**（Instanced Rendering）技术，通过一次绘制调用渲染多个实体。以下详细说明 C++ 代码与着色器的对应关系。
+
+#### C++ 端：描述符集布局定义
+
+在 [vk_renderer_cakezz.cpp:331](../src/renderer/vk_renderer_cakezz.cpp#L331) 中定义描述符集布局：
+
+```cpp
+VkDescriptorSetLayoutBinding layoutBindings[] = {
+    // binding 0: 顶点着色器 - 全局 Uniform Buffer
+    layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 0),
+    
+    // binding 1: 顶点着色器 - 变换 Storage Buffer
+    layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 1),
+    
+    // binding 2: 片段着色器 - 纹理采样器
+    layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 2)
+};
+```
+
+#### 着色器端：资源声明
+
+在 [shader.vert](../assets/shaders/shader.vert) 中对应的声明：
+
+```glsl
+// binding 0: 全局 Uniform Buffer（屏幕尺寸）
+layout(set = 0, binding = 0) uniform GlobalUBO
+{
+    GlobalData globalData;  // 包含 screenSizeX, screenSizeY
+};
+
+// binding 1: 变换 Storage Buffer（实例变换数组）
+layout(set = 0, binding = 1) readonly buffer Transforms
+{
+    Transform transforms[];
+};
+
+// 获取当前实例的变换数据
+Transform transform = transforms[gl_InstanceIndex];
+```
+
+#### 声明对应关系表
+
+| C++ 端参数 | 着色器端声明 | 用途 |
+|-----------|-------------|------|
+| `binding = 0`<br>`UNIFORM_BUFFER`<br>`VERTEX_BIT` | `layout(set = 0, binding = 0) uniform GlobalUBO` | 屏幕尺寸（全局数据） |
+| `binding = 1`<br>`STORAGE_BUFFER`<br>`VERTEX_BIT` | `layout(set = 0, binding = 1) readonly buffer Transforms` | 实体变换数组（可变长） |
+| `binding = 2`<br>`COMBINED_IMAGE_SAMPLER`<br>`FRAGMENT_BIT` | `layout(set = 0, binding = 2) uniform sampler2D tex` | 纹理贴图 |
+
+#### 顶点着色器工作流程
+
+##### 1. 构建矩形的四个顶点
+
+```glsl
+vec4 vertices[4] = {
+    // Top Left     (x, y,            u, v)
+    vec4(transform.xPos, transform.yPos,                       0.0, 0.0),
+    
+    // Bottom Left  (x, y + height,   u, v)
+    vec4(transform.xPos, transform.yPos + transform.sizeY,     0.0, 1.0),
+    
+    // Bottom Right (x + w, y + h,    u, v)
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    
+    // Top Right    (x + w, y,        u, v)
+    vec4(transform.xPos + transform.sizeX, transform.yPos,     1.0, 0.0),
+};
+```
+
+**顶点布局**：
+```
+    0 (TL) ─────────────── 3 (TR)
+      │                      │
+      │     矩形实体         │
+      │                      │
+    1 (BL) ─────────────── 2 (BR)
+
+每个顶点: vec4(x, y, u, v)
+          └─ 位置 ─┘ └─ UV ─┘
+```
+
+##### 2. 像素坐标转 NDC 坐标
+
+```glsl
+void main()
+{
+    // 像素坐标 → NDC 坐标 (-1 到 +1)
+    vec2 normalizedPos = 2.0 * vec2(
+        vertices[gl_VertexIndex].x / globalData.screenSizeX,
+        vertices[gl_VertexIndex].y / globalData.screenSizeY
+    ) - 1.0;
+    
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
+    uv = vertices[gl_VertexIndex].zw;  // 传递 UV 给片段着色器
+}
+```
+
+#### 实例化渲染机制
+
+##### `gl_InstanceIndex` 的作用
+
+```
+一次绘制调用，渲染多个实体：
+
+vkCmdDrawIndexed(cmd, 6, MAX_ENTITIES, 0, 0, 0);
+                         ↑
+                    实例数量
+
+实例 0: gl_InstanceIndex = 0 → transforms[0] → 球拍 A
+实例 1: gl_InstanceIndex = 1 → transforms[1] → 球拍 B  
+实例 2: gl_InstanceIndex = 2 → transforms[2] → 球
+...
+```
+
+##### `gl_VertexIndex` 的作用
+
+```
+每个实例绘制 6 个顶点（2 个三角形，使用索引缓冲区）：
+
+索引缓冲区: {0, 1, 2, 2, 3, 0}
+
+gl_VertexIndex: 0, 1, 2, 2, 3, 0
+                ↓  ↓  ↓  ↓  ↓  ↓
+vertices[]:     0  1  2  2  3  0  ← 数组索引
+                └── 第一个三角形 ──┘ └─ 第二个 ─┘
+```
+
+#### 完整数据流
+
+```
+C++ 端：
+┌─────────────────────────────────────────────────────────┐
+│ // 创建变换存储缓冲区                                   │
+│ vk_allocate_buffer(sizeof(Transform) * MAX_ENTITIES,   │
+│                  STORAGE_BUFFER_BIT, ...)              │
+│                                                         │
+│ // 复制变换数据到缓冲区                                 │
+│ vk_copy_to_buffer(transformStorageBuffer, transforms,  │
+│                   sizeof(Transform) * entityCount);    │
+└─────────────────────────────────────────────────────────┘
+                          ↓ Vulkan Driver
+着色器端：
+┌─────────────────────────────────────────────────────────┐
+│ layout(binding = 1) readonly buffer Transforms {        │
+│     Transform transforms[];                             │
+│ };                                                      │
+│                                                         │
+│ Transform t = transforms[gl_InstanceIndex];            │
+│ vec4 vertices[4] = { ... 使用 t 的位置和尺寸 ... };    │
+│ gl_Position = 使用 vertices[gl_VertexIndex];           │
+└─────────────────────────────────────────────────────────┘
+                          ↓ GPU 光栅化
+片段着色器：
+┌─────────────────────────────────────────────────────────┐
+│ vec4 color = texture(texSampler, uv);                   │
+│ fragColor = color;                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 为什么使用实例化渲染？
+
+| 方式 | 绘制调用次数 | 性能 | 适用场景 |
+|------|-------------|------|----------|
+| **传统绘制** | N 次（每个实体一次） | 低 | 实体数量少、变换复杂 |
+| **实例化渲染** | 1 次（所有实体） | 高 | 大量相同几何体、不同变换 |
+
+**本项目使用场景**：
+- Pong 游戏的球拍、球等实体都是矩形（相同几何体）
+- 每个实体只需要不同的位置和尺寸（不同变换）
+- 完美适合实例化渲染
+
+#### 关键要点总结
+
+| 概念 | 说明 |
+|------|------|
+| **binding = 0** | Uniform Buffer：存储全局数据（屏幕尺寸） |
+| **binding = 1** | Storage Buffer：存储实例变换数组 |
+| **gl_InstanceIndex** | 当前实例索引，用于获取对应变换数据 |
+| **gl_VertexIndex** | 当前顶点索引（0-5），用于选择顶点 |
+| **实例化渲染** | 一次绘制调用渲染多个实体，每个实例使用不同的变换 |
+| **索引缓冲区** | `{0,1,2,2,3,0}` 定义矩形的两个三角形 |
+
 #### 关键要点总结
 
 | 要点 | 说明 |
