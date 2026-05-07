@@ -305,6 +305,52 @@ vkCreateCommandPool(device, &poolInfo, 0, &commandPool);
 | `TRANSIENT_BIT` | 短生命周期 | 每帧重新录制的命令 |
 | `RESET_COMMAND_BUFFER_BIT` | 允许单独重置 | 需要频繁重录单个缓冲区 |
 
+#### `RESET_COMMAND_BUFFER_BIT` 详解
+
+##### 标志含义
+
+`VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT` 允许从该命令池分配的命令缓冲区被**单独重置**。
+
+##### 两种重置模式对比
+
+| 特性 | 设置此标志 | 不设置（默认） |
+|------|-----------|---------------|
+| **可用 API** | `vkResetCommandBuffer()` | `vkResetCommandPool()` |
+| **重置粒度** | 单个命令缓冲区 | 整个命令池（所有缓冲区） |
+| **灵活性** | ✅ 高（按需重置） | ❌ 低（批量重置） |
+| **性能** | 可能有额外开销 | 更高效 |
+
+##### 代码示例
+
+```cpp
+// 创建命令池时设置标志
+vk::CommandPoolCreateInfo poolInfo{
+    vk::CommandPoolCreateFlags{
+        vk::CommandPoolCreateFlagBits::eResetCommandBuffer  // 允许单独重置
+    },
+    queueFamilyIndex
+};
+```
+
+##### 使用场景
+
+1. **每帧渲染循环** - 需要每帧重新录制命令
+2. **多缓冲区系统** - 不同缓冲区独立重置
+3. **动态命令录制** - 根据场景变化选择性重录
+
+##### 本项目使用情况
+
+在 [vk_renderer.cpp:352](../src/renderer/vk_renderer.cpp#L352) 中创建命令池时使用了此标志：
+
+```cpp
+vk::CommandPoolCreateInfo poolInfo(
+    vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+    queueFamilyIndex
+);
+```
+
+这意味着渲染器支持**按需重置**单个命令缓冲区，适合需要每帧重新录制命令的实时渲染场景。
+
 #### 命令池 vs 命令缓冲区
 
 | 特性 | 命令池 | 命令缓冲区 |
@@ -1839,6 +1885,200 @@ vec3 ndc = gl_Position.xyz / gl_Position.w;
 - 即使 `w = 1.0` 时数值相等，`gl_Position` **仍然是裁剪坐标**，不是 NDC 坐标
 - GPU 会自动执行透视除法，将裁剪坐标转换为 NDC 坐标
 - 这是图形管线的固定功能阶段
+
+#### 齐次坐标 (Homogeneous Coordinates)
+
+齐次坐标是计算机图形学的核心概念，用 **4 个分量 (x, y, z, w)** 表示 3D 空间中的点。
+
+**为什么需要 w 分量？**
+
+核心原因：表示"无穷远"和实现透视投影。
+
+**从笛卡尔坐标到齐次坐标：**
+
+```
+笛卡尔坐标 (x, y, z)
+    ↓ 扩展
+齐次坐标 (x·w, y·w, z·w, w)
+    ↓ 透视除法
+笛卡尔坐标 = (x·w, y·w, z·w) / w = (x, y, z)
+```
+
+**关键特性：多个齐次坐标对应同一个笛卡尔坐标**
+
+| 笛卡尔坐标 | 齐次坐标 | w 值 |
+|-----------|----------|------|
+| `(1, 2, 3)` | `(1, 2, 3, 1)` | w = 1 |
+| `(1, 2, 3)` | `(2, 4, 6, 2)` | w = 2 |
+| `(1, 2, 3)` | `(0.5, 1, 1.5, 0.5)` | w = 0.5 |
+| **方向** | `(1, 0, 0, 0)` | **w = 0（无穷远）** |
+
+**w 分量的含义：**
+
+| w 值 | 含义 | 用途 |
+|------|------|------|
+| **w = 1** | 普通点 | 2D 渲染、无透视变换 |
+| **w ≠ 1** | 透视缩放 | 3D 透视投影 |
+| **w = 0** | 方向/无穷远 | 光照方向、法向量 |
+
+**w = 0 的特殊含义：**
+
+```glsl
+// 普通点（位置）
+vec4 point = vec4(1.0, 2.0, 3.0, 1.0);
+// 透视除法: (1, 2, 3) / 1 = (1, 2, 3) ✓ 普通点
+
+// 方向（向量）
+vec4 direction = vec4(1.0, 0.0, 0.0, 0.0);
+// 透视除法: (1, 0, 0) / 0 = (∞, 0, 0) ✗ 无穷大
+//            → 表示 x 轴正方向，用于光照计算
+```
+
+**几何直觉：**
+
+```
+      4D 齐次空间
+          .
+         /|\
+        / | \
+       /  |  \
+      /   |   \
+     /    |    \
+    |     |     |
+    |  投影平面  |
+    |   (3D)    |
+    |____________|
+        3D 观察者
+
+4D 齐次坐标 → 投影到 3D 空间（除以 w）
+```
+
+**透视投影中的应用（最重要的用途）：**
+
+问题：近大远小的透视效果如何实现？
+
+解决方案：用 w 分量存储深度信息！
+
+```glsl
+// 3D 场景中的点
+vec3 point = vec3(10.0, 20.0, -50.0);  // 远处的点
+
+// 透视投影矩阵变换
+vec4 clipSpace = projectionMatrix * vec4(point, 1.0);
+// 结果: vec4(-5.0, -10.0, 50.0, 50.0)
+//                               ↑
+//                               w = 50.0 (深度信息)
+
+// GPU 透视除法
+vec3 ndc = clipSpace.xyz / clipSpace.w;
+//     = vec3(-5.0, -10.0, 50.0) / 50.0
+//     = vec3(-0.1, -0.2, 1.0)
+//            ↑
+//        远处的点被"压缩"到中心
+```
+
+**视觉效果对比：**
+
+```
+没有透视 (w = 1):    有透视 (w 随深度变化):
+    /                   |
+   /                   /  ← 远处更密集
+  /                   /
+ /                   /
+/___________________  /_______________
+平行线               透视线（远处汇聚）
+```
+
+**平移变换需要 w 分量：**
+
+为什么用 4x4 矩阵而不是 3x3？因为需要 w 分量来表示平移！
+
+```glsl
+// 3x3 矩阵（只能旋转和缩放）
+mat3 rotation = ...;
+vec3 result = rotation * vec3(1, 2, 3);
+// ✗ 无法实现平移！
+
+// 4x4 齐次坐标矩阵
+mat4 transform = ...;
+vec4 result = transform * vec4(1, 2, 3, 1);
+// ✓ 可以表示：旋转 + 缩放 + 平移
+```
+
+**4x4 平移矩阵示例：**
+```
+| 1 0 0 tx |   | x |   | x + tx |
+| 0 1 0 ty | × | y | = | y + ty |
+| 0 0 1 tz |   | z |   | z + tz |
+| 0 0 0 1  |   | w |   |    w    |
+                       ↑
+                    w 保持不变，保证线性性
+```
+
+**2D 渲染时 w = 1：**
+
+```glsl
+gl_Position = vec4(position, 0.0, 1.0);
+//                                     ↑
+//                                     w = 1.0
+
+// 透视除法
+ndc = position.xyz / 1.0 = position.xyz;
+//                   ↑
+//              数值不变
+```
+
+**为什么 2D 还要 w = 1？**
+- 统一使用 4x4 矩阵（与 3D 管线兼容）
+- 可以实现平移变换
+- 方便扩展到 3D
+
+**完整示例：透视投影流程**
+
+```glsl
+// 顶点着色器
+uniform mat4 projection;
+uniform mat4 view;
+uniform mat4 model;
+
+void main() {
+    vec4 worldPos = model * vec4(position, 1.0);
+    vec4 viewPos = view * worldPos;
+    vec4 clipPos = projection * viewPos;
+    
+    gl_Position = clipPos;
+    // 可能的结果: vec4(-0.5, 1.0, -2.0, 2.0)
+    //                                ↑
+    //                                w = 2.0
+}
+
+// GPU 自动执行透视除法
+ndc = gl_Position.xyz / gl_Position.w;
+//    = vec3(-0.5, 1.0, -2.0) / 2.0
+//    = vec3(-0.25, 0.5, -1.0)
+```
+
+**常见问题：**
+
+**Q1: 为什么不用深度 z 分量来做透视除法？**
+- A: 因为 z 已经用于表示深度了，不能用它来做透视缩放。w 分量专门负责这个工作。
+
+**Q2: w 可以是负数吗？**
+- A: 可以！负 w 表示点在视锥体后面（裁剪空间范围 `[-w, w]` 仍然成立）。
+
+**Q3: 如果 w = 0 会导致除以零吗？**
+- A: 不会，GPU 硬件特殊处理 w = 0 的情况，用于表示方向向量。
+
+**总结公式：**
+```
+笛卡尔坐标 = 齐次坐标.xyz / w
+```
+
+**关键要点：**
+- 齐次坐标是 4D 空间中的点
+- 透视除法将它投影回 3D 空间
+- w 分量控制透视缩放效果
+- w = 0 表示无穷远/方向
 
 #### 坐标系统（Vulkan NDC）
 ```
@@ -3379,6 +3619,499 @@ Vulkan:
 2. **多线程友好**：资源绑定可以在渲染前完成
 3. **灵活性**：一个 DescriptorSet 可以包含多个资源
 
+#### 绑定描述符集：`vkCmdBindDescriptorSets`
+
+创建并更新好 DescriptorSet 后，需要在命令缓冲区中绑定它，才能让着色器访问资源。
+
+##### 函数签名
+
+```cpp
+void vkCmdBindDescriptorSets(
+    VkCommandBuffer commandBuffer,           // 命令缓冲区
+    VkPipelineBindPoint pipelineBindPoint,   // 绑定点（图形/计算）
+    VkPipelineLayout layout,                 // 管线布局
+    uint32_t firstSet,                       // 第一个描述符集索引
+    uint32_t descriptorSetCount,             // 描述符集数量
+    const VkDescriptorSet* pDescriptorSets,  // 描述符集数组
+    uint32_t dynamicOffsetCount,             // 动态偏移数量
+    const uint32_t* pDynamicOffsets          // 动态偏移数组
+);
+```
+
+##### 参数详解
+
+| 参数 | 类型 | 含义 |
+|------|------|------|
+| `commandBuffer` | `VkCommandBuffer` | 记录命令的目标缓冲区 |
+| `pipelineBindPoint` | `VkPipelineBindPoint` | `GRAPHICS`（图形）或 `COMPUTE`（计算） |
+| `layout` | `VkPipelineLayout` | 创建管线时使用的布局（定义描述符集布局） |
+| `firstSet` | `uint32_t` | 描述符集起始索引，对应着色器中的 `set = N` |
+| `descriptorSetCount` | `uint32_t` | 要绑定的描述符集数量 |
+| `pDescriptorSets` | `VkDescriptorSet[]` | 描述符集数组指针 |
+| `dynamicOffsetCount` | `uint32_t` | 动态偏移数量（用于动态 uniform buffer） |
+| `pDynamicOffsets` | `uint32_t[]` | 动态偏移数组 |
+
+##### 代码示例
+
+```cpp
+// 绑定描述符集到图形管线
+vkCmdBindDescriptorSets(
+    cmd,                                    // 命令缓冲区
+    VK_PIPELINE_BIND_POINT_GRAPHICS,       // 图形管线
+    vkContext->pipeLayout,                 // 管线布局
+    0,                                      // set = 0
+    1,                                      // 绑定 1 个描述符集
+    &vkContext->descSet,                    // 描述符集指针
+    0,                                      // 不使用动态偏移
+    0                                       //
+);
+```
+
+##### 着色器对应关系
+
+```glsl
+// 着色器中声明
+layout(set = 0, binding = 0) uniform sampler2D texSampler;
+//        ↑
+//        对应 firstSet = 0
+```
+
+##### 类比理解
+
+```
+DescriptorSet = 资源的工具箱
+绑定操作    = 把工具箱放到工作台上
+绘制调用    = 工人使用工具箱里的工具工作
+```
+
+##### 多个描述符集绑定
+
+```cpp
+// 同时绑定多个描述符集
+VkDescriptorSet sets[] = { descriptorSet0, descriptorSet1 };
+vkCmdBindDescriptorSets(
+    cmd,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    pipelineLayout,
+    0,              // 从 set = 0 开始
+    2,              // 绑定 2 个描述符集（set 0 和 set 1）
+    sets,
+    0, nullptr
+);
+```
+
+##### 本项目使用
+
+在 [vk_renderer.cpp:783](../src/renderer/vk_renderer.cpp#L783) 的渲染循环中绑定描述符集：
+
+```cpp
+vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                        vkContext->pipeLayout, 0, 1,
+                        &vkContext->descSet, 0, 0);
+```
+
+这使得顶点/片段着色器可以访问绑定的纹理资源。
+
+##### 关键要点
+
+- **绑定时机**：必须在绘制调用（`vkCmdDraw*`）之前
+- **绑定范围**：一次绑定影响之后的所有绘制调用，直到再次绑定或命令缓冲区结束
+- **管线布局**：必须与创建管线时使用的布局一致
+- **线程安全**：可以在不同线程的命令缓冲区中同时绑定
+
+---
+
+### 实例化渲染与着色器对应关系
+
+本项目使用**实例化渲染**（Instanced Rendering）技术，通过一次绘制调用渲染多个实体。以下详细说明 C++ 代码与着色器的对应关系。
+
+#### C++ 端：描述符集布局定义
+
+在 [vk_renderer_cakezz.cpp:331](../src/renderer/vk_renderer_cakezz.cpp#L331) 中定义描述符集布局：
+
+```cpp
+VkDescriptorSetLayoutBinding layoutBindings[] = {
+    // binding 0: 顶点着色器 - 全局 Uniform Buffer
+    layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 0),
+    
+    // binding 1: 顶点着色器 - 变换 Storage Buffer
+    layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 1),
+    
+    // binding 2: 片段着色器 - 纹理采样器
+    layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 2)
+};
+```
+
+#### 着色器端：资源声明
+
+在 [shader.vert](../assets/shaders/shader.vert) 中对应的声明：
+
+```glsl
+// binding 0: 全局 Uniform Buffer（屏幕尺寸）
+layout(set = 0, binding = 0) uniform GlobalUBO
+{
+    GlobalData globalData;  // 包含 screenSizeX, screenSizeY
+};
+
+// binding 1: 变换 Storage Buffer（实例变换数组）
+layout(set = 0, binding = 1) readonly buffer Transforms
+{
+    Transform transforms[];
+};
+
+// 获取当前实例的变换数据
+Transform transform = transforms[gl_InstanceIndex];
+```
+
+#### 声明对应关系表
+
+| C++ 端参数 | 着色器端声明 | 用途 |
+|-----------|-------------|------|
+| `binding = 0`<br>`UNIFORM_BUFFER`<br>`VERTEX_BIT` | `layout(set = 0, binding = 0) uniform GlobalUBO` | 屏幕尺寸（全局数据） |
+| `binding = 1`<br>`STORAGE_BUFFER`<br>`VERTEX_BIT` | `layout(set = 0, binding = 1) readonly buffer Transforms` | 实体变换数组（可变长） |
+| `binding = 2`<br>`COMBINED_IMAGE_SAMPLER`<br>`FRAGMENT_BIT` | `layout(set = 0, binding = 2) uniform sampler2D tex` | 纹理贴图 |
+
+#### 顶点着色器工作流程
+
+##### 1. 构建矩形的四个顶点
+
+```glsl
+vec4 vertices[4] = {
+    // Top Left     (x, y,            u, v)
+    vec4(transform.xPos, transform.yPos,                       0.0, 0.0),
+    
+    // Bottom Left  (x, y + height,   u, v)
+    vec4(transform.xPos, transform.yPos + transform.sizeY,     0.0, 1.0),
+    
+    // Bottom Right (x + w, y + h,    u, v)
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    
+    // Top Right    (x + w, y,        u, v)
+    vec4(transform.xPos + transform.sizeX, transform.yPos,     1.0, 0.0),
+};
+```
+
+**顶点布局**：
+```
+    0 (TL) ─────────────── 3 (TR)
+      │                      │
+      │     矩形实体         │
+      │                      │
+    1 (BL) ─────────────── 2 (BR)
+
+每个顶点: vec4(x, y, u, v)
+          └─ 位置 ─┘ └─ UV ─┘
+```
+
+##### 2. 像素坐标转 NDC 坐标
+
+```glsl
+void main()
+{
+    // 像素坐标 → NDC 坐标 (-1 到 +1)
+    vec2 normalizedPos = 2.0 * vec2(
+        vertices[gl_VertexIndex].x / globalData.screenSizeX,
+        vertices[gl_VertexIndex].y / globalData.screenSizeY
+    ) - 1.0;
+    
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
+    uv = vertices[gl_VertexIndex].zw;  // 传递 UV 给片段着色器
+}
+```
+
+#### 实例化渲染机制
+
+##### `gl_InstanceIndex` 的作用
+
+```
+一次绘制调用，渲染多个实体：
+
+vkCmdDrawIndexed(cmd, 6, MAX_ENTITIES, 0, 0, 0);
+                         ↑
+                    实例数量
+
+实例 0: gl_InstanceIndex = 0 → transforms[0] → 球拍 A
+实例 1: gl_InstanceIndex = 1 → transforms[1] → 球拍 B  
+实例 2: gl_InstanceIndex = 2 → transforms[2] → 球
+...
+```
+
+##### `gl_VertexIndex` 的作用
+
+```
+每个实例绘制 6 个顶点（2 个三角形，使用索引缓冲区）：
+
+索引缓冲区: {0, 1, 2, 2, 3, 0}
+
+gl_VertexIndex: 0, 1, 2, 2, 3, 0
+                ↓  ↓  ↓  ↓  ↓  ↓
+vertices[]:     0  1  2  2  3  0  ← 数组索引
+                └── 第一个三角形 ──┘ └─ 第二个 ─┘
+```
+
+#### 完整数据流
+
+```
+C++ 端：
+┌─────────────────────────────────────────────────────────┐
+│ // 创建变换存储缓冲区                                   │
+│ vk_allocate_buffer(sizeof(Transform) * MAX_ENTITIES,   │
+│                  STORAGE_BUFFER_BIT, ...)              │
+│                                                         │
+│ // 复制变换数据到缓冲区                                 │
+│ vk_copy_to_buffer(transformStorageBuffer, transforms,  │
+│                   sizeof(Transform) * entityCount);    │
+└─────────────────────────────────────────────────────────┘
+                          ↓ Vulkan Driver
+着色器端：
+┌─────────────────────────────────────────────────────────┐
+│ layout(binding = 1) readonly buffer Transforms {        │
+│     Transform transforms[];                             │
+│ };                                                      │
+│                                                         │
+│ Transform t = transforms[gl_InstanceIndex];            │
+│ vec4 vertices[4] = { ... 使用 t 的位置和尺寸 ... };    │
+│ gl_Position = 使用 vertices[gl_VertexIndex];           │
+└─────────────────────────────────────────────────────────┘
+                          ↓ GPU 光栅化
+片段着色器：
+┌─────────────────────────────────────────────────────────┐
+│ vec4 color = texture(texSampler, uv);                   │
+│ fragColor = color;                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 为什么使用实例化渲染？
+
+| 方式 | 绘制调用次数 | 性能 | 适用场景 |
+|------|-------------|------|----------|
+| **传统绘制** | N 次（每个实体一次） | 低 | 实体数量少、变换复杂 |
+| **实例化渲染** | 1 次（所有实体） | 高 | 大量相同几何体、不同变换 |
+
+**本项目使用场景**：
+- Pong 游戏的球拍、球等实体都是矩形（相同几何体）
+- 每个实体只需要不同的位置和尺寸（不同变换）
+- 完美适合实例化渲染
+
+---
+
+### 索引缓冲区（Index Buffer）详解
+
+#### 什么是索引缓冲区？
+
+**索引缓冲区** 是一个存储顶点索引的缓冲区，告诉 GPU "按什么顺序连接顶点来绘制图形"。
+
+#### 为什么需要索引缓冲区？
+
+##### 问题：绘制一个矩形需要什么？
+
+```
+    0 ──────── 3
+    │ \       │
+    │   \     │
+    │     \   │
+    │       \ │
+    1 ──────── 2
+    
+矩形 = 两个三角形：
+  三角形 A: 顶点 0, 1, 2
+  三角形 B: 顶点 0, 2, 3
+```
+
+---
+
+##### 方式 1：不使用索引缓冲区（重复顶点）
+
+```glsl
+// 着色器：定义 6 个顶点（有重复）
+vec4 vertices[6] = {
+    /* 0 */ vec4(...),  // 左上
+    /* 1 */ vec4(...),  // 左下
+    /* 2 */ vec4(...),  // 右下
+    /* 3 */ vec4(...),  // 右下 ← 重复！
+    /* 4 */ vec4(...),  // 右上
+    /* 5 */ vec4(...)   // 左上 ← 重复！
+};
+```
+
+**问题**：
+- 顶点 0 和 2 各重复定义了一次
+- 浪费着色器计算和内存
+- 对于复杂 3D 模型，重复率会更高
+
+---
+
+##### 方式 2：使用索引缓冲区（复用顶点）
+
+```glsl
+// 着色器：只定义 4 个顶点（无重复）
+vec4 vertices[4] = {
+    /* 0 */ vec4(...),  // 左上
+    /* 1 */ vec4(...),  // 左下
+    /* 2 */ vec4(...),  // 右下
+    /* 3 */ vec4(...)   // 右上
+};
+```
+
+```cpp
+// C++ 端：创建索引缓冲区
+uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+//                        三角形A ↑  ↑ 三角形B
+
+vkcontext->indexBuffer = vk_allocate_buffer(
+    ...,
+    sizeof(uint32_t) * 6,
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,  // 标记为索引缓冲区
+    ...
+);
+vk_copy_to_buffer(&vkcontext->indexBuffer, &indices, sizeof(indices));
+```
+
+**优势**：
+- 只定义 4 个顶点
+- 通过索引引用，复用顶点 0 和 2
+- 节省内存和计算资源
+
+---
+
+#### 两种方式对比
+
+| 方面 | 不使用索引 | 使用索引 |
+|------|-----------|---------|
+| **顶点数量** | 6 个（有重复） | 4 个（无重复） |
+| **内存占用** | 更多 | 更少 |
+| **GPU 计算** | 重复计算相同顶点 | 复用已计算的顶点 |
+| **适用场景** | 简单形状 | 复杂模型（共享顶点多） |
+
+对于复杂 3D 模型（如立方体有 8 个顶点，但 12 个三角形需要 36 个顶点位置），索引缓冲区的优势更加明显。
+
+---
+
+#### 索引缓冲区工作原理
+
+##### 索引如何工作
+
+```
+着色器中的 vertices 数组：
+    索引 0: 左上 (0, 0)
+    索引 1: 左下 (0, 1)
+    索引 2: 右下 (1, 1)
+    索引 3: 右上 (1, 0)
+
+索引缓冲区: {0, 1, 2, 2, 3, 0}
+              ↓  ↓  ↓  ↓  ↓  ↓
+绘制调用顺序： 0  1  2  2  3  0
+
+GPU 执行流程：
+    第 1 次调用着色器: gl_VertexIndex = 0 → vertices[0] (左上)
+    第 2 次调用着色器: gl_VertexIndex = 1 → vertices[1] (左下)
+    第 3 次调用着色器: gl_VertexIndex = 2 → vertices[2] (右下)
+    └─ 三角形 1 完成 (0-1-2)
+
+    第 4 次调用着色器: gl_VertexIndex = 2 → vertices[2] (右下) ← 复用！
+    第 5 次调用着色器: gl_VertexIndex = 3 → vertices[3] (右上)
+    第 6 次调用着色器: gl_VertexIndex = 0 → vertices[0] (左上) ← 复用！
+    └─ 三角形 2 完成 (2-3-0)
+```
+
+---
+
+#### C++ 端：绘制时使用索引
+
+```cpp
+// vk_renderer_cakezz.cpp:598 - 创建索引缓冲区
+vkcontext->indexBuffer = vk_allocate_buffer(
+    vkcontext->device,
+    vkcontext->gpu,
+    sizeof(uint32_t) * 6,
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+);
+
+uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+vk_copy_to_buffer(&vkcontext->indexBuffer, &indices, sizeof(indices));
+
+// 渲染时使用索引绘制
+vkCmdDrawIndexed(
+    cmd,           // 命令缓冲区
+    6,             // 索引数量（绘制 6 个顶点）
+    MAX_ENTITIES,  // 实例数量
+    0,             // 第一个索引的偏移
+    0,             // 顶点偏移
+    0              // 第一个实例的偏移
+);
+```
+
+---
+
+#### 着色器如何配合索引
+
+```glsl
+// shader.vert - 顶点着色器
+vec4 vertices[4] = {
+    vec4(transform.xPos, transform.yPos, 0.0, 0.0),
+    vec4(transform.xPos, transform.yPos + transform.sizeY, 0.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos, 1.0, 0.0),
+};
+
+void main() {
+    // gl_VertexIndex 的值由索引缓冲区提供！
+    // 索引缓冲区: {0, 1, 2, 2, 3, 0}
+    // 
+    // 第 1 次: gl_VertexIndex = 0
+    // 第 2 次: gl_VertexIndex = 1
+    // 第 3 次: gl_VertexIndex = 2
+    // 第 4 次: gl_VertexIndex = 2  ← 注意：索引重复使用
+    // 第 5 次: gl_VertexIndex = 3
+    // 第 6 次: gl_VertexIndex = 0  ← 注意：索引重复使用
+    
+    vec4 vertex = vertices[gl_VertexIndex];
+    // ...
+}
+```
+
+---
+
+#### 关键理解
+
+```
+顶点数据 (vertices)  = "有哪些顶点"（4 个角的坐标 + 纹理坐标）
+索引数据 (indices)   = "如何连接顶点"（画哪两个三角形）
+
+索引缓冲区 ≠ 顶点缓冲区
+索引缓冲区是"说明书"，告诉 GPU 如何使用顶点
+```
+
+---
+
+#### 本项目中的索引缓冲区
+
+在 [vk_renderer_cakezz.cpp:598](../src/renderer/vk_renderer_cakezz.cpp#L598) 中创建：
+
+```cpp
+vkcontext->indexBuffer = vk_allocate_buffer(...);
+uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+vk_copy_to_buffer(&vkcontext->indexBuffer, &indices, sizeof(uint32_t) * 6);
+```
+
+这个索引缓冲区与实例化渲染配合工作：
+- **每个实例**都使用相同的索引缓冲区
+- **每个实例**通过 `gl_InstanceIndex` 获取不同的变换数据
+- **每个实例**的 4 个顶点根据变换数据计算位置
+- **索引缓冲区**定义如何连接这 4 个顶点形成矩形
+
+#### 关键要点总结
+
+| 概念 | 说明 |
+|------|------|
+| **binding = 0** | Uniform Buffer：存储全局数据（屏幕尺寸） |
+| **binding = 1** | Storage Buffer：存储实例变换数组 |
+| **gl_InstanceIndex** | 当前实例索引，用于获取对应变换数据 |
+| **gl_VertexIndex** | 当前顶点索引（0-5），用于选择顶点 |
+| **实例化渲染** | 一次绘制调用渲染多个实体，每个实例使用不同的变换 |
+| **索引缓冲区** | `{0,1,2,2,3,0}` 定义矩形的两个三角形 |
+
 #### 关键要点总结
 
 | 要点 | 说明 |
@@ -3390,6 +4123,479 @@ Vulkan:
 | **SetLayout** | 定义 Shader 需要什么资源（在 Pipeline 创建时定义） |
 | **COMBINED_IMAGE_SAMPLER** | 同时包含 Image + Sampler 的描述符类型 |
 | **SHADER_READ_ONLY_OPTIMAL** | Shader 采样纹理时的正确布局 |
+
+---
+
+### 本项目着色器代码详解
+
+本项目的着色器分为两个文件：
+- **顶点着色器** ([shader.vert](../assets/shaders/shader.vert))：计算顶点位置
+- **片段着色器** ([shader.frag](../assets/shaders/shader.frag))：计算像素颜色
+
+---
+
+#### 完整执行流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        图形管线执行流程                          │
+└─────────────────────────────────────────────────────────────────┘
+
+输入数据:
+  - 实例变换数据 (Storage Buffer, binding 1)
+  - 屏幕尺寸 (Uniform Buffer, binding 0)
+  - 纹理 (Combined Image Sampler, binding 0 in frag)
+  - 索引缓冲区 {0,1,2,2,3,0}
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  顶点着色器 (shader.vert)                                        │
+│  ────────────────────────                                        │
+│  执行次数: 6 次/实例 × N 个实例                                   │
+│  (每个实例绘制 6 个顶点，由索引缓冲区指定)                        │
+│                                                                 │
+│  输入: gl_InstanceIndex, gl_VertexIndex                          │
+│  输出: gl_Position, uv                                           │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  图形装配 (Primitive Assembly)                                  │
+│  - 将顶点组装成三角形                                            │
+│  - 根据索引 {0,1,2} 和 {2,3,0} 组成两个三角形                     │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  光栅化 (Rasterization)                                         │
+│  - 将三角形转换为像素                                            │
+│  - 对每个像素插值顶点数据 (uv)                                   │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  片段着色器 (shader.frag)                                        │
+│  ────────────────────────                                        │
+│  执行次数: 每个像素一次                                          │
+│                                                                 │
+│  输入: uv (插值后的纹理坐标)                                      │
+│  输出: fragmentColor (像素颜色)                                  │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+                      帧缓冲区 (屏幕)
+```
+
+---
+
+#### 顶点着色器 (shader.vert) 详解
+
+##### 完整代码
+
+```glsl
+#version 450
+
+#include "../../src/renderer/shared_render_types.h"
+
+// 输出变量：传递给片段着色器
+layout (location = 0) out vec2 uv;
+
+// 描述符绑定 0: 全局 Uniform Buffer
+layout(set = 0, binding = 0) uniform GlobalUBO
+{
+    GlobalData globalData;  // 包含 screenSizeX, screenSizeY
+};
+
+// 描述符绑定 1: 变换 Storage Buffer
+layout(set = 0, binding = 1) readonly buffer Transforms
+{
+    Transform transforms[];
+};
+
+// 获取当前实例的变换数据
+Transform transform = transforms[gl_InstanceIndex];
+
+// 定义矩形的四个顶点 (每个顶点包含位置和纹理坐标)
+vec4 vertices[4] = {
+    // Top Left     x,              y,              u,  v
+    vec4(transform.xPos, transform.yPos,                       0.0, 0.0),
+
+    // Bottom Left  x,              y + height,     u,  v
+    vec4(transform.xPos, transform.yPos + transform.sizeY,     0.0, 1.0),
+
+    // Bottom Right x + width,      y + height,     u,  v
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+
+    // Top Right    x + width,      y,              u,  v
+    vec4(transform.xPos + transform.sizeX, transform.yPos,     1.0, 0.0),
+};
+
+void main()
+{
+    // 像素坐标 → NDC 坐标 (-1 到 +1)
+    vec2 normalizedPos = 2.0 * vec2(
+        vertices[gl_VertexIndex].x / globalData.screenSizeX,
+        vertices[gl_VertexIndex].y / globalData.screenSizeY
+    ) - 1.0;
+    
+    // 输出顶点位置
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
+    
+    // 输出纹理坐标给片段着色器
+    uv = vertices[gl_VertexIndex].zw;
+}
+```
+
+##### 代码逐行解析
+
+**声明部分：**
+```glsl
+// GLSL 版本 450 对应 Vulkan 1.0
+#version 450
+
+// 包含共享类型定义（Transform, GlobalData 等）
+#include "../../src/renderer/shared_render_types.h"
+
+// 输出变量：location = 0 表示传递给片段着色器的第 0 个输入
+layout (location = 0) out vec2 uv;
+
+// 绑定描述符集 0 的 binding 0：全局数据
+layout(set = 0, binding = 0) uniform GlobalUBO
+{
+    GlobalData globalData;  // { screenSizeX, screenSizeY }
+};
+
+// 绑定描述符集 0 的 binding 1：实例变换数组
+layout(set = 0, binding = 1) readonly buffer Transforms
+{
+    Transform transforms[];  // 数组，每个元素包含 { xPos, yPos, sizeX, sizeY }
+};
+```
+
+**顶点数据生成：**
+```glsl
+// 获取当前实例的变换数据
+// gl_InstanceIndex 是 Vulkan 内置变量，表示当前实例的索引
+Transform transform = transforms[gl_InstanceIndex];
+
+// 根据 transform 动态计算四个顶点
+// 每个 vec4 包含：{x, y, u, v}
+vec4 vertices[4] = {
+    vec4(transform.xPos, transform.yPos,                       0.0, 0.0),
+    vec4(transform.xPos, transform.yPos + transform.sizeY,     0.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos,     1.0, 0.0),
+};
+```
+
+**主函数：**
+```glsl
+void main()
+{
+    // 像素坐标转 NDC 坐标
+    // 像素坐标范围：[0, screenSize]
+    // NDC 坐标范围：[-1, +1]
+    vec2 normalizedPos = 2.0 * vec2(
+        vertices[gl_VertexIndex].x / globalData.screenSizeX,  // x 坐标
+        vertices[gl_VertexIndex].y / globalData.screenSizeY   // y 坐标
+    ) - 1.0;
+    
+    // 输出顶点位置（必需）
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
+    
+    // 输出纹理坐标（.zw 取 vec4 的后两个分量）
+    uv = vertices[gl_VertexIndex].zw;
+}
+```
+
+##### 执行流程示例
+
+```
+假设渲染 2 个实例（球拍 A 和球拍 B），每个实例 6 个顶点：
+
+C++ 端数据:
+  globalData.screenSizeX = 800
+  globalData.screenSizeY = 600
+  transforms[0] = { xPos: 50,  yPos: 100, sizeX: 20, sizeY: 100 }  // 球拍 A
+  transforms[1] = { xPos: 730, yPos: 100, sizeX: 20, sizeY: 100 }  // 球拍 B
+
+实例 0 (gl_InstanceIndex = 0, 球拍 A):
+  transform = transforms[0] = { 50, 100, 20, 100 }
+  
+  顶点 0: gl_VertexIndex = 0
+    vertices[0] = vec4(50, 100, 0.0, 0.0)
+    normalizedPos = (2.0 * (50/800, 100/600)) - 1.0 = (-0.875, -0.667)
+    gl_Position = vec4(-0.875, -0.667, 0.0, 1.0)
+    uv = (0.0, 0.0)
+  
+  顶点 1: gl_VertexIndex = 1
+    vertices[1] = vec4(50, 200, 0.0, 1.0)
+    normalizedPos = (-0.875, -0.333)
+    uv = (0.0, 1.0)
+  
+  顶点 2-5: 类似处理...
+
+实例 1 (gl_InstanceIndex = 1, 球拍 B):
+  使用 transforms[1]，重复上述流程
+```
+
+---
+
+#### 片段着色器 (shader.frag) 详解
+
+##### 完整代码
+
+```glsl
+#version 450
+
+// 输入变量：从顶点着色器接收（经过插值）
+layout(location = 0) in vec2 uv;
+
+// 输出变量：最终像素颜色
+layout(location = 0) out vec4 fragmentColor;
+
+// 描述符绑定 0: 纹理采样器
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+
+void main()
+{
+    // 从纹理中采样颜色
+    vec4 color = texture(sprite, uv);
+
+    // Alpha 测试：如果完全透明，丢弃该像素
+    if(color.a == 0)
+    {
+        discard;
+    }
+
+    // 输出最终颜色
+    fragmentColor = color;
+}
+```
+
+##### 代码逐行解析
+
+**声明部分：**
+```glsl
+#version 450
+
+// 输入变量：从顶点着色器的 location = 0 接收
+// uv 的值是 GPU 自动插值后的结果
+layout(location = 0) in vec2 uv;
+
+// 输出变量：最终像素颜色，location = 0 对应帧缓冲区的第 0 个附件
+layout(location = 0) out vec4 fragmentColor;
+
+// 绑定描述符集 0 的 binding 0：纹理采样器
+// 注意：这是不同的描述符集（片段着色器的 set = 0）
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+```
+
+**主函数：**
+```glsl
+void main()
+{
+    // texture() 函数：从纹理的 uv 位置采样颜色
+    // sprite: 纹理采样器
+    // uv: 纹理坐标，范围 [0, 1]
+    // 返回值: vec4(r, g, b, a)
+    vec4 color = texture(sprite, uv);
+
+    // Alpha 测试：如果完全透明，丢弃该像素
+    // discard 是 GLSL 关键字，告诉 GPU 不要写入此像素
+    if(color.a == 0)
+    {
+        discard;
+    }
+
+    // 输出最终颜色
+    fragmentColor = color;
+}
+```
+
+##### 执行流程示例
+
+```
+光栅化阶段后，GPU 需要绘制矩形内的像素：
+
+顶点着色器输出的 uv:
+  顶点 0: uv = (0.0, 0.0)
+  顶点 2: uv = (1.0, 1.0)
+
+GPU 自动插值：
+  左上角像素: uv ≈ (0.0, 0.0)
+  中心像素:   uv ≈ (0.5, 0.5)
+  右下角像素: uv ≈ (1.0, 1.0)
+
+片段着色器执行（以中心像素为例）:
+  输入: uv = (0.5, 0.5)
+  
+  执行:
+    color = texture(sprite, (0.5, 0.5))
+    → 从纹理中心采样，假设得到 vec4(1.0, 1.0, 1.0, 1.0) (白色)
+    
+    if (1.0 == 0)  // false
+      discard;     // 不执行
+    
+    fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);
+    → 输出白色到屏幕
+```
+
+---
+
+#### 数据传递流程图
+
+```
+C++ 端 (vk_renderer_cakezz.cpp):
+┌─────────────────────────────────────────────────────────────┐
+│ GlobalData globalData = {                                    │
+│     screenSizeX: 800,                                        │
+│     screenSizeY: 600                                         │
+│ };                                                           │
+│                                                              │
+│ Transform transforms[] = {                                   │
+│     [0] { xPos: 50,  yPos: 100, sizeX: 20, sizeY: 100 },   │
+│     [1] { xPos: 730, yPos: 100, sizeX: 20, sizeY: 100 }    │
+│ };                                                           │
+│                                                              │
+│ vk_copy_to_buffer(&globalUBO, &globalData, ...);            │
+│ vk_copy_to_buffer(&transformStorageBuffer, transforms, ...); │
+│ vk_copy_to_buffer(&indexBuffer, {0,1,2,2,3,0}, ...);        │
+└─────────────────────────────────────────────────────────────┘
+                          ↓ Vulkan 驱动
+┌─────────────────────────────────────────────────────────────┐
+│ 顶点着色器 (shader.vert)                                     │
+│                                                              │
+│ 实例 0 (球拍 A):                                             │
+│   transform = transforms[0] = { 50, 100, 20, 100 }          │
+│   vertices[0] = vec4(50, 100, 0.0, 0.0)                     │
+│   vertices[1] = vec4(50, 200, 0.0, 1.0)                     │
+│   vertices[2] = vec4(70, 200, 1.0, 1.0)                     │
+│   vertices[3] = vec4(70, 100, 1.0, 0.0)                     │
+│                                                              │
+│   根据 gl_VertexIndex 选择顶点:                               │
+│     索引 0: gl_VertexIndex = 0 → vertices[0]                │
+│     索引 1: gl_VertexIndex = 1 → vertices[1]                │
+│     索引 2: gl_VertexIndex = 2 → vertices[2]                │
+│     索引 3: gl_VertexIndex = 2 → vertices[2] (复用)         │
+│     索引 4: gl_VertexIndex = 3 → vertices[3]                │
+│     索引 5: gl_VertexIndex = 0 → vertices[0] (复用)         │
+│                                                              │
+│   输出:                                                       │
+│     gl_Position (NDC 坐标)                                   │
+│     uv (纹理坐标)                                            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 图形装配与光栅化                                             │
+│                                                              │
+│ 根据索引组装两个三角形:                                       │
+│   三角形 1: 顶点 0-1-2                                        │
+│   三角形 2: 顶点 2-3-0                                        │
+│                                                              │
+│ 光栅化：三角形 → 像素                                        │
+│   GPU 自动插值 uv 坐标                                       │
+│     顶点 0: uv = (0.0, 0.0)                                 │
+│     顶点 2: uv = (1.0, 1.0)                                 │
+│     中心像素: uv = (0.5, 0.5) ← 插值结果                      │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 片段着色器 (shader.frag)                                     │
+│                                                              │
+│ 输入: uv = (0.5, 0.5) (插值后的纹理坐标)                      │
+│                                                              │
+│ 执行:                                                        │
+│   color = texture(sprite, (0.5, 0.5))                       │
+│   → 从纹理中心采样颜色                                        │
+│                                                              │
+│   if (color.a == 0) discard;                                │
+│   → Alpha 测试，丢弃透明像素                                  │
+│                                                              │
+│   fragmentColor = color;                                    │
+│   → 输出最终像素颜色                                          │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+                      帧缓冲区 (屏幕)
+```
+
+---
+
+#### 关键概念对比
+
+| 概念 | 顶点着色器 | 片段着色器 |
+|------|-----------|-----------|
+| **执行频率** | 每个顶点一次 | 每个像素一次 |
+| **输入** | `gl_InstanceIndex`, `gl_VertexIndex` | `uv` (插值后) |
+| **输出** | `gl_Position`, `uv` | `fragmentColor` |
+| **作用** | 计算顶点位置 | 计算像素颜色 |
+| **并行执行** | 多个顶点同时处理 | 多个像素同时处理 |
+| **描述符绑定** | set=0, binding=0/1 | set=0, binding=0 |
+
+---
+
+#### 重要技术细节
+
+##### 1. UV 坐标插值
+
+```glsl
+// 顶点着色器输出的 uv
+顶点 0: uv = (0.0, 0.0)  ← 左上角
+顶点 2: uv = (1.0, 1.0)  ← 右下角
+
+// GPU 在光栅化阶段自动插值
+中间像素: uv = (0.5, 0.5)  ← 线性插值
+```
+
+##### 2. Alpha 测试
+
+```glsl
+if(color.a == 0)
+    discard;
+```
+
+- `discard` 是特殊的 GLSL 关键字
+- 丢弃当前像素，不写入帧缓冲区
+- 不会影响深度缓冲区
+- 用于实现透明纹理（如精灵图的背景）
+
+##### 3. `texture()` 函数
+
+```glsl
+vec4 color = texture(sprite, uv);
+```
+
+- 从纹理的 uv 位置采样颜色
+- 自动处理纹理过滤（NEAREST/LINEAR）
+- 返回 RGBA 四个分量，范围 [0, 1]
+
+##### 4. 描述符集绑定
+
+注意顶点着色器和片段着色器使用不同的描述符集：
+
+```glsl
+// 顶点着色器 (shader.vert)
+layout(set = 0, binding = 0) uniform GlobalUBO { ... };
+layout(set = 0, binding = 1) readonly buffer Transforms { ... };
+
+// 片段着色器 (shader.frag)
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+```
+
+虽然都是 `set = 0`，但它们是**不同的描述符集**：
+- 顶点着色器的 set 0 包含：全局 UBO + 变换 Storage Buffer
+- 片段着色器的 set 0 包含：纹理采样器
+
+在 C++ 端，它们通过不同的 `VkDescriptorSetLayout` 和绑定点来区分。
+
+---
+
+#### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **顶点着色器** | 计算顶点位置，生成 uv 坐标 |
+| **片段着色器** | 采样纹理，输出像素颜色 |
+| **gl_InstanceIndex** | 当前实例索引，用于获取变换数据 |
+| **gl_VertexIndex** | 当前顶点索引，由索引缓冲区提供 |
+| **UV 插值** | GPU 自动在光栅化阶段插值 |
+| **Alpha 测试** | 使用 `discard` 丢弃透明像素 |
+| **描述符绑定** | 顶点和片段着色器使用不同的描述符集 |
 
 ---
 

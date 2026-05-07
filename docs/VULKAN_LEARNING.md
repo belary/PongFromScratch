@@ -3893,6 +3893,214 @@ C++ 端：
 - 每个实体只需要不同的位置和尺寸（不同变换）
 - 完美适合实例化渲染
 
+---
+
+### 索引缓冲区（Index Buffer）详解
+
+#### 什么是索引缓冲区？
+
+**索引缓冲区** 是一个存储顶点索引的缓冲区，告诉 GPU "按什么顺序连接顶点来绘制图形"。
+
+#### 为什么需要索引缓冲区？
+
+##### 问题：绘制一个矩形需要什么？
+
+```
+    0 ──────── 3
+    │ \       │
+    │   \     │
+    │     \   │
+    │       \ │
+    1 ──────── 2
+    
+矩形 = 两个三角形：
+  三角形 A: 顶点 0, 1, 2
+  三角形 B: 顶点 0, 2, 3
+```
+
+---
+
+##### 方式 1：不使用索引缓冲区（重复顶点）
+
+```glsl
+// 着色器：定义 6 个顶点（有重复）
+vec4 vertices[6] = {
+    /* 0 */ vec4(...),  // 左上
+    /* 1 */ vec4(...),  // 左下
+    /* 2 */ vec4(...),  // 右下
+    /* 3 */ vec4(...),  // 右下 ← 重复！
+    /* 4 */ vec4(...),  // 右上
+    /* 5 */ vec4(...)   // 左上 ← 重复！
+};
+```
+
+**问题**：
+- 顶点 0 和 2 各重复定义了一次
+- 浪费着色器计算和内存
+- 对于复杂 3D 模型，重复率会更高
+
+---
+
+##### 方式 2：使用索引缓冲区（复用顶点）
+
+```glsl
+// 着色器：只定义 4 个顶点（无重复）
+vec4 vertices[4] = {
+    /* 0 */ vec4(...),  // 左上
+    /* 1 */ vec4(...),  // 左下
+    /* 2 */ vec4(...),  // 右下
+    /* 3 */ vec4(...)   // 右上
+};
+```
+
+```cpp
+// C++ 端：创建索引缓冲区
+uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+//                        三角形A ↑  ↑ 三角形B
+
+vkcontext->indexBuffer = vk_allocate_buffer(
+    ...,
+    sizeof(uint32_t) * 6,
+    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,  // 标记为索引缓冲区
+    ...
+);
+vk_copy_to_buffer(&vkcontext->indexBuffer, &indices, sizeof(indices));
+```
+
+**优势**：
+- 只定义 4 个顶点
+- 通过索引引用，复用顶点 0 和 2
+- 节省内存和计算资源
+
+---
+
+#### 两种方式对比
+
+| 方面 | 不使用索引 | 使用索引 |
+|------|-----------|---------|
+| **顶点数量** | 6 个（有重复） | 4 个（无重复） |
+| **内存占用** | 更多 | 更少 |
+| **GPU 计算** | 重复计算相同顶点 | 复用已计算的顶点 |
+| **适用场景** | 简单形状 | 复杂模型（共享顶点多） |
+
+对于复杂 3D 模型（如立方体有 8 个顶点，但 12 个三角形需要 36 个顶点位置），索引缓冲区的优势更加明显。
+
+---
+
+#### 索引缓冲区工作原理
+
+##### 索引如何工作
+
+```
+着色器中的 vertices 数组：
+    索引 0: 左上 (0, 0)
+    索引 1: 左下 (0, 1)
+    索引 2: 右下 (1, 1)
+    索引 3: 右上 (1, 0)
+
+索引缓冲区: {0, 1, 2, 2, 3, 0}
+              ↓  ↓  ↓  ↓  ↓  ↓
+绘制调用顺序： 0  1  2  2  3  0
+
+GPU 执行流程：
+    第 1 次调用着色器: gl_VertexIndex = 0 → vertices[0] (左上)
+    第 2 次调用着色器: gl_VertexIndex = 1 → vertices[1] (左下)
+    第 3 次调用着色器: gl_VertexIndex = 2 → vertices[2] (右下)
+    └─ 三角形 1 完成 (0-1-2)
+
+    第 4 次调用着色器: gl_VertexIndex = 2 → vertices[2] (右下) ← 复用！
+    第 5 次调用着色器: gl_VertexIndex = 3 → vertices[3] (右上)
+    第 6 次调用着色器: gl_VertexIndex = 0 → vertices[0] (左上) ← 复用！
+    └─ 三角形 2 完成 (2-3-0)
+```
+
+---
+
+#### C++ 端：绘制时使用索引
+
+```cpp
+// vk_renderer_cakezz.cpp:598 - 创建索引缓冲区
+vkcontext->indexBuffer = vk_allocate_buffer(
+    vkcontext->device,
+    vkcontext->gpu,
+    sizeof(uint32_t) * 6,
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+);
+
+uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+vk_copy_to_buffer(&vkcontext->indexBuffer, &indices, sizeof(indices));
+
+// 渲染时使用索引绘制
+vkCmdDrawIndexed(
+    cmd,           // 命令缓冲区
+    6,             // 索引数量（绘制 6 个顶点）
+    MAX_ENTITIES,  // 实例数量
+    0,             // 第一个索引的偏移
+    0,             // 顶点偏移
+    0              // 第一个实例的偏移
+);
+```
+
+---
+
+#### 着色器如何配合索引
+
+```glsl
+// shader.vert - 顶点着色器
+vec4 vertices[4] = {
+    vec4(transform.xPos, transform.yPos, 0.0, 0.0),
+    vec4(transform.xPos, transform.yPos + transform.sizeY, 0.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos, 1.0, 0.0),
+};
+
+void main() {
+    // gl_VertexIndex 的值由索引缓冲区提供！
+    // 索引缓冲区: {0, 1, 2, 2, 3, 0}
+    // 
+    // 第 1 次: gl_VertexIndex = 0
+    // 第 2 次: gl_VertexIndex = 1
+    // 第 3 次: gl_VertexIndex = 2
+    // 第 4 次: gl_VertexIndex = 2  ← 注意：索引重复使用
+    // 第 5 次: gl_VertexIndex = 3
+    // 第 6 次: gl_VertexIndex = 0  ← 注意：索引重复使用
+    
+    vec4 vertex = vertices[gl_VertexIndex];
+    // ...
+}
+```
+
+---
+
+#### 关键理解
+
+```
+顶点数据 (vertices)  = "有哪些顶点"（4 个角的坐标 + 纹理坐标）
+索引数据 (indices)   = "如何连接顶点"（画哪两个三角形）
+
+索引缓冲区 ≠ 顶点缓冲区
+索引缓冲区是"说明书"，告诉 GPU 如何使用顶点
+```
+
+---
+
+#### 本项目中的索引缓冲区
+
+在 [vk_renderer_cakezz.cpp:598](../src/renderer/vk_renderer_cakezz.cpp#L598) 中创建：
+
+```cpp
+vkcontext->indexBuffer = vk_allocate_buffer(...);
+uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+vk_copy_to_buffer(&vkcontext->indexBuffer, &indices, sizeof(uint32_t) * 6);
+```
+
+这个索引缓冲区与实例化渲染配合工作：
+- **每个实例**都使用相同的索引缓冲区
+- **每个实例**通过 `gl_InstanceIndex` 获取不同的变换数据
+- **每个实例**的 4 个顶点根据变换数据计算位置
+- **索引缓冲区**定义如何连接这 4 个顶点形成矩形
+
 #### 关键要点总结
 
 | 概念 | 说明 |
@@ -3915,6 +4123,479 @@ C++ 端：
 | **SetLayout** | 定义 Shader 需要什么资源（在 Pipeline 创建时定义） |
 | **COMBINED_IMAGE_SAMPLER** | 同时包含 Image + Sampler 的描述符类型 |
 | **SHADER_READ_ONLY_OPTIMAL** | Shader 采样纹理时的正确布局 |
+
+---
+
+### 本项目着色器代码详解
+
+本项目的着色器分为两个文件：
+- **顶点着色器** ([shader.vert](../assets/shaders/shader.vert))：计算顶点位置
+- **片段着色器** ([shader.frag](../assets/shaders/shader.frag))：计算像素颜色
+
+---
+
+#### 完整执行流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        图形管线执行流程                          │
+└─────────────────────────────────────────────────────────────────┘
+
+输入数据:
+  - 实例变换数据 (Storage Buffer, binding 1)
+  - 屏幕尺寸 (Uniform Buffer, binding 0)
+  - 纹理 (Combined Image Sampler, binding 0 in frag)
+  - 索引缓冲区 {0,1,2,2,3,0}
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  顶点着色器 (shader.vert)                                        │
+│  ────────────────────────                                        │
+│  执行次数: 6 次/实例 × N 个实例                                   │
+│  (每个实例绘制 6 个顶点，由索引缓冲区指定)                        │
+│                                                                 │
+│  输入: gl_InstanceIndex, gl_VertexIndex                          │
+│  输出: gl_Position, uv                                           │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  图形装配 (Primitive Assembly)                                  │
+│  - 将顶点组装成三角形                                            │
+│  - 根据索引 {0,1,2} 和 {2,3,0} 组成两个三角形                     │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  光栅化 (Rasterization)                                         │
+│  - 将三角形转换为像素                                            │
+│  - 对每个像素插值顶点数据 (uv)                                   │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  片段着色器 (shader.frag)                                        │
+│  ────────────────────────                                        │
+│  执行次数: 每个像素一次                                          │
+│                                                                 │
+│  输入: uv (插值后的纹理坐标)                                      │
+│  输出: fragmentColor (像素颜色)                                  │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+                      帧缓冲区 (屏幕)
+```
+
+---
+
+#### 顶点着色器 (shader.vert) 详解
+
+##### 完整代码
+
+```glsl
+#version 450
+
+#include "../../src/renderer/shared_render_types.h"
+
+// 输出变量：传递给片段着色器
+layout (location = 0) out vec2 uv;
+
+// 描述符绑定 0: 全局 Uniform Buffer
+layout(set = 0, binding = 0) uniform GlobalUBO
+{
+    GlobalData globalData;  // 包含 screenSizeX, screenSizeY
+};
+
+// 描述符绑定 1: 变换 Storage Buffer
+layout(set = 0, binding = 1) readonly buffer Transforms
+{
+    Transform transforms[];
+};
+
+// 获取当前实例的变换数据
+Transform transform = transforms[gl_InstanceIndex];
+
+// 定义矩形的四个顶点 (每个顶点包含位置和纹理坐标)
+vec4 vertices[4] = {
+    // Top Left     x,              y,              u,  v
+    vec4(transform.xPos, transform.yPos,                       0.0, 0.0),
+
+    // Bottom Left  x,              y + height,     u,  v
+    vec4(transform.xPos, transform.yPos + transform.sizeY,     0.0, 1.0),
+
+    // Bottom Right x + width,      y + height,     u,  v
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+
+    // Top Right    x + width,      y,              u,  v
+    vec4(transform.xPos + transform.sizeX, transform.yPos,     1.0, 0.0),
+};
+
+void main()
+{
+    // 像素坐标 → NDC 坐标 (-1 到 +1)
+    vec2 normalizedPos = 2.0 * vec2(
+        vertices[gl_VertexIndex].x / globalData.screenSizeX,
+        vertices[gl_VertexIndex].y / globalData.screenSizeY
+    ) - 1.0;
+    
+    // 输出顶点位置
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
+    
+    // 输出纹理坐标给片段着色器
+    uv = vertices[gl_VertexIndex].zw;
+}
+```
+
+##### 代码逐行解析
+
+**声明部分：**
+```glsl
+// GLSL 版本 450 对应 Vulkan 1.0
+#version 450
+
+// 包含共享类型定义（Transform, GlobalData 等）
+#include "../../src/renderer/shared_render_types.h"
+
+// 输出变量：location = 0 表示传递给片段着色器的第 0 个输入
+layout (location = 0) out vec2 uv;
+
+// 绑定描述符集 0 的 binding 0：全局数据
+layout(set = 0, binding = 0) uniform GlobalUBO
+{
+    GlobalData globalData;  // { screenSizeX, screenSizeY }
+};
+
+// 绑定描述符集 0 的 binding 1：实例变换数组
+layout(set = 0, binding = 1) readonly buffer Transforms
+{
+    Transform transforms[];  // 数组，每个元素包含 { xPos, yPos, sizeX, sizeY }
+};
+```
+
+**顶点数据生成：**
+```glsl
+// 获取当前实例的变换数据
+// gl_InstanceIndex 是 Vulkan 内置变量，表示当前实例的索引
+Transform transform = transforms[gl_InstanceIndex];
+
+// 根据 transform 动态计算四个顶点
+// 每个 vec4 包含：{x, y, u, v}
+vec4 vertices[4] = {
+    vec4(transform.xPos, transform.yPos,                       0.0, 0.0),
+    vec4(transform.xPos, transform.yPos + transform.sizeY,     0.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos,     1.0, 0.0),
+};
+```
+
+**主函数：**
+```glsl
+void main()
+{
+    // 像素坐标转 NDC 坐标
+    // 像素坐标范围：[0, screenSize]
+    // NDC 坐标范围：[-1, +1]
+    vec2 normalizedPos = 2.0 * vec2(
+        vertices[gl_VertexIndex].x / globalData.screenSizeX,  // x 坐标
+        vertices[gl_VertexIndex].y / globalData.screenSizeY   // y 坐标
+    ) - 1.0;
+    
+    // 输出顶点位置（必需）
+    gl_Position = vec4(normalizedPos, 0.0, 1.0);
+    
+    // 输出纹理坐标（.zw 取 vec4 的后两个分量）
+    uv = vertices[gl_VertexIndex].zw;
+}
+```
+
+##### 执行流程示例
+
+```
+假设渲染 2 个实例（球拍 A 和球拍 B），每个实例 6 个顶点：
+
+C++ 端数据:
+  globalData.screenSizeX = 800
+  globalData.screenSizeY = 600
+  transforms[0] = { xPos: 50,  yPos: 100, sizeX: 20, sizeY: 100 }  // 球拍 A
+  transforms[1] = { xPos: 730, yPos: 100, sizeX: 20, sizeY: 100 }  // 球拍 B
+
+实例 0 (gl_InstanceIndex = 0, 球拍 A):
+  transform = transforms[0] = { 50, 100, 20, 100 }
+  
+  顶点 0: gl_VertexIndex = 0
+    vertices[0] = vec4(50, 100, 0.0, 0.0)
+    normalizedPos = (2.0 * (50/800, 100/600)) - 1.0 = (-0.875, -0.667)
+    gl_Position = vec4(-0.875, -0.667, 0.0, 1.0)
+    uv = (0.0, 0.0)
+  
+  顶点 1: gl_VertexIndex = 1
+    vertices[1] = vec4(50, 200, 0.0, 1.0)
+    normalizedPos = (-0.875, -0.333)
+    uv = (0.0, 1.0)
+  
+  顶点 2-5: 类似处理...
+
+实例 1 (gl_InstanceIndex = 1, 球拍 B):
+  使用 transforms[1]，重复上述流程
+```
+
+---
+
+#### 片段着色器 (shader.frag) 详解
+
+##### 完整代码
+
+```glsl
+#version 450
+
+// 输入变量：从顶点着色器接收（经过插值）
+layout(location = 0) in vec2 uv;
+
+// 输出变量：最终像素颜色
+layout(location = 0) out vec4 fragmentColor;
+
+// 描述符绑定 0: 纹理采样器
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+
+void main()
+{
+    // 从纹理中采样颜色
+    vec4 color = texture(sprite, uv);
+
+    // Alpha 测试：如果完全透明，丢弃该像素
+    if(color.a == 0)
+    {
+        discard;
+    }
+
+    // 输出最终颜色
+    fragmentColor = color;
+}
+```
+
+##### 代码逐行解析
+
+**声明部分：**
+```glsl
+#version 450
+
+// 输入变量：从顶点着色器的 location = 0 接收
+// uv 的值是 GPU 自动插值后的结果
+layout(location = 0) in vec2 uv;
+
+// 输出变量：最终像素颜色，location = 0 对应帧缓冲区的第 0 个附件
+layout(location = 0) out vec4 fragmentColor;
+
+// 绑定描述符集 0 的 binding 0：纹理采样器
+// 注意：这是不同的描述符集（片段着色器的 set = 0）
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+```
+
+**主函数：**
+```glsl
+void main()
+{
+    // texture() 函数：从纹理的 uv 位置采样颜色
+    // sprite: 纹理采样器
+    // uv: 纹理坐标，范围 [0, 1]
+    // 返回值: vec4(r, g, b, a)
+    vec4 color = texture(sprite, uv);
+
+    // Alpha 测试：如果完全透明，丢弃该像素
+    // discard 是 GLSL 关键字，告诉 GPU 不要写入此像素
+    if(color.a == 0)
+    {
+        discard;
+    }
+
+    // 输出最终颜色
+    fragmentColor = color;
+}
+```
+
+##### 执行流程示例
+
+```
+光栅化阶段后，GPU 需要绘制矩形内的像素：
+
+顶点着色器输出的 uv:
+  顶点 0: uv = (0.0, 0.0)
+  顶点 2: uv = (1.0, 1.0)
+
+GPU 自动插值：
+  左上角像素: uv ≈ (0.0, 0.0)
+  中心像素:   uv ≈ (0.5, 0.5)
+  右下角像素: uv ≈ (1.0, 1.0)
+
+片段着色器执行（以中心像素为例）:
+  输入: uv = (0.5, 0.5)
+  
+  执行:
+    color = texture(sprite, (0.5, 0.5))
+    → 从纹理中心采样，假设得到 vec4(1.0, 1.0, 1.0, 1.0) (白色)
+    
+    if (1.0 == 0)  // false
+      discard;     // 不执行
+    
+    fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);
+    → 输出白色到屏幕
+```
+
+---
+
+#### 数据传递流程图
+
+```
+C++ 端 (vk_renderer_cakezz.cpp):
+┌─────────────────────────────────────────────────────────────┐
+│ GlobalData globalData = {                                    │
+│     screenSizeX: 800,                                        │
+│     screenSizeY: 600                                         │
+│ };                                                           │
+│                                                              │
+│ Transform transforms[] = {                                   │
+│     [0] { xPos: 50,  yPos: 100, sizeX: 20, sizeY: 100 },   │
+│     [1] { xPos: 730, yPos: 100, sizeX: 20, sizeY: 100 }    │
+│ };                                                           │
+│                                                              │
+│ vk_copy_to_buffer(&globalUBO, &globalData, ...);            │
+│ vk_copy_to_buffer(&transformStorageBuffer, transforms, ...); │
+│ vk_copy_to_buffer(&indexBuffer, {0,1,2,2,3,0}, ...);        │
+└─────────────────────────────────────────────────────────────┘
+                          ↓ Vulkan 驱动
+┌─────────────────────────────────────────────────────────────┐
+│ 顶点着色器 (shader.vert)                                     │
+│                                                              │
+│ 实例 0 (球拍 A):                                             │
+│   transform = transforms[0] = { 50, 100, 20, 100 }          │
+│   vertices[0] = vec4(50, 100, 0.0, 0.0)                     │
+│   vertices[1] = vec4(50, 200, 0.0, 1.0)                     │
+│   vertices[2] = vec4(70, 200, 1.0, 1.0)                     │
+│   vertices[3] = vec4(70, 100, 1.0, 0.0)                     │
+│                                                              │
+│   根据 gl_VertexIndex 选择顶点:                               │
+│     索引 0: gl_VertexIndex = 0 → vertices[0]                │
+│     索引 1: gl_VertexIndex = 1 → vertices[1]                │
+│     索引 2: gl_VertexIndex = 2 → vertices[2]                │
+│     索引 3: gl_VertexIndex = 2 → vertices[2] (复用)         │
+│     索引 4: gl_VertexIndex = 3 → vertices[3]                │
+│     索引 5: gl_VertexIndex = 0 → vertices[0] (复用)         │
+│                                                              │
+│   输出:                                                       │
+│     gl_Position (NDC 坐标)                                   │
+│     uv (纹理坐标)                                            │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 图形装配与光栅化                                             │
+│                                                              │
+│ 根据索引组装两个三角形:                                       │
+│   三角形 1: 顶点 0-1-2                                        │
+│   三角形 2: 顶点 2-3-0                                        │
+│                                                              │
+│ 光栅化：三角形 → 像素                                        │
+│   GPU 自动插值 uv 坐标                                       │
+│     顶点 0: uv = (0.0, 0.0)                                 │
+│     顶点 2: uv = (1.0, 1.0)                                 │
+│     中心像素: uv = (0.5, 0.5) ← 插值结果                      │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 片段着色器 (shader.frag)                                     │
+│                                                              │
+│ 输入: uv = (0.5, 0.5) (插值后的纹理坐标)                      │
+│                                                              │
+│ 执行:                                                        │
+│   color = texture(sprite, (0.5, 0.5))                       │
+│   → 从纹理中心采样颜色                                        │
+│                                                              │
+│   if (color.a == 0) discard;                                │
+│   → Alpha 测试，丢弃透明像素                                  │
+│                                                              │
+│   fragmentColor = color;                                    │
+│   → 输出最终像素颜色                                          │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+                      帧缓冲区 (屏幕)
+```
+
+---
+
+#### 关键概念对比
+
+| 概念 | 顶点着色器 | 片段着色器 |
+|------|-----------|-----------|
+| **执行频率** | 每个顶点一次 | 每个像素一次 |
+| **输入** | `gl_InstanceIndex`, `gl_VertexIndex` | `uv` (插值后) |
+| **输出** | `gl_Position`, `uv` | `fragmentColor` |
+| **作用** | 计算顶点位置 | 计算像素颜色 |
+| **并行执行** | 多个顶点同时处理 | 多个像素同时处理 |
+| **描述符绑定** | set=0, binding=0/1 | set=0, binding=0 |
+
+---
+
+#### 重要技术细节
+
+##### 1. UV 坐标插值
+
+```glsl
+// 顶点着色器输出的 uv
+顶点 0: uv = (0.0, 0.0)  ← 左上角
+顶点 2: uv = (1.0, 1.0)  ← 右下角
+
+// GPU 在光栅化阶段自动插值
+中间像素: uv = (0.5, 0.5)  ← 线性插值
+```
+
+##### 2. Alpha 测试
+
+```glsl
+if(color.a == 0)
+    discard;
+```
+
+- `discard` 是特殊的 GLSL 关键字
+- 丢弃当前像素，不写入帧缓冲区
+- 不会影响深度缓冲区
+- 用于实现透明纹理（如精灵图的背景）
+
+##### 3. `texture()` 函数
+
+```glsl
+vec4 color = texture(sprite, uv);
+```
+
+- 从纹理的 uv 位置采样颜色
+- 自动处理纹理过滤（NEAREST/LINEAR）
+- 返回 RGBA 四个分量，范围 [0, 1]
+
+##### 4. 描述符集绑定
+
+注意顶点着色器和片段着色器使用不同的描述符集：
+
+```glsl
+// 顶点着色器 (shader.vert)
+layout(set = 0, binding = 0) uniform GlobalUBO { ... };
+layout(set = 0, binding = 1) readonly buffer Transforms { ... };
+
+// 片段着色器 (shader.frag)
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+```
+
+虽然都是 `set = 0`，但它们是**不同的描述符集**：
+- 顶点着色器的 set 0 包含：全局 UBO + 变换 Storage Buffer
+- 片段着色器的 set 0 包含：纹理采样器
+
+在 C++ 端，它们通过不同的 `VkDescriptorSetLayout` 和绑定点来区分。
+
+---
+
+#### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **顶点着色器** | 计算顶点位置，生成 uv 坐标 |
+| **片段着色器** | 采样纹理，输出像素颜色 |
+| **gl_InstanceIndex** | 当前实例索引，用于获取变换数据 |
+| **gl_VertexIndex** | 当前顶点索引，由索引缓冲区提供 |
+| **UV 插值** | GPU 自动在光栅化阶段插值 |
+| **Alpha 测试** | 使用 `discard` 丢弃透明像素 |
+| **描述符绑定** | 顶点和片段着色器使用不同的描述符集 |
 
 ---
 
