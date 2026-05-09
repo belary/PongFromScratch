@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "logger.h"
 #include <vulkan/vulkan.h>
 
 // ============================================================================
@@ -70,6 +71,7 @@ struct Buffer
                            // 类比：快递箱的"存储空间"（实际放东西的地方）
                            //
                            // 注意：一个内存可以绑定多个缓冲区（通过偏移）
+    uint32_t size;
 
     void* data; // CPU 映射指针：用于 CPU 访问缓冲区内容
                 // 通过 vkMapMemory 获取
@@ -84,4 +86,52 @@ struct Buffer
                 // 注意：
                 // - 不是所有缓冲区都有 data（DEVICE_LOCAL 内存无法映射）
                 // - 写入后可能需要 vkFlushMappedMemoryRanges（非 COHERENT）
+};
+
+#define VK_CHECK(result)                                                                           \
+    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)                                       \
+    {                                                                                              \
+        CAKEZ_ERROR("Vulkan Error: %d", result);                                                   \
+        __debugbreak();                                                                            \
+    }
+// #define VK_CHECK(res_expr)                                                                         \
+//     do                                                                                             \
+//     {                                                                                              \
+//         VkResult result = (res_expr);                                                              \
+//         if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)                                   \
+//         {                                                                                          \
+//             CAKEZ_ERROR("Vulkan Error: %d", result);                                               \
+//             __debugbreak();                                                                        \
+//             return false;                                                                          \
+//         }                                                                                          \
+//     } while (0);
+
+struct DescriptorInfo
+{
+    union
+    {
+        VkDescriptorBufferInfo bufferInfo;
+        VkDescriptorImageInfo imgInfo;
+    };
+
+    DescriptorInfo(VkSampler sampler, VkImageView imageView)
+    {
+        imgInfo.sampler = sampler;
+        imgInfo.imageView = imageView;
+        imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+
+    DescriptorInfo(VkBuffer buffer)
+    {
+        bufferInfo.buffer = buffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = VK_WHOLE_SIZE;
+    }
+
+    DescriptorInfo(VkBuffer buffer, uint32_t offset, uint32_t range)
+    {
+        bufferInfo.buffer = buffer;
+        bufferInfo.offset = offset;
+        bufferInfo.range = range;
+    }
 };

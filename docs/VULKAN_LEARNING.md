@@ -4121,6 +4121,266 @@ Vulkan:
 2. **多线程友好**：资源绑定可以在渲染前完成
 3. **灵活性**：一个 DescriptorSet 可以包含多个资源
 
+---
+
+#### 更新描述符集：`vkUpdateDescriptorSets`
+
+`vkUpdateDescriptorSets` 是 Vulkan 中用于将资源（缓冲区、图像等）绑定到描述符集的核心函数，使着色器能够访问这些资源。
+
+##### 函数签名
+
+```cpp
+void vkUpdateDescriptorSets(
+    VkDevice device,                            // 逻辑设备
+    uint32_t descriptorWriteCount,              // 写入操作数量
+    const VkWriteDescriptorSet* pDescriptorWrites,  // 写入操作数组
+    uint32_t descriptorCopyCount,               // 复制操作数量（通常为 0）
+    const VkCopyDescriptorSet* pDescriptorCopies    // 复制操作数组（通常为 nullptr）
+);
+```
+
+##### 参数详解
+
+| 参数 | 类型 | 含义 |
+|------|------|------|
+| `device` | `VkDevice` | 逻辑设备 |
+| `descriptorWriteCount` | `uint32_t` | 写入操作的数量 |
+| `pDescriptorWrites` | `VkWriteDescriptorSet[]` | 写入操作数组指针 |
+| `descriptorCopyCount` | `uint32_t` | 复制操作的数量（通常为 0） |
+| `pDescriptorCopies` | `VkCopyDescriptorSet[]` | 复制操作数组指针（通常为 nullptr） |
+
+##### 写入操作结构体
+
+`VkWriteDescriptorSet` 定义了**一次写入操作的详细信息**：
+
+```cpp
+typedef struct VkWriteDescriptorSet {
+    VkStructureType sType;                      // 必须是 VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
+    const void* pNext;                          // 扩展数据（通常为 nullptr）
+    VkDescriptorSet dstSet;                     // 目标描述符集
+    uint32_t dstBinding;                        // 绑定点（对应着色器的 binding）
+    uint32_t dstArrayElement;                   // 数组元素索引（通常为 0）
+    uint32_t descriptorCount;                   // 描述符数量
+    VkDescriptorType descriptorType;            // 描述符类型
+    const VkDescriptorImageInfo* pImageInfo;    // 图像信息（纹理使用）
+    const VkDescriptorBufferInfo* pBufferInfo;  // 缓冲区信息（UBO/SSBO 使用）
+    const VkBufferView* pTexelBufferView;       // 纹理缓冲区视图（较少使用）
+} VkWriteDescriptorSet;
+```
+
+##### 使用流程
+
+###### 步骤 1：准备资源信息
+
+```cpp
+// 缓冲区信息
+VkDescriptorBufferInfo bufferInfo = {};
+bufferInfo.buffer = globalUBO;          // Vulkan 缓冲区句柄
+bufferInfo.offset = 0;                   // 偏移量
+bufferInfo.range = VK_WHOLE_SIZE;        // 大小（或指定字节数）
+
+// 图像信息
+VkDescriptorImageInfo imageInfo = {};
+imageInfo.sampler = textureSampler;      // 采样器
+imageInfo.imageView = textureImageView;  // 图像视图
+imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // 布局
+```
+
+###### 步骤 2：创建写入操作
+
+```cpp
+// 写入操作 1：更新全局 UBO (binding = 0)
+VkWriteDescriptorSet write1 = {};
+write1.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+write1.dstSet = descriptorSet;              // 目标描述符集
+write1.dstBinding = 0;                       // 绑定点
+write1.dstArrayElement = 0;                  // 数组索引
+write1.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+write1.descriptorCount = 1;                  // 描述符数量
+write1.pBufferInfo = &bufferInfo;            // 缓冲区信息
+
+// 写入操作 2：更新纹理 (binding = 1)
+VkWriteDescriptorSet write2 = {};
+write2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+write2.dstSet = descriptorSet;
+write2.dstBinding = 1;                       // 绑定点
+write2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+write2.descriptorCount = 1;
+write2.pImageInfo = &imageInfo;              // 图像信息
+
+// 组合成数组
+VkWriteDescriptorSet writes[] = { write1, write2 };
+```
+
+###### 步骤 3：执行更新
+
+```cpp
+// 一次性更新多个绑定
+vkUpdateDescriptorSets(
+    device,
+    2,              // 2 个写入操作
+    writes,         // 写入操作数组
+    0,              // 不使用复制操作
+    nullptr
+);
+```
+
+##### 类比理解
+
+```
+描述符集 = 工具箱（空）
+vkUpdateDescriptorSets = 向工具箱放入工具
+
+执行前：
+┌─────────────────────┐
+│  描述符集（空的）     │
+│  ┌─────────────┐    │
+│  │ binding 0: │    │ ← 空
+│  ├─────────────┤    │
+│  │ binding 1: │    │ ← 空
+│  └─────────────┘    │
+└─────────────────────┘
+
+执行 vkUpdateDescriptorSets：
+┌─────────────────────┐
+│  描述符集（填充后）  │
+│  ┌─────────────┐    │
+│  │ binding 0: │ UBO │ ← 填入全局缓冲区
+│  ├─────────────┤    │
+│  │ binding 1: │Tex │ ← 填入纹理
+│  └─────────────┘    │
+└─────────────────────┘
+
+结果：着色器可以通过 layout(set=0, binding=X) 访问这些资源
+```
+
+##### 为什么需要这个函数？
+
+**1. 连接 C++ 和着色器**
+
+```
+C++ 端：
+VkBuffer globalUBO = ...;
+VkImage texture = ...;
+
+↓ vkUpdateDescriptorSets
+
+着色器端：
+layout(set = 0, binding = 0) uniform GlobalUBO { ... };
+layout(set = 0, binding = 1) uniform sampler2D tex;
+
+现在着色器可以访问这些资源了！
+```
+
+**2. 灵活更新资源**
+
+```cpp
+// 可以更新单个绑定
+VkWriteDescriptorSet write = {};
+write.dstSet = descriptorSet;
+write.dstBinding = 1;  // 只更新 binding 1
+vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+
+// 可以批量更新多个绑定
+VkWriteDescriptorSet writes[] = { write1, write2, write3 };
+vkUpdateDescriptorSets(device, 3, writes, 0, nullptr);
+```
+
+**3. 运行时切换资源**
+
+```cpp
+// 动态切换纹理
+VkDescriptorImageInfo newTexture = { newSampler, newImageView, ... };
+VkWriteDescriptorSet write = {};
+write.dstSet = descriptorSet;
+write.dstBinding = 1;
+write.pImageInfo = &newTexture;
+vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+```
+
+##### 本项目使用示例
+
+在 [vk_renderer_cakezz.cpp:654](../src/renderer/vk_renderer_cakezz.cpp#L654) 中：
+
+```cpp
+// 准备写入操作数组
+VkWriteDescriptorSet writes[3];
+// ... 填充每个写入操作 ...
+
+// 一次性更新所有绑定
+vkUpdateDescriptorSets(
+    vkcontext->device, 
+    ArraySize(writes),  // 写入操作数量
+    writes,              // 写入操作数组
+    0,                   // 不使用复制
+    0
+);
+```
+
+##### 常见错误
+
+**错误 1：binding 不匹配**
+
+```cpp
+// 着色器：binding = 0
+layout(set = 0, binding = 0) uniform UBO { ... };
+
+// C++：dstBinding = 1  ❌
+write.dstBinding = 1;  // 不匹配！
+
+// ✅ 正确：binding 必须一致
+write.dstBinding = 0;
+```
+
+**错误 2：描述符类型不匹配**
+
+```cpp
+// 着色器：uniform buffer
+layout(set = 0, binding = 0) uniform UBO { ... };
+
+// C++：COMBINED_IMAGE_SAMPLER  ❌
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+// ✅ 正确：使用 UNIFORM_BUFFER
+write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+```
+
+**错误 3：忘记更新**
+
+```cpp
+// 创建了描述符集，但没有更新
+vkAllocateDescriptorSets(..., &descriptorSet);
+// ❌ 忘记 vkUpdateDescriptorSets
+
+// 着色器访问时会出现未定义行为或崩溃
+```
+
+**错误 4：错误的图像布局**
+
+```cpp
+// ❌ 错误：Image 还是 UNDEFINED 布局
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+// ✅ 正确：先转换为 SHADER_READ_ONLY_OPTIMAL
+transition_image_layout(..., VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+```
+
+##### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **作用** | 将资源绑定到描述符集 |
+| **时机** | 创建描述符集后，渲染前 |
+| **批量更新** | 可以一次更新多个绑定 |
+| **线程安全** | 可以在不同线程同时更新不同描述符集 |
+| **性能** | 更新操作相对昂贵，避免频繁调用 |
+| **持久性** | 更新后一直有效，直到再次更新或销毁 |
+| **类型匹配** | descriptorType 必须与着色器声明一致 |
+| **binding 匹配** | dstBinding 必须与着色器的 binding 一致 |
+
+---
+
 #### 绑定描述符集：`vkCmdBindDescriptorSets`
 
 创建并更新好 DescriptorSet 后，需要在命令缓冲区中绑定它，才能让着色器访问资源。

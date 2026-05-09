@@ -1,4 +1,4 @@
-
+﻿
 #include <windows.h>
 
 #include "platform.h"
@@ -106,13 +106,46 @@ char* platform_read_file(char* path, uint32_t* length)
             }
             else
             {
-                std::cout << "Fail to read file " << std::endl;
+                CAKEZ_ERROR("Fail to read file ");
             }
         }
     }
     else
     {
-        std::cout << "Fail to open file " << std::endl;
+        CAKEZ_ERROR("Fail to open file ");
     }
     return result;
+}
+
+void platform_log(const char* msg, TextColor color)
+{
+    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    uint32_t colorBits = 0;
+
+    switch (color)
+    {
+    // 三原色 合成白色
+    case TEXT_COLOR_WHITE:
+        colorBits = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
+        break;
+    case TEXT_COLOR_GREEN:
+        colorBits = FOREGROUND_GREEN;
+        break;
+    case TEXT_COLOR_YELLOW:
+        colorBits = FOREGROUND_RED | FOREGROUND_GREEN;
+        break;
+    case TEXT_COLOR_RED:
+        colorBits = FOREGROUND_RED;
+        break;
+    case TEXT_COLOR_LIGHT_RED:
+        colorBits = FOREGROUND_RED | FOREGROUND_INTENSITY;
+        break;
+    }
+    SetConsoleTextAttribute(consoleHandle, colorBits);
+
+#ifndef DEBUG
+    OutputDebugStringA(msg);
+#endif
+    WriteConsoleA(consoleHandle, msg, strlen(msg), 0, 0);
 }

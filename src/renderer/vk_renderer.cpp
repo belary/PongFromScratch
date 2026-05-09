@@ -1,42 +1,24 @@
 ﻿#include <vulkan/vulkan.h>
-
-#include "platform.h"
-#include "dds_structs.h"
-#include "vk_types.h"
-
 #ifdef WINDOWS_BUILD
-
 #include <windows.h>
 #include <vulkan/vulkan_win32.h>
-
 #elif LINUX_BUILD
 #endif
 
-#include <iostream>
+#include "dds_structs.h"
+#include "logger.h"
+#include "platform.h"
 
+#include "vk_types.h"
 #include "vk_init.cpp"
-
-#define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
-
-#define VK_CHECK(res_expr)                                                                         \
-    do                                                                                             \
-    {                                                                                              \
-        VkResult result = (res_expr);                                                              \
-        if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)                                   \
-        {                                                                                          \
-            std::cout << "Vulkan Error: " << result << std::endl;                                  \
-            __debugbreak();                                                                        \
-            return false;                                                                          \
-        }                                                                                          \
-    } while (0)
+#include "vk_util.cpp"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     VkDebugUtilsMessageSeverityFlagsEXT msgServerity, VkDebugUtilsMessageTypeFlagsEXT msgFlags,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
 
-    std::cout << "Validation Error: " << pCallbackData->pMessage << std::endl;
-
+    CAKEZ_ASSERT(0, pCallbackData->pMessage);
     return false;
 }
 
@@ -220,23 +202,21 @@ bool vk_init(VkContext* vkContext, void* window)
                                                       &formatCount, surfaceFormats));
 
         bool foundFormat = false;
-
         for (uint32_t i = 0; i < formatCount; i++)
         {
             VkSurfaceFormatKHR format = surfaceFormats[i];
-
             if (format.format == VK_FORMAT_B8G8R8A8_SRGB)
             {
                 vkContext->surfaceFormat = format;
                 foundFormat = true;
-                std::cout << "Find Correct Surface Format!" << std::endl;
+                // CAKEZ_TRACE("Find Correct Surface Format!");
                 break;
             }
         }
 
         if (!foundFormat && formatCount > 0)
         {
-            std::cout << "no suitable format." << std::endl;
+            CAKEZ_WARN("no suitable format.");
             vkContext->surfaceFormat = surfaceFormats[0];
         }
 
@@ -245,7 +225,6 @@ bool vk_init(VkContext* vkContext, void* window)
                                                            &surfaceCaps));
 
         uint32_t imgCount = surfaceCaps.minImageCount + 1;
-
         if (surfaceCaps.maxImageCount > 0 && imgCount > surfaceCaps.maxImageCount)
         {
             imgCount = surfaceCaps.maxImageCount;
@@ -534,28 +513,13 @@ bool vk_init(VkContext* vkContext, void* window)
         VkMemoryRequirements memRequirements;
         vkGetBufferMemoryRequirements(vkContext->device, vkContext->stagingBuffer.buffer,
                                       &memRequirements);
-        VkPhysicalDeviceMemoryProperties gpuMemProps;
-        vkGetPhysicalDeviceMemoryProperties(vkContext->gpu, &gpuMemProps);
 
         VkMemoryAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = MB(1);
-
-        for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
-        {
-            uint32_t isCompatible = memRequirements.memoryTypeBits & (1 << i);
-            VkMemoryPropertyFlags requiredFlags =
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-            uint32_t hasRequiredFlags =
-                (gpuMemProps.memoryTypes[i].propertyFlags & requiredFlags) == requiredFlags;
-
-            if (isCompatible && hasRequiredFlags)
-            {
-                allocInfo.memoryTypeIndex = i;
-                break;
-            }
-        }
+        allocInfo.memoryTypeIndex = vk_get_memory_type_index(
+            vkContext->gpu, memRequirements,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         VK_CHECK(
             vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->stagingBuffer.memory));
@@ -567,50 +531,14 @@ bool vk_init(VkContext* vkContext, void* window)
 
     // Create Image
     {
-
         uint32_t fileSize;
-        DDSFile* data = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
-        uint32_t textureSize = data->header.Width * data->header.Height * 4;
-        memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
+        DDSFile* file = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
+        uint16_t textureSize = file->header.Width * file->header.Height * 4;
 
-        VkImageCreateInfo imgInfo = {};
-        imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imgInfo.mipLevels = 1;
-        imgInfo.arrayLayers = 1;
-        imgInfo.imageType = VK_IMAGE_TYPE_2D;
-        imgInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
-        imgInfo.extent = {data->header.Width, data->header.Height, 1};
-        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-        VK_CHECK(vkCreateImage(vkContext->device, &imgInfo, 0, &vkContext->image.image));
-
-        // 获取图片的内存需求
-        VkMemoryRequirements memRequirements;
-        vkGetImageMemoryRequirements(vkContext->device, vkContext->image.image, &memRequirements);
-
-        // 获取GPU所提供的内存需求
-        VkPhysicalDeviceMemoryProperties gpuMemProps;
-        vkGetPhysicalDeviceMemoryProperties(vkContext->gpu, &gpuMemProps);
-
-        // 过滤出GPU上适合图片的内存类型索引
-        VkMemoryAllocateInfo allocInfo = {};
-        for (uint32_t i = 0; i < gpuMemProps.memoryTypeCount; i++)
-        {
-            if (memRequirements.memoryTypeBits & (1 << i) &&
-                (gpuMemProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ==
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
-            {
-                allocInfo.memoryTypeIndex = i;
-            }
-        }
-
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = textureSize;
-        VK_CHECK(vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->image.memory));
-
-        VK_CHECK(vkBindImageMemory(vkContext->device, vkContext->image.image,
-                                   vkContext->image.memory, 0));
+        vk_copy_to_buffer(&vkContext->stagingBuffer, &file->dataBegin, textureSize);
+        
+        vkContext->image = vk_allocate_image(vkContext->device, vkContext->gpu, file->header.Width,
+                                             file->header.Height, VK_FORMAT_R8G8B8A8_UNORM);
 
         VkCommandBuffer cmd;
         VkCommandBufferAllocateInfo cmdAlloc = cmd_alloc_info(vkContext->commandPool);
@@ -638,7 +566,7 @@ bool vk_init(VkContext* vkContext, void* window)
 
         // copy staging data to gpu
         VkBufferImageCopy copyRegion = {};
-        copyRegion.imageExtent = {data->header.Width, data->header.Height, 1};
+        copyRegion.imageExtent = {file->header.Width, file->header.Height, 1};
         copyRegion.imageSubresource.layerCount = 1;
         copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         vkCmdCopyBufferToImage(cmd, vkContext->stagingBuffer.buffer, vkContext->image.image,
@@ -784,7 +712,7 @@ bool vk_render(VkContext* vkContext)
         scissor.extent = vkContext->screenSize;
         vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeLayout, 0, 1,
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeLayout, 0, 1,
                                 &vkContext->descSet, 0, 0);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeline);
 
