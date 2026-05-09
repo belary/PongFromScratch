@@ -93,6 +93,255 @@ SortIncludes: false
 
 ---
 
+## C++ 基础：Struct vs Union
+
+在深入 Vulkan 之前，先理解 C++ 中 **struct** 和 **union** 的区别，这对理解 Vulkan 的数据结构很重要。
+
+---
+
+### Struct（结构体）
+
+**定义**：所有成员拥有独立的内存空间
+
+```cpp
+struct ExampleStruct {
+    int a;    // 4 字节
+    int b;    // 4 字节
+};
+// 总大小：8 字节
+```
+
+**内存布局**：
+```
+┌───────────────────────────────────┐
+│  ExampleStruct                    │
+│  ┌──────────────┬──────────────┐  │
+│  │      a       │      b       │  │
+│  │   4 bytes    │   4 bytes    │  │
+│  └──────────────┴──────────────┘  │
+└───────────────────────────────────┘
+总大小：8 字节
+
+特点：
+- a 和 b 各占各的内存
+- 修改 a 不影响 b
+- 可以同时使用 a 和 b
+```
+
+---
+
+### Union（共用体）
+
+**定义**：所有成员共享同一块内存空间
+
+```cpp
+union ExampleUnion {
+    int a;    // 4 字节
+    int b;    // 4 字节
+};
+// 总大小：4 字节（取最大成员的大小）
+```
+
+**内存布局**：
+```
+┌───────────────────────────────────┐
+│  ExampleUnion                     │
+│  ┌────────────────────────────┐  │
+│  │    a 和 b 共用同一块内存    │  │
+│  │       4 bytes              │  │
+│  └────────────────────────────┘  │
+└───────────────────────────────────┘
+总大小：4 字节
+
+特点：
+- a 和 b 共享内存
+- 修改 a 会影响 b（因为它们是同一位置）
+- 同一时间只能使用其中一个
+```
+
+---
+
+### 关键区别对比
+
+| 特性 | Struct | Union |
+|------|--------|-------|
+| **内存占用** | 所有成员大小之和 | 最大成员的大小 |
+| **成员访问** | 可以同时访问所有成员 | 同时只能访问一个成员 |
+| **修改影响** | 修改一个成员不影响其他 | 修改成员会影响共享内存的所有成员 |
+| **适用场景** | 需要同时使用多个字段 | 只会使用其中一个字段 |
+| **示例** | `struct { int x, y; }` | `union { int a; float b; }` |
+
+---
+
+### 实际例子：内存占用对比
+
+```cpp
+#include <iostream>
+
+// 使用 struct
+struct StructExample {
+    int a;     // 4 字节
+    float b;   // 4 字节
+    double c;  // 8 字节
+};
+// 总大小：16 字节
+
+// 使用 union
+struct UnionExample {
+    union {
+        int a;     // 4 字节
+        float b;   // 4 字节
+        double c;  // 8 字节 ← 最大
+    };
+};
+// 总大小：8 字节
+
+int main() {
+    std::cout << "Struct: " << sizeof(StructExample) << "\n";   // 16
+    std::cout << "Union: " << sizeof(UnionExample) << "\n";    // 8
+    return 0;
+}
+```
+
+---
+
+### 本项目应用：DescriptorInfo 结构体
+
+在 [vk_types_cakezz.h:29](../src/renderer/vk_types_cakezz.h#L29) 中：
+
+```cpp
+struct DescriptorInfo
+{
+    union
+    {
+        VkDescriptorBufferInfo bufferInfo;  // 16 字节
+        VkDescriptorImageInfo imageInfo;    // 24 字节
+    };
+    // ↑ union 意味着 bufferInfo 和 imageInfo 共享同一块内存
+    // 总大小：24 字节（取较大的那个）
+};
+```
+
+#### 为什么使用 Union？
+
+**原因 1：不会同时使用两者**
+
+```cpp
+// 描述符要么是缓冲区，要么是图像，不会同时是两者
+
+// 场景 1：创建缓冲区描述符
+DescriptorInfo desc1(globalUBO);
+// desc1.bufferInfo 被初始化
+// desc1.imageInfo 未使用（不用关心其值）
+
+// 场景 2：创建图像描述符
+DescriptorInfo desc2(sampler, imageView);
+// desc2.imageInfo 被初始化
+// desc2.bufferInfo 未使用（不用关心其值）
+```
+
+**原因 2：节省内存**
+
+```
+如果用 struct：
+┌─────────────────────────────────────────────────────────────┐
+│  DescriptorInfo                                             │
+│  ┌─────────────────────┬───────────────────────────┐       │
+│  │    bufferInfo       │      imageInfo           │       │
+│  │    (16 bytes)       │      (24 bytes)          │       │
+│  └─────────────────────┴───────────────────────────┘       │
+└─────────────────────────────────────────────────────────────┘
+总大小：40 字节 ← 浪费内存
+
+使用 union：
+┌─────────────────────────────────────────────────────────────┐
+│  DescriptorInfo                                             │
+│  ┌─────────────────────────────────────────────┐           │
+│  │  bufferInfo 或 imageInfo（共用内存）          │           │
+│  │  24 bytes（取较大的）                         │           │
+│  └─────────────────────────────────────────────┘           │
+└─────────────────────────────────────────────────────────────┘
+总大小：24 字节 ← 节省 40% 内存
+```
+
+**原因 3：语义清晰**
+
+```cpp
+// union 明确表达了"二选一"的关系
+struct DescriptorInfo {
+    union {
+        VkDescriptorBufferInfo bufferInfo;  // 要么用这个
+        VkDescriptorImageInfo imageInfo;    // 要么用这个
+    };
+};
+// 一眼就能看出：bufferInfo 和 imageInfo 不会同时使用
+```
+
+---
+
+### 类比理解
+
+#### Struct 就像两栋独立的房子
+
+```
+🏠 房子 A (bufferInfo)     🏠 房子 B (imageInfo)
+   16 平方米                  24 平方米
+   
+问题：你只需要住一栋，但两栋都要付钱
+```
+
+#### Union 就像一套可变形的房子
+
+```
+🏠 可变形房子
+   24 平方米（取较大的）
+   
+   可以变成 16 平米的办公室（bufferInfo）
+   或者保持 24 平米的住宅（imageInfo）
+   
+   优势：只需要付一栋房子的钱
+```
+
+---
+
+### 如何在代码中使用
+
+```cpp
+// 创建缓冲区描述符
+DescriptorInfo desc1(globalUBO);
+// desc1.bufferInfo 有效，desc1.imageInfo 未使用
+
+// 创建图像描述符
+DescriptorInfo desc2(sampler, imageView);
+// desc2.imageInfo 有效，desc1.bufferInfo 未使用
+
+// 使用时根据类型选择对应的成员
+VkWriteDescriptorSet write = {};
+
+// 缓冲区描述符
+write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+write.pBufferInfo = &desc1.bufferInfo;  // ← 使用 bufferInfo
+
+// 图像描述符
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+write.pImageInfo = &desc2.imageInfo;    // ← 使用 imageInfo
+```
+
+---
+
+### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **Struct** | 所有成员独立，同时有效 |
+| **Union** | 所有成员共享内存，同时只有一个有效 |
+| **内存占用** | Union 取最大成员的大小 |
+| **本项目应用** | DescriptorInfo 使用 union 节省内存 |
+| **使用场景** | 当多个字段互斥时（只会用其中一个） |
+| **注意事项** | 访问 union 成员时要确保它是当前有效的 |
+
+---
+
 ## Vulkan 核心概念
 
 ### 物理设备 vs 逻辑设备
@@ -359,6 +608,259 @@ vk::CommandPoolCreateInfo poolInfo(
 | **生命周期** | 通常应用程序全程存在 | 可以重录和重用 |
 | **数量** | 每个队列族一个或多个 | 从池中分配，可以有多个 |
 | **绑定** | 绑定到队列族 | 从池分配，隐式继承绑定 |
+
+---
+
+### Vulkan 描述符类型详解
+
+#### 什么是描述符类型？
+
+在 Vulkan 中，**描述符类型**（Descriptor Type）定义了着色器可以访问的资源类型。不同的描述符类型有不同的性能特性和使用场景。
+
+---
+
+#### 本项目使用的三种描述符类型
+
+在 [vk_renderer_cakezz.cpp:334](../src/renderer/vk_renderer_cakezz.cpp#L334) 中，定义了三种描述符集绑定：
+
+```cpp
+VkDescriptorSetLayoutBinding layoutBindings[] = {
+    // [0] 顶点着色器 - 全局 Uniform Buffer
+    layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 0),
+    
+    // [1] 顶点着色器 - 变换 Storage Buffer  
+    layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 1),
+    
+    // [2] 片段着色器 - 纹理采样器
+    layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 2)
+};
+```
+
+---
+
+##### 1. UNIFORM_BUFFER（统一缓冲区）
+
+**定义**：存储少量、只读、全局数据
+
+**特性**：
+| 特性 | 说明 |
+|------|------|
+| **大小限制** | 通常 16KB 以内（硬件限制） |
+| **访问模式** | 只读 |
+| **更新频率** | 较少变化 |
+| **性能** | 高度优化，快速访问 |
+| **着色器访问** | 所有着色器阶段可共享 |
+
+**用途**：
+- 全局参数（屏幕尺寸、时间等）
+- 变换矩阵（MVP）
+- 材质参数
+- 光照参数
+
+**本项目使用**：
+```cpp
+// vk_renderer_cakezz.cpp:585
+GlobalData globalData = {
+    (int)vkcontext->screenSize.width,
+    (int)vkcontext->screenSize.height
+};
+vkcontext->globalUBO = vk_allocate_buffer(
+    ...,
+    sizeof(GlobalData),  // 很小，只有 8 字节
+    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    ...
+);
+```
+
+**着色器中声明**：
+```glsl
+layout(set = 0, binding = 0) uniform GlobalUBO {
+    GlobalData globalData;
+};
+```
+
+**类比**：
+```
+Uniform Buffer = 广播通知栏
+所有实例都能看到相同的内容（屏幕尺寸）
+```
+
+---
+
+##### 2. STORAGE_BUFFER（存储缓冲区）
+
+**定义**：存储大量、可变长、只读或读写的数据数组
+
+**特性**：
+| 特性 | 说明 |
+|------|------|
+| **大小限制** | 非常大（可达 MB 级别） |
+| **访问模式** | 只读或读写 |
+| **更新频率** | 可以频繁更新 |
+| **性能** | 比 Uniform Buffer 慢，但容量大 |
+| **着色器访问** | 支持数组索引访问 |
+
+**用途**：
+- 实例变换数组（本项目）
+- 大型顶点数据
+- 计算着色器的输入/输出
+- 粒子系统数据
+
+**本项目使用**：
+```cpp
+// vk_renderer_cakezz.cpp:572
+vkcontext->transformStorageBuffer = vk_allocate_buffer(
+    ...,
+    sizeof(Transform) * MAX_ENTITIES,  // 可容纳多个实体
+    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    ...
+);
+```
+
+**着色器中声明**：
+```glsl
+layout(set = 0, binding = 1) readonly buffer Transforms {
+    Transform transforms[];
+};
+
+// 通过索引访问
+Transform transform = transforms[gl_InstanceIndex];
+```
+
+**类比**：
+```
+Storage Buffer = 大型仓库
+每个实例去仓库找自己的专属位置（通过索引）
+```
+
+---
+
+##### 3. COMBINED_IMAGE_SAMPLER（组合图像采样器）
+
+**定义**：同时包含纹理图像和采样器的描述符
+
+**特性**：
+| 特性 | 说明 |
+|------|------|
+| **组成部分** | ImageView + Sampler |
+| **访问模式** | 只读 |
+| **功能** | 纹理采样 + 过滤 |
+| **着色器访问** | 使用 `texture()` 函数采样 |
+| **硬件优化** | 专用纹理采样单元 |
+
+**用途**：
+- 纹理贴图（本项目）
+- 法线贴图
+- 阴影贴图
+- 环境贴图
+
+**为什么是"组合"？**
+- 传统图形 API 将 Image 和 Sampler 分离
+- Vulkan 将它们组合以提高效率
+- 减少着色器中的绑定操作
+
+**本项目使用**：
+```cpp
+// 在描述符集更新时
+VkDescriptorImageInfo imgInfo = {};
+imgInfo.imageView = textureImageView;    // 纹理视图
+imgInfo.sampler = textureSampler;         // 采样器
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+VkWriteDescriptorSet write = {};
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+...
+```
+
+**着色器中声明**：
+```glsl
+layout(set = 0, binding = 0) uniform sampler2D sprite;
+
+void main() {
+    vec4 color = texture(sprite, uv);
+    ...
+}
+```
+
+**类比**：
+```
+Combined Image Sampler = 相册 + 放大镜
+相册(Image)存储图片，放大镜(Sampler)定义如何查看
+```
+
+---
+
+#### 三种描述符类型对比
+
+| 特性 | UNIFORM_BUFFER | STORAGE_BUFFER | COMBINED_IMAGE_SAMPLER |
+|------|----------------|----------------|------------------------|
+| **主要用途** | 小型全局数据 | 大型数组数据 | 纹理采样 |
+| **大小限制** | ~16KB | 很大（MB 级） | 取决于纹理大小 |
+| **访问方式** | 直接访问 | 数组索引访问 | `texture()` 函数 |
+| **读写权限** | 只读 | 只读或读写 | 只读 |
+| **更新频率** | 较少 | 可频繁 | 纹理切换时 |
+| **性能** | 最快 | 较快 | 专用硬件优化 |
+| **着色器阶段** | 所有阶段 | 所有阶段 | 顶点/片段/几何 |
+| **本项目对应** | 屏幕尺寸 | 实体变换数组 | 精灵纹理 |
+
+---
+
+#### 为什么需要三种不同的类型？
+
+##### 1. **性能优化**
+
+```
+GPU 对不同类型的数据有不同的优化策略：
+
+Uniform Buffer    → 放在快速缓存中，全芯片共享
+Storage Buffer    → 放在显存中，按需读取
+Image Sampler     → 专用的纹理采样单元（TMU）
+```
+
+##### 2. **硬件限制**
+
+```
+某些硬件对 Uniform Buffer 的大小有严格限制（16KB）
+如果数据量大，必须使用 Storage Buffer
+```
+
+##### 3. **语义清晰**
+
+```glsl
+// 看到声明就知道数据特点
+uniform GlobalData { ... };      // 小型、只读、共享
+buffer TransformData { ... };    // 大型、可索引、可读写
+sampler2D texture;               // 纹理采样
+```
+
+---
+
+#### 描述符类型完整列表
+
+Vulkan 还支持其他描述符类型，本项目未使用：
+
+| 类型 | 用途 |
+|------|------|
+| `SAMPLER` | 单独的采样器 |
+| `SAMPLED_IMAGE` | 单独的纹理图像 |
+| `UNIFORM_TEXEL_BUFFER` | 纹理缓冲区（只读） |
+| `STORAGE_TEXEL_BUFFER` | 纹理缓冲区（读写） |
+| `UNIFORM_BUFFER_DYNAMIC` | 动态偏移的 Uniform Buffer |
+| `STORAGE_BUFFER_DYNAMIC` | 动态偏移的 Storage Buffer |
+| `INPUT_ATTACHMENT` | 帧缓冲区读取（用于后处理） |
+| `STORAGE_IMAGE` | 可读写的图像（计算着色器） |
+
+---
+
+#### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **UNIFORM_BUFFER** | 小型全局数据（< 16KB），所有实例共享 |
+| **STORAGE_BUFFER** | 大型数组数据，支持索引访问 |
+| **COMBINED_IMAGE_SAMPLER** | 纹理图像 + 采样器组合 |
+| **选择依据** | 数据大小、访问模式、更新频率 |
+| **性能考虑** | Uniform 最快，Storage 次之，Image 有专用硬件 |
 
 ---
 
@@ -3618,6 +4120,266 @@ Vulkan:
 1. **性能优化**：驱动可以提前知道所有资源使用方式
 2. **多线程友好**：资源绑定可以在渲染前完成
 3. **灵活性**：一个 DescriptorSet 可以包含多个资源
+
+---
+
+#### 更新描述符集：`vkUpdateDescriptorSets`
+
+`vkUpdateDescriptorSets` 是 Vulkan 中用于将资源（缓冲区、图像等）绑定到描述符集的核心函数，使着色器能够访问这些资源。
+
+##### 函数签名
+
+```cpp
+void vkUpdateDescriptorSets(
+    VkDevice device,                            // 逻辑设备
+    uint32_t descriptorWriteCount,              // 写入操作数量
+    const VkWriteDescriptorSet* pDescriptorWrites,  // 写入操作数组
+    uint32_t descriptorCopyCount,               // 复制操作数量（通常为 0）
+    const VkCopyDescriptorSet* pDescriptorCopies    // 复制操作数组（通常为 nullptr）
+);
+```
+
+##### 参数详解
+
+| 参数 | 类型 | 含义 |
+|------|------|------|
+| `device` | `VkDevice` | 逻辑设备 |
+| `descriptorWriteCount` | `uint32_t` | 写入操作的数量 |
+| `pDescriptorWrites` | `VkWriteDescriptorSet[]` | 写入操作数组指针 |
+| `descriptorCopyCount` | `uint32_t` | 复制操作的数量（通常为 0） |
+| `pDescriptorCopies` | `VkCopyDescriptorSet[]` | 复制操作数组指针（通常为 nullptr） |
+
+##### 写入操作结构体
+
+`VkWriteDescriptorSet` 定义了**一次写入操作的详细信息**：
+
+```cpp
+typedef struct VkWriteDescriptorSet {
+    VkStructureType sType;                      // 必须是 VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
+    const void* pNext;                          // 扩展数据（通常为 nullptr）
+    VkDescriptorSet dstSet;                     // 目标描述符集
+    uint32_t dstBinding;                        // 绑定点（对应着色器的 binding）
+    uint32_t dstArrayElement;                   // 数组元素索引（通常为 0）
+    uint32_t descriptorCount;                   // 描述符数量
+    VkDescriptorType descriptorType;            // 描述符类型
+    const VkDescriptorImageInfo* pImageInfo;    // 图像信息（纹理使用）
+    const VkDescriptorBufferInfo* pBufferInfo;  // 缓冲区信息（UBO/SSBO 使用）
+    const VkBufferView* pTexelBufferView;       // 纹理缓冲区视图（较少使用）
+} VkWriteDescriptorSet;
+```
+
+##### 使用流程
+
+###### 步骤 1：准备资源信息
+
+```cpp
+// 缓冲区信息
+VkDescriptorBufferInfo bufferInfo = {};
+bufferInfo.buffer = globalUBO;          // Vulkan 缓冲区句柄
+bufferInfo.offset = 0;                   // 偏移量
+bufferInfo.range = VK_WHOLE_SIZE;        // 大小（或指定字节数）
+
+// 图像信息
+VkDescriptorImageInfo imageInfo = {};
+imageInfo.sampler = textureSampler;      // 采样器
+imageInfo.imageView = textureImageView;  // 图像视图
+imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;  // 布局
+```
+
+###### 步骤 2：创建写入操作
+
+```cpp
+// 写入操作 1：更新全局 UBO (binding = 0)
+VkWriteDescriptorSet write1 = {};
+write1.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+write1.dstSet = descriptorSet;              // 目标描述符集
+write1.dstBinding = 0;                       // 绑定点
+write1.dstArrayElement = 0;                  // 数组索引
+write1.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+write1.descriptorCount = 1;                  // 描述符数量
+write1.pBufferInfo = &bufferInfo;            // 缓冲区信息
+
+// 写入操作 2：更新纹理 (binding = 1)
+VkWriteDescriptorSet write2 = {};
+write2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+write2.dstSet = descriptorSet;
+write2.dstBinding = 1;                       // 绑定点
+write2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+write2.descriptorCount = 1;
+write2.pImageInfo = &imageInfo;              // 图像信息
+
+// 组合成数组
+VkWriteDescriptorSet writes[] = { write1, write2 };
+```
+
+###### 步骤 3：执行更新
+
+```cpp
+// 一次性更新多个绑定
+vkUpdateDescriptorSets(
+    device,
+    2,              // 2 个写入操作
+    writes,         // 写入操作数组
+    0,              // 不使用复制操作
+    nullptr
+);
+```
+
+##### 类比理解
+
+```
+描述符集 = 工具箱（空）
+vkUpdateDescriptorSets = 向工具箱放入工具
+
+执行前：
+┌─────────────────────┐
+│  描述符集（空的）     │
+│  ┌─────────────┐    │
+│  │ binding 0: │    │ ← 空
+│  ├─────────────┤    │
+│  │ binding 1: │    │ ← 空
+│  └─────────────┘    │
+└─────────────────────┘
+
+执行 vkUpdateDescriptorSets：
+┌─────────────────────┐
+│  描述符集（填充后）  │
+│  ┌─────────────┐    │
+│  │ binding 0: │ UBO │ ← 填入全局缓冲区
+│  ├─────────────┤    │
+│  │ binding 1: │Tex │ ← 填入纹理
+│  └─────────────┘    │
+└─────────────────────┘
+
+结果：着色器可以通过 layout(set=0, binding=X) 访问这些资源
+```
+
+##### 为什么需要这个函数？
+
+**1. 连接 C++ 和着色器**
+
+```
+C++ 端：
+VkBuffer globalUBO = ...;
+VkImage texture = ...;
+
+↓ vkUpdateDescriptorSets
+
+着色器端：
+layout(set = 0, binding = 0) uniform GlobalUBO { ... };
+layout(set = 0, binding = 1) uniform sampler2D tex;
+
+现在着色器可以访问这些资源了！
+```
+
+**2. 灵活更新资源**
+
+```cpp
+// 可以更新单个绑定
+VkWriteDescriptorSet write = {};
+write.dstSet = descriptorSet;
+write.dstBinding = 1;  // 只更新 binding 1
+vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+
+// 可以批量更新多个绑定
+VkWriteDescriptorSet writes[] = { write1, write2, write3 };
+vkUpdateDescriptorSets(device, 3, writes, 0, nullptr);
+```
+
+**3. 运行时切换资源**
+
+```cpp
+// 动态切换纹理
+VkDescriptorImageInfo newTexture = { newSampler, newImageView, ... };
+VkWriteDescriptorSet write = {};
+write.dstSet = descriptorSet;
+write.dstBinding = 1;
+write.pImageInfo = &newTexture;
+vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+```
+
+##### 本项目使用示例
+
+在 [vk_renderer_cakezz.cpp:654](../src/renderer/vk_renderer_cakezz.cpp#L654) 中：
+
+```cpp
+// 准备写入操作数组
+VkWriteDescriptorSet writes[3];
+// ... 填充每个写入操作 ...
+
+// 一次性更新所有绑定
+vkUpdateDescriptorSets(
+    vkcontext->device, 
+    ArraySize(writes),  // 写入操作数量
+    writes,              // 写入操作数组
+    0,                   // 不使用复制
+    0
+);
+```
+
+##### 常见错误
+
+**错误 1：binding 不匹配**
+
+```cpp
+// 着色器：binding = 0
+layout(set = 0, binding = 0) uniform UBO { ... };
+
+// C++：dstBinding = 1  ❌
+write.dstBinding = 1;  // 不匹配！
+
+// ✅ 正确：binding 必须一致
+write.dstBinding = 0;
+```
+
+**错误 2：描述符类型不匹配**
+
+```cpp
+// 着色器：uniform buffer
+layout(set = 0, binding = 0) uniform UBO { ... };
+
+// C++：COMBINED_IMAGE_SAMPLER  ❌
+write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+// ✅ 正确：使用 UNIFORM_BUFFER
+write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+```
+
+**错误 3：忘记更新**
+
+```cpp
+// 创建了描述符集，但没有更新
+vkAllocateDescriptorSets(..., &descriptorSet);
+// ❌ 忘记 vkUpdateDescriptorSets
+
+// 着色器访问时会出现未定义行为或崩溃
+```
+
+**错误 4：错误的图像布局**
+
+```cpp
+// ❌ 错误：Image 还是 UNDEFINED 布局
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+// ✅ 正确：先转换为 SHADER_READ_ONLY_OPTIMAL
+transition_image_layout(..., VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+```
+
+##### 关键要点总结
+
+| 要点 | 说明 |
+|------|------|
+| **作用** | 将资源绑定到描述符集 |
+| **时机** | 创建描述符集后，渲染前 |
+| **批量更新** | 可以一次更新多个绑定 |
+| **线程安全** | 可以在不同线程同时更新不同描述符集 |
+| **性能** | 更新操作相对昂贵，避免频繁调用 |
+| **持久性** | 更新后一直有效，直到再次更新或销毁 |
+| **类型匹配** | descriptorType 必须与着色器声明一致 |
+| **binding 匹配** | dstBinding 必须与着色器的 binding 一致 |
+
+---
 
 #### 绑定描述符集：`vkCmdBindDescriptorSets`
 

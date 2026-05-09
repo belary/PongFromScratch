@@ -533,10 +533,10 @@ bool vk_init(VkContext* vkContext, void* window)
     {
         uint32_t fileSize;
         DDSFile* file = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
-        uint16_t textureSize = file->header.Width * file->header.Height * 4;
+        uint32_t textureSize = file->header.Width * file->header.Height * 4;
 
         vk_copy_to_buffer(&vkContext->stagingBuffer, &file->dataBegin, textureSize);
-        
+
         vkContext->image = vk_allocate_image(vkContext->device, vkContext->gpu, file->header.Width,
                                              file->header.Height, VK_FORMAT_R8G8B8A8_UNORM);
 
