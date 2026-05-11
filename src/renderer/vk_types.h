@@ -94,17 +94,6 @@ struct Buffer
         CAKEZ_ERROR("Vulkan Error: %d", result);                                                   \
         __debugbreak();                                                                            \
     }
-// #define VK_CHECK(res_expr)                                                                         \
-//     do                                                                                             \
-//     {                                                                                              \
-//         VkResult result = (res_expr);                                                              \
-//         if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)                                   \
-//         {                                                                                          \
-//             CAKEZ_ERROR("Vulkan Error: %d", result);                                               \
-//             __debugbreak();                                                                        \
-//             return false;                                                                          \
-//         }                                                                                          \
-//     } while (0);
 
 struct DescriptorInfo
 {

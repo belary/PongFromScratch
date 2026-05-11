@@ -2,6 +2,7 @@
 #include <windows.h>
 
 #include "platform.h"
+#include "game/game.cpp"
 #include "renderer/vk_renderer.cpp"
 
 global_variable bool running = true;
@@ -60,9 +61,16 @@ void platform_update_window(HWND objWindow)
 int main()
 {
     VkContext vkContext = {};
+    GameState gameState = {};
     if (!platform_create_window())
     {
+        CAKEZ_FATAL("Failed to open a window");
         return -2;
+    }
+    if (!init_game(&gameState))
+    {
+        CAKEZ_FATAL("Failed to init game");
+        return -1;
     }
     if (!vk_init(&vkContext, window))
     {
@@ -72,8 +80,10 @@ int main()
     while (running)
     {
         platform_update_window(window);
-        if (!vk_render(&vkContext))
+        update_game(&gameState);
+        if (!vk_render(&vkContext, &gameState))
         {
+            CAKEZ_FATAL("Failed to render vulken");
             return -4;
         }
     }
@@ -144,7 +154,7 @@ void platform_log(const char* msg, TextColor color)
     }
     SetConsoleTextAttribute(consoleHandle, colorBits);
 
-#ifndef DEBUG
+#ifdef DEBUG
     OutputDebugStringA(msg);
 #endif
     WriteConsoleA(consoleHandle, msg, strlen(msg), 0, 0);

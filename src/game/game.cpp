@@ -1,9 +1,7 @@
+#include "defines.h"
+#include "logger.h"
 
-#include "defines_cakezz.h"
-#include "logger_cakezz.h"
-
-#include "renderer/shared_render_types_cakezz.h"
-
+#include "renderer/shared_render_types.h"
 
 struct Entity
 {
@@ -16,10 +14,9 @@ struct GameState
     Entity entities[MAX_ENTITIES];
 };
 
-internal Entity *create_entity(GameState *gameState, Transform transform)
+internal Entity* create_entity(GameState* gameState, Transform transform)
 {
-    Entity *e = 0;
-
+    Entity* e = 0;
     if (gameState->entityCount < MAX_ENTITIES)
     {
         e = &gameState->entities[gameState->entityCount++];
@@ -33,28 +30,24 @@ internal Entity *create_entity(GameState *gameState, Transform transform)
     return e;
 }
 
-bool init_game(GameState *gameState)
+bool init_game(GameState* gameState)
 {
-
     for (uint32_t i = 0; i < 10; i++)
     {
+
         for (uint32_t j = 0; j < 10; j++)
         {
-            Entity *e = create_entity(gameState, {i * 120.0f, j * 60.0f, 70.0f, 70.0f});
+            Entity* e = create_entity(gameState, {i * 60.0f, j * 60.0f, 60.0f, 60.0f});
         }
     }
-
     return true;
 }
 
-void update_game(GameState *gameState)
+void update_game(GameState* gameState)
 {
-    // Does nothing
     for (uint32_t i = 0; i < gameState->entityCount; i++)
     {
-        Entity *e = &gameState->entities[i];
-
-        // This is frame rate dependent
+        Entity* e = &gameState->entities[i];
         e->transform.xPos += 0.01f;
     }
 }

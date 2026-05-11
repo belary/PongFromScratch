@@ -31,11 +31,6 @@ uint32_t vk_get_memory_type_index(VkPhysicalDevice gpu, VkMemoryRequirements mem
 Image vk_allocate_image(VkDevice device, VkPhysicalDevice gpu, uint32_t width, uint32_t height,
                         VkFormat format)
 {
-    // uint32_t fileSize;
-    //     DDSFile* data = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
-    //     uint32_t textureSize = data->header.Width * data->header.Height * 4;
-    //     memcpy(vkContext->stagingBuffer.data, &data->dataBegin, textureSize);
-
     Image image = {};
 
     VkImageCreateInfo imgInfo = {};
@@ -67,6 +62,37 @@ Image vk_allocate_image(VkDevice device, VkPhysicalDevice gpu, uint32_t width, u
     return image;
 }
 
+
+Buffer vk_allocate_buffer(VkDevice device, VkPhysicalDevice gpu, uint32_t size,
+VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
+{
+    Buffer buffer = {};
+    buffer.size = size;
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = bufferUsage;
+    VK_CHECK(vkCreateBuffer(device, &bufferInfo, 0, &buffer.buffer));
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, buffer.buffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = vk_get_memory_type_index(gpu, memRequirements, memProps);
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    VK_CHECK(vkAllocateMemory(device, &allocInfo, 0, &buffer.memory));
+
+    // only map memory we can actually write to the CPU
+    if (memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) 
+    {
+        VK_CHECK(vkMapMemory(device, buffer.memory, 0, memRequirements.size, 0, &buffer.data));
+    }
+
+    VK_CHECK(vkBindBufferMemory(device, buffer.buffer, buffer.memory, 0));
+    return buffer;
+}
 
 void vk_copy_to_buffer(Buffer* buffer, void* data, uint32_t size)
 {

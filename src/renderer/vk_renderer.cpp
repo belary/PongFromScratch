@@ -12,13 +12,13 @@
 #include "vk_types.h"
 #include "vk_init.cpp"
 #include "vk_util.cpp"
+#include "vk_shader_util.cpp"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     VkDebugUtilsMessageSeverityFlagsEXT msgServerity, VkDebugUtilsMessageTypeFlagsEXT msgFlags,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 {
-
-    CAKEZ_ASSERT(0, pCallbackData->pMessage);
+    CAKEZ_ERROR(pCallbackData->pMessage);
     return false;
 }
 
@@ -54,12 +54,19 @@ typedef struct VkContext
 
     Image image;
     Buffer stagingBuffer;
+    Buffer tranformStorageBuffer;
+    Buffer globalUBO;
+    Buffer indexBuffer;
+
     int graphicsIdx;
 
 } VkContext;
 
 bool vk_init(VkContext* vkContext, void* window)
 {
+    vk_compile_shader("assets/shaders/shader.vert", "assets/shaders/compiled/shader.vert.spv");
+    vk_compile_shader("assets/shaders/shader.frag", "assets/shaders/compiled/shader.frag.spv");
+
     platform_get_window_size(&vkContext->screenSize.width, &vkContext->screenSize.height);
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -344,10 +351,10 @@ bool vk_init(VkContext* vkContext, void* window)
 
         VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->acquireSemaphore));
 
-        for (uint32_t i = 0; i < 5; i++)
+        // Create one submit semaphore per swapchain image
+        for (uint32_t i = 0; i < vkContext->scImgCount; i++)
         {
-            VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0,
-                                       &vkContext->submitSemaphores[i]));
+            VK_CHECK(vkCreateSemaphore(vkContext->device, &semaInfo, 0, &vkContext->submitSemaphores[i]));
         }
 
         VkFenceCreateInfo fenceInfo = fence_info(VK_FENCE_CREATE_SIGNALED_BIT);
@@ -355,18 +362,19 @@ bool vk_init(VkContext* vkContext, void* window)
     }
 
     // Descriptor set layouts
+    // 这里绑定多个layout:顶点的2个，片段的1个
     {
 
-        VkDescriptorSetLayoutBinding binding = {};
-        binding.binding = 0;
-        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        binding.descriptorCount = 1;
-        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        VkDescriptorSetLayoutBinding bindings[] = {
+            layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 0),
+            layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 1),
+            layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1, 2),
+        };
 
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 1;
-        layoutInfo.pBindings = &binding;
+        layoutInfo.bindingCount = ArraySize(bindings);
+        layoutInfo.pBindings = bindings;
 
         VK_CHECK(
             vkCreateDescriptorSetLayout(vkContext->device, &layoutInfo, 0, &vkContext->setLayout));
@@ -419,7 +427,7 @@ bool vk_init(VkContext* vkContext, void* window)
         rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
-        rasterizationState.frontFace = VK_FRONT_FACE_CLOCKWISE;
+        rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
         rasterizationState.lineWidth = 1.0f;
 
         VkPipelineMultisampleStateCreateInfo multisampleState = {};
@@ -433,7 +441,7 @@ bool vk_init(VkContext* vkContext, void* window)
 
             uint32_t lengthInBytes;
             uint32_t* vertexCode =
-                (uint32_t*)platform_read_file("assets/shaders/shader.vert.spv", &lengthInBytes);
+                (uint32_t*)platform_read_file("assets/shaders/compiled/shader.vert.spv", &lengthInBytes);
 
             VkShaderModuleCreateInfo shaderInfo = {};
             shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -448,7 +456,7 @@ bool vk_init(VkContext* vkContext, void* window)
 
             uint32_t lengthInBytes;
             uint32_t* fragmentCode =
-                (uint32_t*)platform_read_file("assets/shaders/shader.frag.spv", &lengthInBytes);
+                (uint32_t*)platform_read_file("assets/shaders/compiled/shader.frag.spv", &lengthInBytes);
 
             VkShaderModuleCreateInfo shaderInfo = {};
             shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -503,30 +511,13 @@ bool vk_init(VkContext* vkContext, void* window)
 
     // Staging Buffer
     {
-        VkBufferCreateInfo bufferInfo = {};
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = MB(1);
-        bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        VK_CHECK(
-            vkCreateBuffer(vkContext->device, &bufferInfo, 0, &vkContext->stagingBuffer.buffer));
-
-        VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(vkContext->device, vkContext->stagingBuffer.buffer,
-                                      &memRequirements);
-
-        VkMemoryAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-        allocInfo.allocationSize = MB(1);
-        allocInfo.memoryTypeIndex = vk_get_memory_type_index(
-            vkContext->gpu, memRequirements,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        VK_CHECK(
-            vkAllocateMemory(vkContext->device, &allocInfo, 0, &vkContext->stagingBuffer.memory));
-        VK_CHECK(vkMapMemory(vkContext->device, vkContext->stagingBuffer.memory, 0, MB(1), 0,
-                             &vkContext->stagingBuffer.data));
-        VK_CHECK(vkBindBufferMemory(vkContext->device, vkContext->stagingBuffer.buffer,
-                                    vkContext->stagingBuffer.memory, 0));
+        vkContext->stagingBuffer = vk_allocate_buffer(
+            vkContext->device,
+            vkContext->gpu,
+            MB(1),
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
     }
 
     // Create Image
@@ -534,9 +525,7 @@ bool vk_init(VkContext* vkContext, void* window)
         uint32_t fileSize;
         DDSFile* file = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
         uint32_t textureSize = file->header.Width * file->header.Height * 4;
-
         vk_copy_to_buffer(&vkContext->stagingBuffer, &file->dataBegin, textureSize);
-
         vkContext->image = vk_allocate_image(vkContext->device, vkContext->gpu, file->header.Width,
                                              file->header.Height, VK_FORMAT_R8G8B8A8_UNORM);
 
@@ -614,18 +603,65 @@ bool vk_init(VkContext* vkContext, void* window)
 
         VK_CHECK(vkCreateSampler(vkContext->device, &samplerInfo, 0, &vkContext->sampler));
     }
+     
+    // Create Transform storage buffer
+    {
+        vkContext->tranformStorageBuffer = vk_allocate_buffer(
+            vkContext->device,
+            vkContext->gpu,
+            sizeof(Transform) * MAX_ENTITIES,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        );
+    }
+
+    // Create Uniform Buffer
+    {
+         vkContext->globalUBO= vk_allocate_buffer(
+            vkContext->device,
+            vkContext->gpu,
+            sizeof(GlobalData),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        );       
+        //?
+        GlobalData globalData = {
+            (int)vkContext->screenSize.width,
+            (int)vkContext->screenSize.height,
+        };
+        vk_copy_to_buffer(&vkContext->globalUBO, &globalData, sizeof(globalData));
+    }
+
+    // Create Index buffer
+    {
+          vkContext->indexBuffer= vk_allocate_buffer(
+            vkContext->device,
+            vkContext->gpu,
+            sizeof(uint32_t) * 6,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        );       
+        
+        //copy indices to the buffer
+        {
+            uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+            vk_copy_to_buffer(&vkContext->indexBuffer, indices, sizeof(uint32_t) * 6);
+        }
+    }
 
     // Create Descriptor Pool
     {
-        VkDescriptorPoolSize poolSize = {};
-        poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSize.descriptorCount = 1;
+        VkDescriptorPoolSize poolSizes[] = {
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}
+        };
 
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         poolInfo.maxSets = 1;
-        poolInfo.poolSizeCount = 1;
-        poolInfo.pPoolSizes = &poolSize;
+        poolInfo.poolSizeCount = ArraySize(poolSizes);
+        poolInfo.pPoolSizes = poolSizes;
 
         VK_CHECK(vkCreateDescriptorPool(vkContext->device, &poolInfo, 0, &vkContext->descPool));
     }
@@ -642,46 +678,48 @@ bool vk_init(VkContext* vkContext, void* window)
 
     // Update Descriptor Set
     {
-        VkDescriptorImageInfo imgInfo = {};
-        imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imgInfo.imageView = vkContext->image.view;
-        imgInfo.sampler = vkContext->sampler;
+        DescriptorInfo descInfos[] = {
+            DescriptorInfo(vkContext->globalUBO.buffer),
+            DescriptorInfo(vkContext->tranformStorageBuffer.buffer),
+            DescriptorInfo(vkContext->sampler, vkContext->image.view)
+        };
 
-        VkWriteDescriptorSet write = {};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = vkContext->descSet;
-        write.pImageInfo = &imgInfo;
-        write.dstBinding = 0;
-        write.descriptorCount = 1;
-        write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        VkWriteDescriptorSet writes[] = {
+            write_set(vkContext->descSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 
+                &descInfos[0], 0, 1),
+            write_set(vkContext->descSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                &descInfos[1], 1, 1),
+            write_set(vkContext->descSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                &descInfos[2], 2, 1),
+        };
 
-        vkUpdateDescriptorSets(vkContext->device, 1, &write, 0, 0);
+        vkUpdateDescriptorSets(vkContext->device, ArraySize(descInfos), writes, 0, 0);
     }
 
     return true;
 }
 
-bool vk_render(VkContext* vkContext)
+bool vk_render(VkContext* vkContext, GameState *gameState)
 {
+    uint32_t imgIdx;
 
+    // wait on the GPU to be done 
     vkWaitForFences(vkContext->device, 1, &vkContext->inFlightFence, VK_TRUE, UINT64_MAX);
     vkResetFences(vkContext->device, 1, &vkContext->inFlightFence);
 
-    uint32_t imgIdx;
+    // copy transforms to the buffer
+    {
+        vk_copy_to_buffer(&vkContext->tranformStorageBuffer, &gameState->entities, 
+            sizeof(Transform) * gameState->entityCount
+        );
+    }
 
-    VK_CHECK(vkAcquireNextImageKHR(vkContext->device, vkContext->swapChain, 0,
+    VK_CHECK(vkAcquireNextImageKHR(vkContext->device, vkContext->swapChain, UINT64_MAX,
                                    vkContext->acquireSemaphore, 0, &imgIdx));
 
     VkCommandBuffer cmd = vkContext->cmd;
     vkResetCommandBuffer(cmd, 0); // new
-
-    // VkCommandBufferAllocateInfo allocInfo = {};
-    // allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    // allocInfo.commandPool = vkContext->commandPool;
-    // allocInfo.commandBufferCount = 1;
-
-    // VK_CHECK(vkAllocateCommandBuffers(vkContext->device, &allocInfo, &cmd));
-
+ 
     VkCommandBufferBeginInfo beginInfo = cmd_begin_info();
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
@@ -696,7 +734,6 @@ bool vk_render(VkContext* vkContext)
     rpBeginInfo.renderArea.extent = vkContext->screenSize;
     rpBeginInfo.clearValueCount = 1;
     rpBeginInfo.pClearValues = &color;
-
     vkCmdBeginRenderPass(cmd, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Rendering Command
@@ -714,9 +751,10 @@ bool vk_render(VkContext* vkContext)
 
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeLayout, 0, 1,
                                 &vkContext->descSet, 0, 0);
+        // 绑定索引缓冲
+        vkCmdBindIndexBuffer(cmd, vkContext->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeline);
-
-        vkCmdDraw(cmd, 6, 1, 0, 0);
+        vkCmdDrawIndexed(cmd, 6, gameState->entityCount, 0, 0, 0);
     }
 
     vkCmdEndRenderPass(cmd);
@@ -724,26 +762,21 @@ bool vk_render(VkContext* vkContext)
 
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &vkContext->acquireSemaphore;
+    VkSubmitInfo submitInfo = submit_info(&cmd);
     submitInfo.pWaitDstStageMask = &waitStage;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-    submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &vkContext->submitSemaphores[imgIdx];
-
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &vkContext->acquireSemaphore;
+    submitInfo.waitSemaphoreCount = 1;
     VK_CHECK(vkQueueSubmit(vkContext->graphicsQueue, 1, &submitInfo, vkContext->inFlightFence));
 
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &vkContext->submitSemaphores[imgIdx];
-    presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &vkContext->swapChain;
+    presentInfo.swapchainCount = 1;
     presentInfo.pImageIndices = &imgIdx;
-
+    presentInfo.pWaitSemaphores = &vkContext->submitSemaphores[imgIdx];
+    presentInfo.waitSemaphoreCount = 1;
     VK_CHECK(vkQueuePresentKHR(vkContext->graphicsQueue, &presentInfo));
 
     return true;

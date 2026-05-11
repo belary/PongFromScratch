@@ -7,5 +7,8 @@
 
 #define INVALID_IDX UINT32_MAX
 #define global_variable static
+#define internal static
 
 #define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
+
+uint32_t constexpr MAX_ENTITIES = 100;
