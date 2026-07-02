@@ -49,7 +49,7 @@ Image vk_allocate_image(VkDevice device, VkPhysicalDevice gpu, uint32_t width, u
     VkMemoryRequirements memRequirements;
     vkGetImageMemoryRequirements(device, image.image, &memRequirements);
 
-    // 过滤出GPU上适合图片的内存类型索引
+    // 过滤出GPU本地内存类型索引（vram)
     VkMemoryAllocateInfo allocInfo = {};
     allocInfo.memoryTypeIndex =
         vk_get_memory_type_index(gpu, memRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -62,10 +62,12 @@ Image vk_allocate_image(VkDevice device, VkPhysicalDevice gpu, uint32_t width, u
     return image;
 }
 
-
+// 往buffer写数据的逻辑顺序：
+// 创建Buffer(元数据) -> Bind内存 -> Map内存拿到指针 -> memcpy数据
 Buffer vk_allocate_buffer(VkDevice device, VkPhysicalDevice gpu, uint32_t size,
 VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
 {
+    // 这里确保每次都是一个新的对象（从而包括多个vkDeviceMemory, vkBuffer等）
     Buffer buffer = {};
     buffer.size = size;
 
@@ -84,12 +86,16 @@ VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     VK_CHECK(vkAllocateMemory(device, &allocInfo, 0, &buffer.memory));
 
-    // only map memory we can actually write to the CPU
+    // only map memory the CPU can write
     if (memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) 
     {
+        // 将GPU端的虚拟内存地址(Device Memory)映射到CPU端的虚拟内存地址空间(Host Address)
+        // 建立的是 CPU 虚拟地址 <--> GPU 内存（Device Memory） 之间的映射。
         VK_CHECK(vkMapMemory(device, buffer.memory, 0, memRequirements.size, 0, &buffer.data));
     }
 
+    // 将Buffer对象与GPU的DeviceMemory建立映射关系
+    // VkBuffer 对象 <--> GPU 内存（Device Memory） 之间的映射。
     VK_CHECK(vkBindBufferMemory(device, buffer.buffer, buffer.memory, 0));
     return buffer;
 }

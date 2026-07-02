@@ -216,7 +216,7 @@ bool vk_init(VkContext* vkContext, void* window)
             {
                 vkContext->surfaceFormat = format;
                 foundFormat = true;
-                // CAKEZ_TRACE("Find Correct Surface Format!");
+                CAKEZ_TRACE("Find Correct Surface Format!");
                 break;
             }
         }
@@ -525,6 +525,7 @@ bool vk_init(VkContext* vkContext, void* window)
         uint32_t fileSize;
         DDSFile* file = (DDSFile*)platform_read_file("assets/textures/cakez.DDS", &fileSize);
         uint32_t textureSize = file->header.Width * file->header.Height * 4;
+        //1. copy image data from host memory to stage buffer(by using vkMapMemory in vk_allocate_buffer)
         vk_copy_to_buffer(&vkContext->stagingBuffer, &file->dataBegin, textureSize);
         vkContext->image = vk_allocate_image(vkContext->device, vkContext->gpu, file->header.Width,
                                              file->header.Height, VK_FORMAT_R8G8B8A8_UNORM);
@@ -553,7 +554,7 @@ bool vk_init(VkContext* vkContext, void* window)
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                              0, 0, 0, 0, 1, &imgMemBarrier);
 
-        // copy staging data to gpu
+        //2. copy staging data to gpu
         VkBufferImageCopy copyRegion = {};
         copyRegion.imageExtent = {file->header.Width, file->header.Height, 1};
         copyRegion.imageSubresource.layerCount = 1;
