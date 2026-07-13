@@ -36,7 +36,7 @@ bool platform_create_window()
     window =
         CreateWindowExA(WS_EX_APPWINDOW, "vulkan_engine_class", "Pong Game",
                         WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU | WS_MAXIMIZEBOX | WS_OVERLAPPED,
-                        100, 100, 799, 600, 0, 0, hInstance, 0);
+                        100, 100, 800, 600, 0, 0, hInstance, 0);
 
     if (window == nullptr)
     {

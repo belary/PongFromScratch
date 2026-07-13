@@ -21,13 +21,13 @@ vec4 vertices[4] = {
     vec4(transform.xPos, transform.yPos, 0.0, 0.0),
 
     // Bottom Left
-    vec4(transform.xPos, transform.yPos + transform.sizeY, 0.0, 1.0),
+    vec4(transform.xPos, transform.yPos + transform.sizeY, 0.0, transform.uvScaleY),
 
     // Bottom Right
-    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, 1.0, 1.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos + transform.sizeY, transform.uvScaleX, transform.uvScaleY),
 
     // Top Right
-    vec4(transform.xPos + transform.sizeX, transform.yPos, 1.0, 0.0),
+    vec4(transform.xPos + transform.sizeX, transform.yPos, transform.uvScaleX, 0.0),
 };
 
 void main()

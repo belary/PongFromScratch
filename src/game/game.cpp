@@ -17,7 +17,7 @@ struct GameState
 internal Entity* create_entity(GameState* gameState, Transform transform)
 {
     Entity* e = 0;
-    if (gameState->entityCount < MAX_ENTITIES)
+    if (gameState->entityCount <= MAX_ENTITIES)
     {
         e = &gameState->entities[gameState->entityCount++];
         e->transform = transform;
@@ -32,22 +32,34 @@ internal Entity* create_entity(GameState* gameState, Transform transform)
 
 bool init_game(GameState* gameState)
 {
-    for (uint32_t i = 0; i < 10; i++)
-    {
 
-        for (uint32_t j = 0; j < 10; j++)
-        {
-            Entity* e = create_entity(gameState, {i * 60.0f, j * 60.0f, 60.0f, 60.0f});
-        }
-    }
+    uint32_t screenWidth = {};
+    uint32_t screenHeight = {};
+    platform_get_window_size(&screenWidth, &screenHeight);
+    CAKEZ_TRACE("CLIENT WIDTH: %d, height %d", screenWidth, screenHeight);
+
+    float sizeX = 504.0f;
+    float sizeY = 504.0f;
+
+    float xPos = (screenWidth - sizeX) * 0.5f;
+    float yPos = (screenHeight - sizeY) * 0.5f;
+    Entity* e = create_entity(gameState, {xPos, yPos, sizeX, sizeY, 1.5f, 1.5f});
+
+    float sizeOrbX = 64.0f;
+    float sizeOrbY = 64.0f;
+
+    float xOrbPos = (screenWidth - sizeOrbX) * 0.5f;
+    float yOrbPos = (screenHeight - sizeOrbY) * 0.5f;
+    Entity* eOrb = create_entity(gameState, {xOrbPos, yOrbPos, sizeOrbX, sizeOrbY, 1.0f, 1.0f});
+
     return true;
 }
 
 void update_game(GameState* gameState)
 {
-    for (uint32_t i = 0; i < gameState->entityCount; i++)
-    {
-        Entity* e = &gameState->entities[i];
-        e->transform.xPos += 0.01f;
-    }
+    // for (uint32_t i = 0; i < gameState->entityCount; i++)
+    // {
+    //     Entity* e = &gameState->entities[i];
+    //     e->transform.xPos += 0.01f;
+    // }
 }

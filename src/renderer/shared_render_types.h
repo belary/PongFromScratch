@@ -14,4 +14,7 @@ struct Transform
     float yPos;
     float sizeX;
     float sizeY;
+
+    float uvScaleX;
+    float uvScaleY;
 };
