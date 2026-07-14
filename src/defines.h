@@ -11,5 +11,5 @@
 
 #define ArraySize(arr) sizeof((arr)) / sizeof((arr[0]))
 
-// constexpr 表示编译期确定的值
-uint32_t constexpr MAX_ENTITIES = 2;
+// constexpr represents compile-time constant values
+uint32_t constexpr MAX_ENTITIES = 37;

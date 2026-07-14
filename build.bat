@@ -7,4 +7,4 @@ set defines=/D DEBUG /D WINDOWS_BUILD /D CAKEZGINE
 
 echo "Building..."
 
-cl /EHsc /Z7 /Fe"main" %includs% %defines% src/platform/win32_platform.cpp %links% 
+cl /EHsc /Z7 /Fe"main" %includs% %defines% src/platform/win32_platform.cpp src/game/game.cpp %links% 

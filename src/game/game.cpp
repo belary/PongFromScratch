@@ -1,20 +1,8 @@
-#include "defines.h"
+#include "game.h"
 #include "logger.h"
+#include <ctime>
 
-#include "renderer/shared_render_types.h"
-
-struct Entity
-{
-    Transform transform;
-};
-
-struct GameState
-{
-    uint32_t entityCount;
-    Entity entities[MAX_ENTITIES];
-};
-
-internal Entity* create_entity(GameState* gameState, Transform transform)
+Entity* create_entity(GameState* gameState, Transform transform)
 {
     Entity* e = 0;
     if (gameState->entityCount <= MAX_ENTITIES)
@@ -33,24 +21,30 @@ internal Entity* create_entity(GameState* gameState, Transform transform)
 bool init_game(GameState* gameState)
 {
 
+    srand((unsigned int)time(nullptr));
     uint32_t screenWidth = {};
     uint32_t screenHeight = {};
     platform_get_window_size(&screenWidth, &screenHeight);
     CAKEZ_TRACE("CLIENT WIDTH: %d, height %d", screenWidth, screenHeight);
 
-    float sizeX = 504.0f;
-    float sizeY = 504.0f;
+    // creat board
+    float boardX = (screenWidth - boardSize) * 0.5f;
+    float boardY = (screenHeight - boardSize) * 0.5f;
+    Entity* e = create_entity(gameState, {boardX, boardY, boardSize, boardSize, 1.5f, 1.5f});
 
-    float xPos = (screenWidth - sizeX) * 0.5f;
-    float yPos = (screenHeight - sizeY) * 0.5f;
-    Entity* e = create_entity(gameState, {xPos, yPos, sizeX, sizeY, 1.5f, 1.5f});
+    // random orbType
 
-    float sizeOrbX = 64.0f;
-    float sizeOrbY = 64.0f;
-
-    float xOrbPos = (screenWidth - sizeOrbX) * 0.5f;
-    float yOrbPos = (screenHeight - sizeOrbY) * 0.5f;
-    Entity* eOrb = create_entity(gameState, {xOrbPos, yOrbPos, sizeOrbX, sizeOrbY, 1.0f, 1.0f});
+    // create orbs
+    for (int i = 0; i < BOARD_ROWS; i++)
+    {
+        for (int j = 0; j < BOARD_COLS; j++)
+        {
+            float x = boardX + j * CellSize;
+            float y = boardY + i * CellSize;
+            Entity* e = create_entity(gameState, {x, y, CellSize, CellSize, 1.0f, 1.0f});
+            e->orbType = (rand() % 2 == 0) ? ORB_FIRE : ORB_WATER;
+        }
+    }
 
     return true;
 }
@@ -60,6 +54,7 @@ void update_game(GameState* gameState)
     // for (uint32_t i = 0; i < gameState->entityCount; i++)
     // {
     //     Entity* e = &gameState->entities[i];
-    //     e->transform.xPos += 0.01f;
+
+    //     CAKEZ_TRACE("entity[%d] x: %f, y: %f", i, e->transform.xPos, e->transform.yPos);
     // }
 }

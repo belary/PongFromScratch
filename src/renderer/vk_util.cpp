@@ -114,3 +114,84 @@ void vk_copy_to_buffer(Buffer* buffer, void* data, uint32_t size)
     }
 
 }
+
+
+void vk_upload_dds(VkDevice device, VkPhysicalDevice gpu, VkCommandPool commandPool,
+    VkQueue graphicsQueue, Buffer* buffer, char* ddsFileName, Image* image )
+{
+    uint32_t fileSize;
+        DDSFile* ddsFile = (DDSFile*)platform_read_file(ddsFileName, &fileSize);
+        uint32_t textureSize = ddsFile->header.Width * ddsFile->header.Height * 4;
+        vk_copy_to_buffer(buffer, &ddsFile->dataBegin, textureSize);
+        *image =vk_allocate_image(device, gpu, ddsFile->header.Width,
+                              ddsFile->header.Height, VK_FORMAT_B8G8R8A8_SRGB);
+        
+
+        //      command
+        VkCommandBuffer cmd;
+        VkCommandBufferAllocateInfo cmdAlloc = cmd_alloc_info(commandPool);
+        VK_CHECK(vkAllocateCommandBuffers(device, &cmdAlloc, &cmd));
+        VkCommandBufferBeginInfo beginInfoFire = cmd_begin_info();
+        VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfoFire));
+
+        //      range
+        VkImageSubresourceRange range = {};
+        range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        range.layerCount = 1;
+        range.levelCount = 1;
+
+        //      barrier
+        VkImageMemoryBarrier imgMemBarrier = {};
+        imgMemBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        imgMemBarrier.image = image->image;
+        imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imgMemBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        imgMemBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imgMemBarrier.subresourceRange = range; // 共用
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, 0, 0, 0, 1, &imgMemBarrier);
+
+        VkBufferImageCopy copyRegionFire = {};
+        copyRegionFire.imageExtent = {ddsFile->header.Width, ddsFile->header.Height, 1};
+        copyRegionFire.imageSubresource.layerCount = 1;
+        copyRegionFire.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        vkCmdCopyBufferToImage(cmd, buffer->buffer, image->image,
+                               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegionFire);
+
+        imgMemBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        imgMemBarrier.newLayout =
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // 准备好给shader读取了
+        imgMemBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        imgMemBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, 0, 0, 0, 1,
+                             &imgMemBarrier);
+
+        VK_CHECK(vkEndCommandBuffer(cmd));
+        
+        VkFence uploadFence;
+        VkFenceCreateInfo fenceInfo = fence_info();
+        VK_CHECK(vkCreateFence(device, &fenceInfo, 0, &uploadFence));
+        
+        VkSubmitInfo submitInfo = submit_info(&cmd);
+        VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submitInfo, uploadFence));
+        VK_CHECK(vkWaitForFences(device, 1, &uploadFence, true, UINT64_MAX));
+        vkDestroyFence(device, uploadFence, nullptr);
+        vkFreeCommandBuffers(device, commandPool, 1, &cmd);
+}
+
+void vk_create_image_view(VkDevice device, VkImage image, VkFormat format, VkImageView* view)
+{
+    VkImageViewCreateInfo viewInfo = {};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+    VK_CHECK(vkCreateImageView(device, &viewInfo, 0, view));
+}
