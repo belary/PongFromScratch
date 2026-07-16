@@ -2,7 +2,7 @@
 #include <windows.h>
 
 #include "platform.h"
-#include "game/game.h"
+#include "game/game.cpp"
 #include "renderer/vk_renderer.cpp"
 
 global_variable bool running = true;
