@@ -3,14 +3,37 @@
 
 #include "platform.h"
 #include "game/game.cpp"
+
+#include "assets/assets.cpp" //这个必须放在vk_renderer.cpp前面，因为后者里面引用了它的定义
 #include "renderer/vk_renderer.cpp"
 
 global_variable bool running = true;
 global_variable HWND window;
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+
+LRESULT CALLBACK platform_window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch (uMsg)
     {
+    case WM_DROPFILES:
+    {
+        HDROP drop = (HDROP)wParam;
+        uint32_t fileCount = DragQueryFileA(drop, INVALID_IDX, 0, 0);
+        for (uint32_t i = 0; i < fileCount; i++)
+        {
+            uint32_t fileNameLength = DragQueryFile(drop, i, 0, 0);
+            char filePath[500] = {};
+            DragQueryFileA(drop, i, filePath, fileNameLength + 1);
+
+            {
+                char command[300] = {};
+                sprintf(command,
+                        "lib\\texconv.exe -y -m 1 -f R8G8B8A8_UNORM \"%s\" -o assets/textures",
+                        filePath);
+                CAKEZ_ASSERT(!system(command), "Failed to import Assets: %s", filePath);
+            }
+        }
+    }
+    break;
     case WM_CLOSE:
         running = false;
         break;
@@ -22,7 +45,7 @@ bool platform_create_window()
 {
     HINSTANCE hInstance = GetModuleHandleA(0);
     WNDCLASSA wc = {};
-    wc.lpfnWndProc = WindowProc;
+    wc.lpfnWndProc = platform_window_callback;
     wc.hInstance = hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = "vulkan_engine_class";
@@ -43,6 +66,10 @@ bool platform_create_window()
         MessageBoxA(nullptr, "Failed to create window!", "Error", MB_ICONERROR | MB_OK);
         return false;
     }
+
+#ifdef DEBUG
+    DragAcceptFiles(window, true);
+#endif
 
     ShowWindow(window, SW_SHOW);
     return true;

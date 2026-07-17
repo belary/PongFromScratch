@@ -1,6 +1,6 @@
-#ifdef CAKEZGINE
 #pragma once
-#endif
+#include "my_math.h"
+#define vec4 Vec4
 
 struct GlobalData
 {
@@ -14,4 +14,15 @@ struct Transform
     float yPos;
     float sizeX;
     float sizeY;
+    int materialIdx;
+};
+
+struct PushData
+{
+    int transformIdx;
+};
+
+struct MaterialData
+{
+    vec4 color;
 };

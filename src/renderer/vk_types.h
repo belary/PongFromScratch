@@ -1,6 +1,8 @@
 ﻿#pragma once
 
 #include "logger.h"
+#include "../assets/assets.h"
+#include "shared_render_types.h"
 #include <vulkan/vulkan.h>
 
 // ============================================================================
@@ -16,6 +18,8 @@
 //
 struct Image
 {
+    AssetTypeID AssetTypeID;
+
     VkImage image; // 图像对象：Vulkan 的图像资源句柄
                    // 定义了图像的格式、尺寸、用途等
                    // 但不包含实际的像素数据
@@ -123,4 +127,17 @@ struct DescriptorInfo
         bufferInfo.offset = offset;
         bufferInfo.range = range;
     }
+};
+
+struct Descriptor
+{
+    VkDescriptorSet set;
+    AssetTypeID assetTypeID;
+};
+
+struct RenderCommand
+{
+    PushData pushData;
+    uint32_t instanceCount;
+    Descriptor* desc;
 };

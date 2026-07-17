@@ -1,7 +1,6 @@
 ﻿#include "defines.h"
 #include "vk_types.h"
 
-
 #include <string.h>
 
 uint32_t vk_get_memory_type_index(VkPhysicalDevice gpu, VkMemoryRequirements memRequirements,
@@ -65,7 +64,7 @@ Image vk_allocate_image(VkDevice device, VkPhysicalDevice gpu, uint32_t width, u
 // 往buffer写数据的逻辑顺序：
 // 创建Buffer(元数据) -> Bind内存 -> Map内存拿到指针 -> memcpy数据
 Buffer vk_allocate_buffer(VkDevice device, VkPhysicalDevice gpu, uint32_t size,
-VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
+                          VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
 {
     // 这里确保每次都是一个新的对象（从而包括多个vkDeviceMemory, vkBuffer等）
     Buffer buffer = {};
@@ -87,7 +86,7 @@ VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
     VK_CHECK(vkAllocateMemory(device, &allocInfo, 0, &buffer.memory));
 
     // only map memory the CPU can write
-    if (memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) 
+    if (memProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
     {
         // 将GPU端的虚拟内存地址(Device Memory)映射到CPU端的虚拟内存地址空间(Host Address)
         // 建立的是 CPU 虚拟地址 <--> GPU 内存（Device Memory） 之间的映射。
@@ -100,7 +99,7 @@ VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags memProps)
     return buffer;
 }
 
-void vk_copy_to_buffer(Buffer* buffer, void* data, uint32_t size)
+void vk_copy_to_buffer(Buffer* buffer, const void* data, uint32_t size)
 {
     CAKEZ_ASSERT(buffer->size >= size, "Buffer too small %d for data %d", buffer->size, size);
 
@@ -108,9 +107,8 @@ void vk_copy_to_buffer(Buffer* buffer, void* data, uint32_t size)
     {
         memcpy(buffer->data, data, size);
     }
-    else 
+    else
     {
-        //todo : implement, copy data using command buffer
+        // todo : implement, copy data using command buffer
     }
-
 }

@@ -1,18 +1,4 @@
-#include "defines.h"
-#include "logger.h"
-
-#include "renderer/shared_render_types.h"
-
-struct Entity
-{
-    Transform transform;
-};
-
-struct GameState
-{
-    uint32_t entityCount;
-    Entity entities[MAX_ENTITIES];
-};
+#include "game.h"
 
 internal Entity* create_entity(GameState* gameState, Transform transform)
 {
@@ -28,6 +14,84 @@ internal Entity* create_entity(GameState* gameState, Transform transform)
     }
 
     return e;
+}
+
+// ====================== components ========================
+internal bool has_component(Entity *e, Components c)
+{
+    return e->comMask & c;
+}
+internal bool add_component(Entity *e, Components c)
+{
+    return e->comMask | c;
+}
+internal bool remove_component(Entity *e, Components c)
+{
+    return e->comMask &= ~c;
+}
+
+// ====================== material ========================
+
+internal uint32_t create_material(GameState *gameState, AssetTypeID assetTypeID, Vec4 color = {1.0f, 1.0f, 1.0f, 1.0f})
+{
+    uint32_t materialIdx = INVALID_IDX;
+    if (gameState->materialCount < MAX_MATERIALS)
+    {
+        materialIdx = gameState->materialCount; //??
+        Material *m = &gameState->materials[gameState->materialCount++];
+        m->assetTypeID = assetTypeID;
+        m->materialData.color = color;
+    }
+    else 
+    {
+        CAKEZ_ASSERT(0, "Reached maximum amount of Materials");
+    }
+
+    return materialIdx;
+}
+
+internal uint32_t get_material(GameState *gameState, AssetTypeID assetTypeID,
+                               Vec4 color = {1.0f, 1.0f, 1.0f, 1.0f})
+{
+    uint32_t materialIdx = INVALID_IDX;
+
+    for (uint32_t i = 0; i < gameState->materialCount; i++)
+    {
+        Material *m = &gameState->materials[i];
+
+        if (m->assetTypeID == assetTypeID &&
+            m->materialData.color == color)
+        {
+            materialIdx = i;
+            break;
+        }
+    }
+
+    if (materialIdx == INVALID_IDX)
+    {
+        materialIdx = create_material(gameState, assetTypeID, color);
+    }
+
+    return materialIdx;
+}
+
+internal Material *get_material(GameState *gameState, uint32_t materialIdx)
+{
+    CAKEZ_ASSERT(materialIdx < gameState->materialCount, "MaterialIdx out of bounds");
+
+    Material *m = 0;
+
+    if (materialIdx < gameState->materialCount)
+    {
+        m = &gameState->materials[materialIdx];
+    }
+    else
+    {
+        // By default we return the first Material, this will default to ASSET_SPRITE_WHITE
+        m = &gameState->materials[0];
+    }
+
+    return m;
 }
 
 bool init_game(GameState* gameState)
