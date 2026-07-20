@@ -8,7 +8,6 @@
 #include "dds_structs.h"
 #include "logger.h"
 #include "platform.h"
-#include "game/game.h"
 
 #include "vk_types.h"
 #include "vk_init.cpp"
@@ -156,7 +155,7 @@ Image* vk_create_image(VkContext* vkContext, AssetTypeID assetTypeID)
                 VkImageViewCreateInfo viewInfoCI = {};
                 viewInfoCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
                 viewInfoCI.image = image->image;
-                viewInfoCI.format = VK_FORMAT_R8G8B8_UNORM;
+                viewInfoCI.format = VK_FORMAT_R8G8B8A8_UNORM;
                 viewInfoCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
                 viewInfoCI.subresourceRange.layerCount = 1;
                 viewInfoCI.subresourceRange.levelCount = 1;
@@ -174,6 +173,7 @@ Image* vk_create_image(VkContext* vkContext, AssetTypeID assetTypeID)
                          assetTypeID);
             CAKEZ_ASSERT(image->view != VK_NULL_HANDLE, "Failed to allocate View of Image: %d",
                          assetTypeID);
+            delete data;
         }
     }
     else
@@ -219,22 +219,31 @@ internal Descriptor* vk_create_descriptor(VkContext* vkContext, AssetTypeID asse
             allocInfo.descriptorSetCount = 1;
             allocInfo.descriptorPool = vkContext->descPool;
 
-            VK_CHECK(vkAllocateDescriptorSets(vkContext->device, &allocInfo, &desc->set));
+            VkResult result = vkAllocateDescriptorSets(vkContext->device, &allocInfo, &desc->set);
+            if (result != VK_SUCCESS)
+            {
+                CAKEZ_ERROR("Failed to allocate descriptor set: Vulkan Error %d", result);
+                desc->set = VK_NULL_HANDLE; //
+            }
         }
 
         // Update Descriptor Set
         if (desc->set != VK_NULL_HANDLE)
         {
             Image* image = vk_get_image(vkContext, assetTypeID);
-            DescriptorInfo descInfos[] = {DescriptorInfo(vkContext->globalUBO.buffer),
-                                          DescriptorInfo(vkContext->tranformStorageBuffer.buffer),
-                                          DescriptorInfo(vkContext->sampler, image->view)};
+            DescriptorInfo descInfos[] = {
+                DescriptorInfo(vkContext->globalUBO.buffer),
+                DescriptorInfo(vkContext->tranformStorageBuffer.buffer),
+                DescriptorInfo(vkContext->sampler, image->view),
+                DescriptorInfo(vkContext->materialBuffer.buffer), // 这里漏了
+            };
 
             VkWriteDescriptorSet writes[] = {
                 write_set(desc->set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descInfos[0], 0, 1),
                 write_set(desc->set, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descInfos[1], 1, 1),
                 write_set(desc->set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &descInfos[2], 2,
                           1),
+                write_set(desc->set, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descInfos[3], 3, 1),
             };
 
             vkUpdateDescriptorSets(vkContext->device, ArraySize(descInfos), writes, 0, 0);
@@ -259,8 +268,12 @@ internal Descriptor* vk_get_descriptor(VkContext* vkContext, AssetTypeID assetTy
     Descriptor* desc = 0;
     for (uint32_t i = 0; i < vkContext->descCount; i++)
     {
-        desc = &vkContext->descriptors[i];
-        break;
+        Descriptor* d = &vkContext->descriptors[i];
+        if (d->assetTypeID == assetTypeID)
+        {
+            desc = d;
+            break;
+        }
     }
 
     if (!desc)
@@ -587,6 +600,7 @@ bool vk_init(VkContext* vkContext, void* window)
     }
 
     // Descriptor set layouts
+    // 这是一个descritptor set 的绑定情况(buffer的类型和数量、槽位binding)
     {
 
         VkDescriptorSetLayoutBinding bindings[] = {
@@ -594,7 +608,7 @@ bool vk_init(VkContext* vkContext, void* window)
             layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1, 1),
             layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT,
                            1, 2),
-            layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1,
+            layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1,
                            3), // for push constant
         };
 
@@ -815,9 +829,14 @@ bool vk_init(VkContext* vkContext, void* window)
 
     // Create Descriptor Pool
     {
-        VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
-                                            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-                                            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1}};
+        // 整个pool里每种类型的descriptor的最大数量，不是每个descriptor set
+        // 具体要参考descriptor set layout
+        VkDescriptorPoolSize poolSizes[] = {
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+             1 * MAX_DESCRIPTORS},                                       // 每个 set 1 个，最多 MAX_DESCRIPTORS 个 set
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * MAX_DESCRIPTORS},    // 每个 set 1 个
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 * MAX_DESCRIPTORS} // 每个 set 2 个（Transforms + Materials）
+        };
 
         VkDescriptorPoolCreateInfo poolInfo = {};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -848,10 +867,10 @@ bool vk_render(VkContext* vkContext, GameState* gameState)
             Descriptor* desc = vk_get_descriptor(vkContext, m->assetTypeID);
             if (desc)
             {
-                RenderCommand *rc = vk_add_render_command(vkContext, desc);
+                RenderCommand* rc = vk_add_render_command(vkContext, desc);
                 if (rc)
                 {
-                    rc->instanceCount = 1;
+                    rc->instanceCount = 1; // 每个command 画1个instance?
                 }
             }
 
@@ -861,17 +880,20 @@ bool vk_render(VkContext* vkContext, GameState* gameState)
 
     // copy data to the buffer
     {
-        //transforms
+        // transforms
         vk_copy_to_buffer(&vkContext->tranformStorageBuffer, &vkContext->transforms,
                           sizeof(Transform) * vkContext->transformCount);
-        
+
+        vkContext->transformCount = 0; // 这里要注意
+
         // materials
         MaterialData materialData[MAX_MATERIALS];
-        for (uint32_t i=0; i<gameState->materialCount; i++)
+        for (uint32_t i = 0; i < gameState->materialCount; i++)
         {
             materialData[i] = gameState->materials[i].materialData;
         }
-        vk_copy_to_buffer(&vkContext->materialBuffer, materialData, sizeof(MaterialData) * gameState->materialCount);
+        vk_copy_to_buffer(&vkContext->materialBuffer, materialData,
+                          sizeof(MaterialData) * gameState->materialCount);
     }
 
     VK_CHECK(vkAcquireNextImageKHR(vkContext->device, vkContext->swapChain, UINT64_MAX,
@@ -896,25 +918,35 @@ bool vk_render(VkContext* vkContext, GameState* gameState)
     rpBeginInfo.pClearValues = &color;
     vkCmdBeginRenderPass(cmd, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-    // Rendering Command
+    VkViewport viewPort = {};
+    viewPort.width = (float)vkContext->screenSize.width;
+    viewPort.height = (float)vkContext->screenSize.height;
+    viewPort.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewPort);
+
+    VkRect2D scissor = {};
+    scissor.extent = vkContext->screenSize;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindIndexBuffer(cmd, vkContext->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeline);
+
+    // Rendering Loop
     {
+        for (uint32_t i = 0; i < vkContext->renderCommandCount; i++)
+        {
+            RenderCommand* rc = &vkContext->renderCommands[i];
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeLayout, 0,
+                                    1, &rc->desc->set, 0, 0);
 
-        VkViewport viewPort = {};
-        viewPort.width = (float)vkContext->screenSize.width;
-        viewPort.height = (float)vkContext->screenSize.height;
-        viewPort.maxDepth = 1.0f;
-        vkCmdSetViewport(cmd, 0, 1, &viewPort);
+            vkCmdPushConstants(cmd, vkContext->pipeLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                               sizeof(PushData), &rc->pushData);
 
-        VkRect2D scissor = {};
-        scissor.extent = vkContext->screenSize;
-        vkCmdSetScissor(cmd, 0, 1, &scissor);
+            vkCmdDrawIndexed(cmd, 6, rc->instanceCount, 0, 0, 0);
+        }
 
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeLayout, 0, 1,
-                                &vkContext->descSet, 0, 0);
-        // 绑定索引缓冲
-        vkCmdBindIndexBuffer(cmd, vkContext->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vkContext->pipeline);
-        vkCmdDrawIndexed(cmd, 6, gameState->entityCount, 0, 0, 0);
+        // Reset the Render Commands for next frame
+        vkContext->renderCommandCount = 0;
     }
 
     vkCmdEndRenderPass(cmd);

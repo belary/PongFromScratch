@@ -27,6 +27,15 @@ const char *get_asset(AssetTypeID typeID)
         }
         break;
 
+        case ASSET_SPRITE_CAKEZ:
+        {
+            uint32_t size;
+            const char *data = platform_read_file("assets/textures/cakez.DDS", &size);
+            return data;
+        }
+        break;
+
+
         case ASSET_SPRITE_PADDLE:
         {
             uint32_t size;

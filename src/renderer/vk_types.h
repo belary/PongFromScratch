@@ -93,7 +93,7 @@ struct Buffer
 };
 
 #define VK_CHECK(result)                                                                           \
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)                                       \
+    if (result != VK_SUCCESS )                                       \
     {                                                                                              \
         CAKEZ_ERROR("Vulkan Error: %d", result);                                                   \
         __debugbreak();                                                                            \

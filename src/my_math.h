@@ -2,9 +2,9 @@
 
 struct Vec4
 {
-    union 
+    union
     {
-        struct 
+        struct
         {
             float r;
             float g;
@@ -12,7 +12,7 @@ struct Vec4
             float a;
         };
 
-        struct 
+        struct
         {
             float x;
             float y;
@@ -21,7 +21,7 @@ struct Vec4
         };
     };
 
-    bool operator==(const Vec4& other)
+    bool operator==(Vec4 other)
     {
         return r == other.r && g == other.g && b == other.b && a == other.a;
     }
