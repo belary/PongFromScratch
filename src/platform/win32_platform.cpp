@@ -2,6 +2,7 @@
 #include <windows.h>
 
 #include "platform.h"
+#include "input.cpp"
 #include "game/game.cpp"
 
 #include "assets/assets.cpp" //这个必须放在vk_renderer.cpp前面，因为后者里面引用了它的定义
@@ -9,9 +10,15 @@
 
 global_variable bool running = true;
 global_variable HWND window;
+global_variable InputState input;
 
 LRESULT CALLBACK platform_window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    char buf[128];
+
+    sprintf(buf, "hwnd=%p msg=%u\n", hwnd, uMsg);
+    OutputDebugStringA(buf);
+
     switch (uMsg)
     {
     case WM_DROPFILES:
@@ -34,6 +41,43 @@ LRESULT CALLBACK platform_window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, L
         }
     }
     break;
+
+    case WM_KEYUP:
+    {
+        OutputDebugStringA("key up\n");
+    }
+    break;
+    case WM_KEYDOWN:
+    {
+        // // CAKEZ_TRACE("key %d is pressed.", (int)wParam);
+        OutputDebugStringA("key down\n");
+        bool isDown = uMsg == WM_KEYDOWN ? true : false;
+        uint32_t keyID = INVALID_IDX;
+
+        switch ((int)wParam)
+        {
+        case 'W':
+            keyID = W_KEY;
+            break;
+        case 'S':
+            keyID = S_KEY;
+            break;
+        case 'A':
+            keyID = A_KEY;
+            break;
+        case 'D':
+            keyID = D_KEY;
+            break;
+        }
+
+        if (keyID < KEY_COUNT)
+        {
+            input.keys[keyID].halfTransitionCount++;
+            input.keys[keyID].isDown = isDown;
+        }
+    }
+    break;
+
     case WM_CLOSE:
         running = false;
         break;
@@ -56,10 +100,10 @@ bool platform_create_window()
         return false;
     }
 
-    window =
-        CreateWindowExA(WS_EX_APPWINDOW, "vulkan_engine_class", "Pong Game",
-                        WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU | WS_MAXIMIZEBOX | WS_OVERLAPPED,
-                        100, 100, 1000, 720, 0, 0, hInstance, 0);
+    window = CreateWindowExA(WS_EX_APPWINDOW, "vulkan_engine_class", "Pong Game",
+                             WS_THICKFRAME | WS_CAPTION | WS_MINIMIZEBOX | WS_SYSMENU |
+                                 WS_MAXIMIZEBOX | WS_OVERLAPPED,
+                             100, 100, 1000, 720, 0, 0, hInstance, 0);
 
     if (window == nullptr)
     {
@@ -72,13 +116,15 @@ bool platform_create_window()
 #endif
 
     ShowWindow(window, SW_SHOW);
+
     return true;
 }
 
-void platform_update_window(HWND objWindow)
+void platform_update_window()
 {
     MSG msg;
-    while (PeekMessageA(&msg, objWindow, 0, 0, PM_REMOVE))
+    // 这里不能传递hwnd，会捕捉不到按键消息
+    while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&msg);
         DispatchMessageA(&msg);
@@ -106,8 +152,8 @@ int main()
 
     while (running)
     {
-        platform_update_window(window);
-        update_game(&gameState);
+        platform_update_window();
+        update_game(&gameState, &input);
         if (!vk_render(&vkContext, &gameState))
         {
             CAKEZ_FATAL("Failed to render vulken");

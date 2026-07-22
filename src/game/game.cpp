@@ -1,6 +1,7 @@
 #pragma once
 #include "defines.h"
 #include "logger.h"
+#include "input.h"
 #include "../renderer/vk_types.h"
 #include "../renderer/shared_render_types.h"
 
@@ -125,54 +126,76 @@ internal Material* get_material(GameState* gameState, uint32_t materialIdx)
     return m;
 }
 
+// bool init_game(GameState* gameState)
+// {
+//     float counter = 0.0f;
+
+//     for (uint32_t i = 0; i < 10; i++)
+//     {
+
+//         for (uint32_t j = 0; j < 10; j++)
+//         {
+//             // create color
+//             float r = counter / 100.0f;
+//             float g = 1.0f - r;
+//             float b = r;
+//             float a = g;
+//             Entity* e = create_entity(gameState, {i * 60.0f, j * 60.0f, 60.0f, 60.0f});
+//             add_component(e, COMPONENT_BALL);
+//             e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_CAKEZ, {r, g, b, a});
+
+//             counter += 10.0f;
+//         }
+//     }
+//     return true;
+// }
+
+// void update_game(GameState* gameState)
+// {
+//     for (uint32_t i = 0; i < gameState->entityCount; i++)
+//     {
+//         Entity* e = &gameState->entities[i];
+//         e->transform.xPos += 0.01f;
+//     }
+// }
+
 bool init_game(GameState* gameState)
 {
-    float counter = 0.0f;
+    float paddleSizeX = 50.0f, paddleSizeY = 100.0f, ballSize = 50.0f;
 
-    for (uint32_t i = 0; i < 10; i++)
-    {
+    Entity* e = create_entity(gameState, {10.0f, 10.0f, paddleSizeX, paddleSizeY});
+    add_component(e, COMPONENT_LEFT_PADDLE);
+    e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_PADDLE);
 
-        for (uint32_t j = 0; j < 10; j++)
-        {
-            // create color
-            float r = counter / 100.0f;
-            float g = 1.0f - r;
-            float b = r;
-            float a = g;
-            Entity* e = create_entity(gameState, {i * 60.0f, j * 60.0f, 60.0f, 60.0f});
-            add_component(e, COMPONENT_BALL);
-            e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_CAKEZ, {r, g, b, a});
-            
-            counter += 10.0f;
-        }
-    }
+    e = create_entity(gameState, {1000.0f - paddleSizeX - 20.0f, 10.0f, paddleSizeX, paddleSizeY});
+    add_component(e, COMPONENT_RIGHT_PADDLE);
+    e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_PADDLE);
+
+    e = create_entity(gameState, {1000.0f / 2.0f, 400.0f, ballSize, ballSize});
+    add_component(e, COMPONENT_BALL);
+    e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_BALL);
+
     return true;
 }
 
-void update_game(GameState* gameState)
+void update_game(GameState* gameState, InputState* input)
 {
+    float vel = 0.1f;
+
     for (uint32_t i = 0; i < gameState->entityCount; i++)
     {
         Entity* e = &gameState->entities[i];
-        e->transform.xPos += 0.01f;
+        if (has_component(e, COMPONENT_LEFT_PADDLE))
+        {
+            if (key_is_down(input, W_KEY))
+            {
+                e->transform.yPos -= vel;
+            }
+
+            if (key_is_down(input, S_KEY))
+            {
+                e->transform.yPos += vel;
+            }
+        }
     }
 }
-
-// bool init_game(GameState* gameState)
-// {
-//     float paddleSizeX = 50.0f, paddleSizeY = 100.0f, ballSize = 50.0f;
-
-//     Entity* e = create_entity(gameState, {10.0f, 10.0f, paddleSizeX, paddleSizeY});
-//     add_component(e, COMPONENT_LEFT_PADDLE);
-//     e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_PADDLE);
-
-//     e = create_entity(gameState, {1000.0f - paddleSizeX - 20.0f, 10.0f, paddleSizeX,
-//     paddleSizeY}); add_component(e, COMPONENT_RIGHT_PADDLE); e->transform.materialIdx =
-//     get_material(gameState, ASSET_SPRITE_PADDLE);
-
-//     e = create_entity(gameState, {1000.0f / 2.0f, 400.0f, ballSize, ballSize});
-//     add_component(e, COMPONENT_BALL);
-//     e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_BALL);
-
-//     return true;
-// }

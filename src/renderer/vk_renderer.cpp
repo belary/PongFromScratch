@@ -74,8 +74,12 @@ typedef struct VkContext
 
 } VkContext;
 
+// 该函数只有在create_descriptor的时候才会被调用
+// 因此imge数组是失去了缓存作用的
 Image* vk_create_image(VkContext* vkContext, AssetTypeID assetTypeID)
 {
+    CAKEZ_TRACE("Create Image %d", assetTypeID);
+    
     Image* image = 0;
     if (vkContext->imageCount < MAX_IMAGES)
     {
