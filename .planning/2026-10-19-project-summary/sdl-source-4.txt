@@ -1,0 +1,725 @@
+FILE AlienAttack - 副本/StateParser.cpp
+#include "StateParser.h"
+#include "TextureManager.h"
+#include "Game.h"
+#include "GameObjectFactory.h"
+
+/*
+根据状态 ID（例如 MENU, PLAY）在 XML 文件中动态找到对应数据
+ - 加载纹理
+ - 初始化对象
+ 资源配置和批量加载机制，实现了 资源与状态的解耦。
+ e.g.
+<STATES>
+   ├── <MENU>
+   │    ├── <TEXTURES>
+   │    └── <OBJECTS>
+   └── <PLAY>
+		├── <TEXTURES>
+		└── <OBJECTS>
+parseState("assets/states.xml", "PLAY", ...)
+1.先用 tinyxml 加载文件，找到根节点<States>
+2.找到 <PLAY> 节点。
+3.找到 <TEXTURES> 并解析纹理。
+4.找到 <OBJECTS> 并创建对象。
+5.把纹理 ID 放进 pTextureIDs，把 GameObject* 放进 pObjects。
+*/
+
+bool StateParser::parseState(const char* stateFile, std::string stateID,
+	std::vector<GameObject *>* pObjects, std::vector<std::string>* pTextureIDs)
+{
+	// get file
+	TiXmlDocument xmlDoc;
+	if (!xmlDoc.LoadFile(stateFile))
+	{
+		std::cerr << xmlDoc.ErrorDesc() << "\n";
+		return false;
+	}
+
+	// get root 
+	TiXmlElement* pRoot = xmlDoc.RootElement(); //<States>
+
+	// init stateRoot
+	TiXmlElement* pStateRoot = 0;
+	for (TiXmlElement* e = pRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		if (std::string(e->Value()) == stateID)
+		{
+			pStateRoot = e; //<MENU>, <PLAY>, <PAUSE>, <GAMEOVER>
+			break;
+		}
+	}
+
+	//		1. init textureRoot
+	TiXmlElement* pTextureRoot = 0;
+	for (TiXmlElement* e = pStateRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		if (std::string(e->Value()) == "TEXTURES")
+		{
+			pTextureRoot = e; // <TEXTURES>
+			break;
+		}
+	}
+	parseTextures(pTextureRoot, pTextureIDs);
+
+	//		2. init objectRoot
+	TiXmlElement* pObjectRoot = 0;
+	for (TiXmlElement* e = pStateRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		if (std::string(e->Value()) == "OBJECTS")
+		{
+			pObjectRoot = e; // <OBJECTS>
+			break;
+		}
+	}
+	parseObjects(pObjectRoot, pObjects);
+
+	return true;
+}
+
+void StateParser::parseObjects(TiXmlElement* pObjectRoot, std::vector<GameObject*>* pObjects)
+{
+	for (TiXmlElement* e = pObjectRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		int x, y, width, height, numFrames, callbackID, animSpeed;
+		std::string textureID;
+
+		// TinyXML 的重载版本之一，
+		// 适用于把 XML 属性值转换为整数类型（如 int, float, double 等）。
+		e->Attribute("x", &x);
+		e->Attribute("y", &y);
+		e->Attribute("width", &width);
+		e->Attribute("height", &height);
+		e->Attribute("numFrames", &numFrames);
+		e->Attribute("callbackID", &callbackID);
+		e->Attribute("animSpeed", &animSpeed);
+
+		// e->Attribute("textureID") 返回的是一个 const char* 指针，直接指向属性值的字符串。
+		// 不能用 e->Attribute("textureID", &textureID); 这种方式，因为 TinyXML 没有提供 std::string 类型的自动转换重载
+		// （得自己处理指针转为 string）
+		textureID = e->Attribute("textureID");
+
+
+		GameObject* pGameObject = TheGameObjectFactory::instance()
+			->create(e->Attribute("type"));
+		pGameObject->load(new LoaderParams(
+			x, y, width, height, textureID, numFrames, callbackID, animSpeed
+		));
+		pObjects->push_back(pGameObject);
+	}
+}
+
+void StateParser::parseTextures(TiXmlElement* pTextureRoot, std::vector<std::string>* pTextureIDs)
+{
+	for (TiXmlElement* e = pTextureRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		std::string filenameAttribute = e->Attribute("filename");
+		std::string idAttribute = e->Attribute("ID");
+		pTextureIDs->push_back(idAttribute);
+
+		if (!TheTextureManager::Instance()->load(filenameAttribute, idAttribute,
+			TheGame::Instance()->getRenderer()))
+		{
+			std::cout << "Failed to load texture " << idAttribute << std::endl;
+		}
+
+	}
+}
+
+FILE AlienAttack - 副本/StateParser.h
+#pragma once
+#include <iostream>
+#include <vector>
+#include "tinyxml.h"
+
+class GameObject;
+
+class StateParser
+{
+public:
+	bool parseState(const char* stateFile, std::string stateID,
+		std::vector<GameObject*>* pObjects, std::vector<std::string>* pTextureIDs);
+private:
+	void parseObjects(TiXmlElement* pObjectRoot, 
+		std::vector<GameObject*>* pObjects);
+
+	void parseTextures(TiXmlElement* pTextureRoot,
+		std::vector<std::string>* pTextureIDs);
+};
+
+
+FILE AlienAttack - 副本/TextureManager.cpp
+#include "TextureManager.h"
+
+bool TextureManager::load(std::string fileName, std::string id, SDL_Renderer* pRenderer)
+{
+	SDL_Surface* pTempSurface = IMG_Load(fileName.c_str());
+	if (pTempSurface == nullptr) {
+		std::cout << "SDL_Image Error: " << IMG_GetError() << std::endl;
+		return false;
+	}
+	
+	SDL_Texture* pTexture = SDL_CreateTextureFromSurface(pRenderer, pTempSurface);
+	SDL_FreeSurface(pTempSurface);
+
+	if (pTexture == nullptr) {
+		std::cout << "SDL_CreateTexture Error: " << SDL_GetError() << std::endl;
+		return false;
+	}
+	m_textureMap[id] = pTexture;
+	std::cout << "Texture loaded: " << id << std::endl;
+    return true;
+}
+
+void TextureManager::draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = 0;
+	srcRect.y = 0;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "DRAW SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+
+}
+
+void TextureManager::drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer,
+	double angle, int alpha,
+	SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = currentFrame * width;
+	srcRect.y = (currentRow - 1 ) * height;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+
+	// 设置透明度
+	SDL_SetTextureAlphaMod(m_textureMap[id], alpha);
+
+	// 带角度
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, angle, 0, flip) < 0) {
+		std::cout << "DRAWFRAME SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+void TextureManager::drawTile(std::string id, int margin, int spacing, int x, int y, int width, int height, 
+	int currentRow, int currentFrame, SDL_Renderer* pRenderer)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = margin + (spacing + width ) * currentFrame; // 这里是列
+	srcRect.y = margin + (spacing + height) * currentRow;   // 这里是行
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, SDL_FLIP_NONE) < 0) {
+		std::cout << "DRAWFRAME SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+TextureManager* TextureManager::Instance()
+{
+	static TextureManager instance;
+	return &instance;
+}
+
+void TextureManager::clearFromTextureMap(std::string id)
+{
+	auto it = m_textureMap.find(id);
+	if (it != m_textureMap.end()) {
+		SDL_DestroyTexture(it->second);
+		m_textureMap.erase(it);
+		std::cout << "Texture cleared: " << id << std::endl;
+	}
+	else {
+		std::cout << "Texture not found: " << id << std::endl;
+	}
+}
+
+FILE AlienAttack - 副本/TextureManager.h
+#pragma once
+
+#include <iostream>
+#include<map>
+#include "SDL.h"
+#include "SDL_image.h"
+
+class TextureManager {
+public:
+	bool load(std::string fileName, std::string id, SDL_Renderer* pRenderer);
+	void draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer,double angle, int alpha, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawTile(std::string id, int margin, int spacing, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer);
+	static TextureManager* Instance();
+	void clearFromTextureMap(std::string id);
+private:
+	std::map<std::string, SDL_Texture*> m_textureMap;
+	TextureManager() {}
+};
+
+typedef TextureManager TheTextureManager;
+
+FILE AlienAttack - 副本/TileLayer.cpp
+#include "TileLayer.h"
+#include "Game.h"
+
+TileLayer::TileLayer(int tileSize, const
+	std::vector<Tileset>& tilesets) : m_tileSize(tileSize),
+	m_tilesets(tilesets), m_position(0, 0), m_velocity(0, 0)
+{
+	m_numColumns = (TheGame::Instance()->getGameWidth() / m_tileSize);
+	m_numRows = (TheGame::Instance()->getGameHeight() / m_tileSize);
+}
+
+void TileLayer::update()
+{
+	m_velocity.setX(1);
+	m_position += m_velocity;
+}
+
+void TileLayer::render()
+{
+	int x, y, x2, y2 = 0;
+
+	// 确定可见区域左上角落在哪个 tile（整数索引）
+	x = m_position.getX() / m_tileSize;
+	y = m_position.getY() / m_tileSize;
+
+	// 确定视口在 tile 内的像素偏移（余数）
+	x2 = int(m_position.getX()) % m_tileSize;
+	y2 = int(m_position.getY()) % m_tileSize;
+
+	for (int i = 0; i < m_numRows; i++)
+	{
+		for (int j = 0; j < m_numColumns; j++)
+		{
+			int id = m_tileIDs[i + y][j + x];
+			if (id == 0)
+			{
+				continue;
+			}
+			Tileset tileset = getTilesetByID(id);
+			id--; // Tiled 软件导出的 tile ID 从 1 开始，而数组索引从 0 开始
+
+			// tileset.firstGridID：这个 tileset 在地图数据中的起始 ID
+			// 减掉 firstGridID - 1 → 转换到当前 tileset 内的局部索引
+			TheTextureManager::Instance()->drawTile(tileset.name, tileset.margin, tileset.spacing,
+				(j * m_tileSize) - x2, (i * m_tileSize) - y2, // 瓦片位置计算, j当前列索引，i当前行索引，x2,y2为视窗在当前tile内的偏移
+				m_tileSize, m_tileSize,
+				// 计算瓦片在 tileset 中的行列
+				/*
+				*	摄像机位置 = 100
+					x = 100 / 32 = 3   // 起始瓦片索引
+					x2 = 100 % 32 = 4  // 偏移量
+					循环中：
+					j = 0: 绘制瓦片[0+3]=瓦片3, 屏幕X = 0*32 - 4 = -4  ✓
+					j = 1: 绘制瓦片[1+3]=瓦片4, 屏幕X = 1*32 - 4 = 28  ✓
+					j = 2: 绘制瓦片[2+3]=瓦片5, 屏幕X = 2*32 - 4 = 60  ✓
+
+					世界瓦片数组：
+					[瓦片0][瓦片1][瓦片2][瓦片3][瓦片4][瓦片5]
+										  ↑
+										x = 3 (从这里开始)
+
+					屏幕显示（j是相对索引）：
+					j=0    j=1   j=2
+					[瓦片3][瓦片4][瓦片5]
+					  ↑
+					  位置 = 0*32 - 4 = -4 (这里的意思是从屏幕的x=-4的坐标开始使用瓦片3绘制）
+
+					1. 世界瓦片索引 = j + x
+					   瓦片3: 0 + 3 = 3
+					   瓦片4: 1 + 3 = 4
+
+					2. 世界坐标 = 世界瓦片索引 * 32
+					   瓦片3: 3 * 32 = 96
+					   瓦片4: 4 * 32 = 128
+
+					3. 屏幕坐标 = 世界坐标 - 摄像机位置
+					   瓦片3: 96 - 100 = -4
+					   瓦片4: 128 - 100 = 28
+
+					但代码简化了这个过程：
+					屏幕坐标 = j * 32 - x2
+							= j * 32 - (摄像机位置 % 32)
+					数学推导公式如下：
+					屏幕坐标 = 世界坐标 - 摄像机位置
+							= (j + x) * 32 - (x * 32 + x2)
+							= j * 32 + x * 32 - x * 32 - x2
+							= j * 32 - x2  ✓
+
+				*/
+				(id - (tileset.firstGridID - 1)) / tileset.numColumns, // tile 在tileset中的行号
+				(id - (tileset.firstGridID - 1)) % tileset.numColumns, // tile 在tileset中的列号
+				TheGame::Instance()->getRenderer()
+			);
+		}
+	}
+}
+/*
+	根据瓦片id查找所属的瓦片集
+
+	假设：
+	m_tilesets[0].firstGridID = 1
+	m_tilesets[1].firstGridID = 100
+	m_tilesets[2].firstGridID = 200
+	如果 tileID = 145：
+	先看第0个 tileset → 145 不在 [1,100)
+	再看第1个 tileset → 145 在 [100,200) → 返回 m_tilesets[1]。
+	如果 tileID = 210：
+	检查第0个 → 不在
+	检查第1个 → 不在
+	第2个是最后一个 → 直接返回 m_tilesets[2]
+*/
+Tileset TileLayer::getTilesetByID(int tileID)
+{
+	for (int i = 0; i < m_tilesets.size(); i++)
+	{
+		// 检查 tileID 属于哪个区间
+		if (i + 1 <= m_tilesets.size() - 1)
+		{
+			// 如果当前 tileset 不是最后一个
+			if (tileID >= m_tilesets[i].firstGridID &&
+				tileID < m_tilesets[i + 1].firstGridID)
+			{
+				return m_tilesets[i];
+			}
+		}
+		else
+		{
+			// 最后一个 tileset直接返回：因为最后一个 tileset 的范围是 [firstGridID, +∞)，所以不需要检查上界
+			return m_tilesets[i];
+		}
+	}
+	std::cout << "did not find tileset, returning empty tileset\n";
+	Tileset t;
+	return t;
+}
+
+FILE AlienAttack - 副本/TileLayer.h
+#pragma once
+#include "Level.h"
+#include "Vector2D.h"
+
+class TileLayer : public Layer
+{
+public:
+	TileLayer(int tileSize, 
+		const std::vector<Tileset>& tilesets);
+	virtual void update();
+	virtual void render();
+
+	void setTileIDs(const std::vector<std::vector<int>>& data)
+	{
+		m_tileIDs = data;
+	}
+
+	void setTileSize(int tileSize)
+	{
+		m_tileSize = tileSize;
+	}
+
+	Tileset getTilesetByID(int tileID);
+
+private:
+	int m_numColumns;
+	int m_numRows;
+	int m_tileSize;
+
+	/*
+	*	当 m_position = (100, 50) 时(tileSize=32)：
+
+		世界坐标系：
+			(0,0) ────────────────────────────→ X
+			  │  ┌────┬────┬────┬────┬────┐
+			  │  │瓦片 │瓦片 │瓦片│瓦片 │瓦片│
+			  │  │0,0 │1,0 │2,0 │3,0 │4,0 │
+			  │  ├────┼────┼────┼────┼────┤
+			  │  │瓦片 │瓦片 │瓦片│瓦片│瓦片 │
+			  │  │0,1 │1,1 │2,1 │3,1 │4,1 │
+			  ↓  └────┴────┴────┴────┴────┘
+			  Y                   ↑
+			     m_position (100, 50)
+				 表示视口左上角在世界中的位置
+	*/
+	Vector2D m_position; //表示视口左上角在世界中的位置,决定了从世界地图的哪个位置开始渲染到屏幕上
+	Vector2D m_velocity;
+
+	// 对 std::vector<Tileset> 的常量引用。
+	// 作用是避免复制大对象（vector<Tileset> 可能非常大），同时防止在 TileLayer 类中修改它（因为 const 限定）。
+	// 表示 TileLayer 并不拥有 m_tilesets 的数据，而是使用外部传进来的数据
+	const std::vector<Tileset>& m_tilesets;
+	std::vector<std::vector<int>> m_tileIDs;
+
+};
+
+FILE AlienAttack - 副本/Vector2D.h
+#pragma once
+#include <corecrt_math.h>
+class Vector2D {
+public:
+	Vector2D(float x = 0, float y = 0) : m_x(x), m_y(y) {}
+	float getX() const { return m_x; }
+	float getY() const { return m_y; }
+
+	void setX(float x) { m_x = x; }
+	void setY(float y) { m_y = y; }
+
+	float length() const { return sqrt(m_x * m_x + m_y * m_y); }
+
+	// 参数 const Vector2D& v2 中的 const：表示参数 v2 是一个常量引用，函数内部不能修改这个参数的值
+	// 函数末尾的 const：表示这个成员函数不会修改当前对象（this）的成员变量
+	Vector2D operator+(const Vector2D& v2) const {
+		// 栈上创建：Vector2D v(1, 2); 当函数返回时，这个临时对象会被复制到调用者的位置
+		/*
+			为什么使用栈而不是堆：
+			性能更好：栈上分配内存比堆上分配快得多
+			自动管理：栈上的对象会在作用域结束时自动销毁
+			避免内存泄漏：不需要手动 delete
+			符合 C++ 的值语义：向量运算通常返回新的值而不是指针
+		*/
+		return Vector2D(m_x + v2.getX(), m_y + v2.getY());
+	}
+
+	// 如果没有返回引用，
+	// 1.链式操作就无法实现
+	// 2.每次操作都会创建新的临时对象，性能会变差
+	Vector2D& operator+=(const Vector2D &v2) {
+		m_x += v2.m_x;
+		m_y += v2.m_y;
+		return *this;	
+	}
+
+	Vector2D operator-(const Vector2D& v2) const {
+		return Vector2D(m_x - v2.m_x, m_y - v2.m_y);
+	}
+
+	Vector2D& operator-=(const Vector2D &v2) {
+		m_x -= v2.m_x;
+		m_y -= v2.m_y;
+		return *this;
+	}
+
+	Vector2D operator*(float scalar) {
+		return Vector2D(m_x * scalar, m_y * scalar);	
+	}
+
+	Vector2D& operator*=(float scalar) {
+		m_x *= scalar;
+		m_y *= scalar;
+		return *this;
+	}
+
+	Vector2D operator/(float scalar) {
+		return Vector2D(m_x / scalar, m_y / scalar);
+	}
+
+	Vector2D& operator/=(float scalar) {
+		m_x /= scalar;
+		m_y /= scalar;
+		return *this;
+	}
+	
+	void normalize() {
+		float len = length();
+		if (len > 0 ) {
+			// 等价于  
+			// m_x = m_x * (1/len)
+			// m_y = m_y * (1/len)
+			(*this) *= 1 / len;
+		}
+	}
+	
+private:
+	float m_x, m_y;
+};
+
+
+
+FILE AlienAttack/Bullet.h
+#pragma once
+
+#include <iostream>
+#include "ShooterObject.h"
+#include "TextureManager.h"
+#include "Game.h"
+
+class PlayerBullet : public ShooterObject
+{
+public:
+	PlayerBullet() : ShooterObject()
+	{
+		m_dyingTime = 5;
+	}
+
+	/*
+	*	定义空析构函数的原因：
+			保证多态性：确保通过基类指针删除时调用正确的析构函数
+			代码明确性：明确表示这个类有析构函数
+			未来扩展性：为将来可能需要的清理代码预留空间
+			代码一致性：保持所有派生类的风格一致
+			即使什么都不做，显式定义虚析构函数也是良好的编程实践！
+	*/
+	virtual ~PlayerBullet() {}
+
+	virtual std::string type() { return "PlayerBullet"; }
+
+	virtual void load(std::unique_ptr<LoaderParams> pParams, Vector2D heading) //why diff param type from ShooterObject
+	{
+		ShooterObject::load(std::move(pParams));
+		m_heading = heading;
+	}
+
+	virtual void draw()
+	{
+		ShooterObject::draw();
+	}
+
+	virtual void collision()
+	{
+		m_textureID = "smallexplosion";
+		m_currentFrame = 0;
+		m_numFrame = 2;
+		m_width = 20;
+		m_height = 20;
+		m_bDying = true;
+	}
+
+	virtual void update()
+	{
+		if (!m_bDying)
+		{
+			m_velocity.setX(m_heading.getX());
+			m_velocity.setY(m_heading.getY());
+		}
+		else
+		{
+			m_velocity.setX(0);
+			m_velocity.setY(0);
+			doDyingAnimation();
+		}
+	}
+
+	virtual void clean()
+	{
+		ShooterObject::clean();
+	}
+private:
+	Vector2D m_heading;
+};
+
+class EnemyBullet : public PlayerBullet
+{
+public:
+	EnemyBullet() : PlayerBullet()
+	{
+
+	}
+
+	virtual ~EnemyBullet() {}
+
+	virtual std::string type() { return "EnemyBullet"; }
+};
+
+FILE AlienAttack/BulletHandler.cpp
+#include "BulletHandler.h"
+
+BulletHandler* BulletHandler::Instance()
+{
+	static BulletHandler instance;
+	return &instance;
+}
+
+void BulletHandler::addPlayerBullet(int x, int y, int width, int height, std::string textureID, int numFrames, Vector2D heading)
+{
+	PlayerBullet* pPlayerBullet = new PlayerBullet();
+	pPlayerBullet->load(std::unique_ptr<LoaderParams>(new LoaderParams(x, y, width, height, textureID, numFrames)), heading);
+	m_playerBullets.push_back(pPlayerBullet);
+}
+
+void BulletHandler::addEnemyBullet(int x, int y, int width, int height, std::string textureID, int numFrames, Vector2D heading)
+{
+	EnemyBullet* pEnemyBullet = new EnemyBullet();
+	pEnemyBullet->load(std::unique_ptr<LoaderParams>(new LoaderParams(x, y, width, height, textureID, numFrames)), heading);
+	m_enemyBullets.push_back(pEnemyBullet);
+}
+
+void BulletHandler::clearBullets()
+{
+	m_enemyBullets.clear();
+	m_playerBullets.clear();
+}
+
+// 改为使用统一迭代器了，之前的索引访问方式有可能访问到已删除的元素(gpt)
+void BulletHandler::drawBullets()
+{
+	for (auto p_it = m_playerBullets.begin(); p_it != m_playerBullets.end(); ++p_it)
+	{
+		(*p_it)->draw();
+	}
+
+	for (auto e_it = m_enemyBullets.begin(); e_it != m_enemyBullets.end(); ++e_it)
+	{
+		(*e_it)->draw();
+	}
+}
+
+void BulletHandler::updateBullets()
+{
+	// 更新玩家子弹
+	for (std::vector<PlayerBullet*>::iterator p_it = m_playerBullets.begin(); p_it != m_playerBullets.end();)
+	{
+		if ((*p_it)->getPosition().getX() < 0 || (*p_it)->getPosition().getY() < 0
+			|| (*p_it)->getPosition().getX() > TheGame::Instance()->getGameWidth()
+			|| (*p_it)->getPosition().getY() > TheGame::Instance()->getGameHeight()
+			|| (*p_it)->dead()
+			)
+		{
+			/*
+				1. 先释放对象内存
+				作用：释放 PlayerBullet 对象占用的堆内存
+				目标：销毁对象本身
+				结果：对象被销毁，但指针仍然存在于 vector 中
+			*/
+			delete *p_it;
+			/*
+				2. 再从容器中移除指针
+				作用：从 vector 中移除指向已删除对象的指针
+				目标：清理容器中的无效指针
+				结果：指针从容器中移除，容器大小减1
+			*/
+			p_it = m_playerBullets.erase(p_it);
+		}
+		else
+		{
+			(*p_it)->update();
+			++p_it;
+		}
+	}
+
+	// 更新敌人子弹
+	for (std::vector<EnemyBullet*>::iterator e_it = m_enemyBullets.begin(); e_it != m_enemyBullets.end();)
+	{
+		if ((*e_it)->getPosition().getX() < 0 || (*e_it)->getPosition().getY() < 0
+			|| (*e_it)->getPosition().getX() > TheGame::Instance()->getGameWidth()
+			|| (*e_it)->getPosition().getY() > TheGame::Instance()->getGameHeight()
+			|| (*e_it)->dead()
+			)
+		{
+			delete* e_it;
+			e_it = m_enemyBullets.erase(e_it);
+		}
+		else
+		{
+			(*e_it)->update();
+			++e_it;
+		}
+	}
+}
+

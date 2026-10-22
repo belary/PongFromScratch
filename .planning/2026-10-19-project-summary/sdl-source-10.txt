@@ -1,0 +1,728 @@
+FILE GameState/MenuButton.h
+#pragma once
+#include "SDLGameObject.h"
+
+/*
+	一种成员函数指针类型。
+	表示指向 MenuState 类里返回 void，不带参数的成员函数。
+	void (MenuState::*)() 是 类型,描述「这是一个指向 MenuState 成员函数的指针类型
+		
+	使用了这个类型定义的变量 func, 声明了一个名为 func 的成员函数指针变量
+	void (MenuState::*func)() 
+
+	void(*)()				普通全局或 static 函数指针	void func()
+	void(MenuState::*)()	成员函数指针 (需要对象调用)	MenuState::func()
+*/
+
+
+typedef void(*MenuCallback)(); //使用 typedef 给一个复杂的函数指针类型起了一个更简洁的名字 MenuCallback。
+
+class MenuButton : public SDLGameObject {
+public:
+	MenuButton(const LoaderParams* pParams, MenuCallback callback);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	enum button_state{
+		MOUSE_OUT = 0,
+		MOUSE_OVER = 1,
+		CLICKED = 2
+	};
+
+	// 声明了一个成员变量 m_callback, 类型是刚刚通过 typedef 定义的 MenuCallback
+	// 也就是一个指向 void() 函数的指针。
+	MenuCallback m_callback; // 回调函数指针，用于按钮点击时调用
+
+	bool m_bReleased; // 用于判断按钮是否被释放
+};
+
+FILE GameState/MenuState.cpp
+#include <iostream>
+#include "MenuState.h"
+#include "PlayState.h"
+#include "TextureManager.h"
+#include "Game.h"
+#include "MenuButton.h"
+
+
+const std::string MenuState::s_menuID = "MENU";
+
+void MenuState::update() {
+	// Update logic for the menu state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update();
+	}
+}
+
+void MenuState::render() {
+    for (auto& gameObject : m_gameObjects) {
+        gameObject->draw(); // 绘制每个游戏对象
+	}
+}
+
+/*
+ *	在 onEnter 中创建对象，是为了让每个状态只关心并管理它自己需要的对象和资源。
+ *	这样使 Game 类保持干净，FSM 切换时只需调用 onEnter / onExit，就能自动加载和清理资源。
+ *	未来扩展其他状态（如 OptionsState、WinState）也不会需要修改 Game 或 MenuState。
+ * 
+ * 
+ ┌───────────────────────┐
+ │       Game            │
+ │ (窗口/渲染器/入口点)     │
+ └─────────┬─────────────┘
+           │
+           ▼
+ ┌───────────────────────┐
+ │  GameStateMachine     │
+ │ (Finite State Machine)│
+ └─────────┬─────────────┘
+           │
+     manages current
+           ▼
+ ┌───────────────────────┐
+ │     GameState         │
+ │  (抽象基类/接口)        │
+ └─────────┬─────────────┘
+           │
+    ┌──────┴─────────────┬─────────────┐
+    ▼                    ▼             ▼
+┌───────────┐     ┌────────────┐  ┌────────────┐
+│ MenuState │     │ PlayState  │  │ PauseState │
+│ (onEnter) │     │ (onEnter)  │  │ (onEnter)  │
+└─────┬─────┘     └─────┬──────┘  └─────┬──────┘
+      │                 │               │
+  owns GameObjects   owns GameObjects   owns GameObjects
+ (按钮、标题等)       (玩家、敌人等)     (菜单按钮)
+
+*/
+bool MenuState::onEnter() {
+
+    // 加载菜单图片资源
+    if (!TheTextureManager::Instance()->load(
+            "assets/button.png", 
+            "playbutton", 
+            TheGame::Instance()->getRenderer())) {
+        std::cout << "Failed to load play button texture" << std::endl;
+		return false;
+    }
+
+    if (!TheTextureManager::Instance()->load(
+        "assets/exit.png",
+        "exitbutton",
+        TheGame::Instance()->getRenderer())) {
+        std::cout << "Failed to load exit button texture" << std::endl;
+        return false;
+    }
+
+	// 创建菜单按钮对象
+	GameObject* playButton = new MenuButton(new LoaderParams(100, 100, 400, 100, "playbutton"), s_menuToPlay);
+	GameObject* exitButton = new MenuButton(new LoaderParams(100, 300, 400, 100, "exitbutton"), s_exitFromMenu);
+
+	// 加入状态管理器的游戏对象列表
+	m_gameObjects.push_back(playButton);
+	m_gameObjects.push_back(exitButton);
+
+
+	std::cout << "Entering Menu State" << std::endl;
+	return true;
+}
+
+bool MenuState::onExit() {
+    for (auto& gameObject : m_gameObjects) {
+        gameObject->clean(); // 清理每个游戏对象
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	TheTextureManager::Instance()->clearFromTextureMap("playbutton");
+	TheTextureManager::Instance()->clearFromTextureMap("exitbutton");
+	std::cout << "Exiting Menu State" << std::endl;
+	return true;
+}
+
+void MenuState::s_menuToPlay() {
+
+	std::cout << "Switching to Play State" << std::endl;
+    // 切换到 PlayState
+    TheGame::Instance()->getStateMachine()->changeState(new PlayState());
+}
+
+void MenuState::s_exitFromMenu() {
+	std::cout << "Exiting Game" << std::endl;
+    // 退出游戏
+    TheGame::Instance()->quit();
+}
+
+
+
+FILE GameState/MenuState.h
+#pragma once
+#include "GameState.h"
+#include "GameObject.h"
+
+class MenuState : public GameState {
+public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	virtual std::string getStateId() const override { return s_menuID; }
+private:
+	static const std::string s_menuID;
+	std::vector<GameObject*> m_gameObjects; // 存储菜单项目
+	static void s_menuToPlay(); // 静态函数，用于从菜单状态切换到游戏状态
+	static void s_exitFromMenu(); // 静态函数，用于退出游戏
+};
+
+FILE GameState/PauseState.cpp
+#include "PauseState.h"
+#include "Game.h"
+#include "MenuState.h"
+#include "MenuButton.h"
+
+const std::string PauseState::s_pauseID = "PAUSE";
+
+void PauseState::update()
+{
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update(); // 更新暂停状态的游戏对象
+	}
+}
+
+void PauseState::render()
+{
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->draw(); // 绘制暂停状态的游戏对象
+	}
+}
+bool PauseState::onEnter()
+{
+	// 加载暂停状态的资源
+	if (!TheTextureManager::Instance()->load("assets/resume.png", "resumeButton", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load resume texture" << std::endl;
+		return false;
+	}
+
+	if (!TheTextureManager::Instance()->load("assets/main.png", "mainButton", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load main texture" << std::endl;
+		return false;
+	}
+
+	// 创建暂停状态的游戏对象
+	m_gameObjects.push_back(new MenuButton(new LoaderParams(200, 100, 200, 80, "resumeButton"), s_resumePlay));
+	m_gameObjects.push_back(new MenuButton(new LoaderParams(200, 300, 200, 80, "mainButton"), s_pauseToMenu));
+
+
+	std::cout << "Entering Pause State" << std::endl;
+	return true;
+}
+
+bool PauseState::onExit()
+{
+	// 清理暂停状态的游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+	TheTextureManager::Instance()->clearFromTextureMap("resumeButton");
+	TheTextureManager::Instance()->clearFromTextureMap("mainButton");
+	std::cout << "Exiting Pause State" << std::endl;
+	return true;
+}
+
+
+
+void PauseState::s_resumePlay()
+{
+	TheGame::Instance()->getStateMachine()->popState(); // 从暂停状态恢复到游戏状态
+}
+
+void PauseState::s_pauseToMenu()
+{
+	TheGame::Instance()->getStateMachine()->changeState(new MenuState()); // 从暂停状态返回到菜单状态
+}
+
+FILE GameState/PauseState.h
+#pragma once
+#include "GameState.h"
+
+class GameObject; // 前向声明 GameObject 类
+
+class PauseState : public GameState {
+public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	virtual std::string getStateId() const override { return s_pauseID; }
+
+private:
+	std::vector<GameObject*> m_gameObjects; // 存储暂停状态的游戏对象
+
+	static const std::string s_pauseID;
+	static void s_resumePlay(); // 静态函数，用于从暂停状态恢复游戏
+	static void s_pauseToMenu(); // 静态函数，用于从暂停状态返回菜单
+};
+
+FILE GameState/Player.cpp
+#include "Player.h"
+#include "InputHandler.h"
+
+Player::Player(const LoaderParams* pParams) : SDLGameObject(pParams) {
+	std::cout << "Player Created" << std::endl;
+}
+
+void Player::draw() {
+	SDLGameObject::draw();
+}
+
+void Player::update() {
+	
+	handleInput();
+
+	// 分母代表一共5帧动画
+	m_currentFrame = int(((SDL_GetTicks() / 100) % m_numFrames));
+	
+	SDLGameObject::update();
+}
+
+void Player::clean() {
+	std::cout << "Player Cleaned" << std::endl;
+}
+
+void Player::handleInput() {
+	// Handle Mouse input for movement
+	Vector2D* vec = TheInputHandler::Instance()->getMousePosition();
+	m_velocity = (*vec - m_position) / 50.0f; // Adjust speed as needed
+
+
+	// Handle keyboard input for movement
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RIGHT)) {
+		m_velocity.setX(2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_LEFT)) {
+		m_velocity.setX(-2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_UP)) {
+		m_velocity.setY(-2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_DOWN)) {
+		m_velocity.setY(2);
+	}
+}
+
+FILE GameState/Player.h
+#pragma once
+#include "SDLGameObject.h"
+
+class Player : public SDLGameObject {
+public:
+	Player(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	void handleInput();
+	int m_numFrames = 5; // Number of frames for animation
+};
+FILE GameState/PlayState.cpp
+#include "PlayState.h"
+#include "TextureManager.h"
+#include "Game.h"
+#include "InputHandler.h"
+#include "PauseState.h"
+#include "GameOverState.h"
+#include <iostream>
+
+const std::string PlayState::s_playID = "PLAY";
+
+void PlayState::update() {
+
+
+	// Check if the player wants to pause the game
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+		TheGame::Instance()->getStateMachine()->pushState(new PauseState()); // Push PauseState onto the stack
+		return; // Exit early to avoid updating game objects while paused
+	}
+	// 
+	// Update logic for the play state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update();
+	}
+
+	if (m_gameObjects.size() > 1) {
+		// Check for collisions between game objects
+		if (checkCollision(dynamic_cast<SDLGameObject*>(m_gameObjects[0]), dynamic_cast<SDLGameObject*>(m_gameObjects[1]))) {
+			std::cout << "Collision detected between object " << 0 << " and object " << 1 << std::endl;
+			// Handle collision logic here
+			TheGame::Instance()->getStateMachine()->changeState(new GameOverState()); // Change to GameOverState on collision
+		}
+	}
+}
+
+void PlayState::render() {
+	// Render logic for the play state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->draw(); // Draw each game object
+	}
+}
+
+bool PlayState::onEnter() {
+	std::cout << "Entering Play State" << std::endl;
+	// 1. 加载资源
+	if (!TheTextureManager::Instance()->load("assets/helicopter.png", "helicopter", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load helicopter texture" << std::endl;
+		return false;
+	}
+	if (!TheTextureManager::Instance()->load("assets/helicopter2.png", "helicopter2", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load helicopter2 texture" << std::endl;
+		return false;
+	}
+
+	// 2. 创建游戏对象
+	m_gameObjects.push_back(new Player(new LoaderParams(500, 100, 128, 55, "helicopter")));
+	m_gameObjects.push_back(new Enemy(new LoaderParams(100, 100, 128, 55, "helicopter2")));
+	return true;
+}
+
+bool PlayState::onExit() {
+	// 清理游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	std::cout << "Exiting Play State" << std::endl;
+	return true;
+}
+
+bool PlayState::checkCollision(SDLGameObject* p1, SDLGameObject* p2) {
+
+	int leftA, leftB;
+	int rightA, rightB;
+	int topA, topB;
+	int bottomA, bottomB;
+
+	leftA = p1->getPosition().getX();
+	rightA = p1->getPosition().getX() + p1->getWidth();
+	topA = p1->getPosition().getY();
+	bottomA = p1->getPosition().getY() + p1->getHeight();
+
+
+	leftB = p2->getPosition().getX();
+	rightB = p2->getPosition().getX() + p2->getWidth();
+	topB = p2->getPosition().getY();
+	bottomB = p2->getPosition().getY() + p2->getHeight();
+
+	if (bottomA <= topB) {
+		return false; // A is above B
+	}
+	if (topA >= bottomB) {
+		return false; // A is below B
+	}
+
+	if (rightA <= leftB) {
+		return false; // A is to the left of B
+	}
+
+	if (leftA >= rightB) {
+		return false; // A is to the right of B
+	}
+
+	return true;
+}
+FILE GameState/SDLGameObject.cpp
+#include "SDLGameObject.h"
+#include "Game.h"
+#include "TextureManager.h"
+
+SDLGameObject::SDLGameObject(const LoaderParams* pParams) : GameObject(pParams), m_velocity(0, 0)
+{
+	m_textureID = pParams->getTextureID();
+
+	m_position.setX(pParams->getX());
+	m_position.setY(pParams->getY());
+
+	m_width = pParams->getWidth();
+	m_height = pParams->getHeight();
+
+	m_currentFrame = 1;
+	m_currentRow = 1;
+}
+
+void SDLGameObject::draw()
+{
+	if (m_velocity.getX() > 0) {
+	TextureManager::Instance()->drawFrame(m_textureID, (int)m_position.getX(), (int)m_position.getY(), m_width, m_height,
+		m_currentRow, m_currentFrame, TheGame::Instance()->getRenderer(), SDL_FLIP_HORIZONTAL);
+	}
+	else {
+	TextureManager::Instance()->drawFrame(m_textureID, (int)m_position.getX(), (int)m_position.getY(), m_width, m_height,
+		m_currentRow, m_currentFrame, TheGame::Instance()->getRenderer() );
+	}
+}
+
+void SDLGameObject::update()
+{
+	// Base class update function does nothing by default
+	m_position += m_velocity;
+}
+
+void SDLGameObject::clean()
+{
+	std::cout << "SDLGameObject Cleaned" << std::endl;
+}
+FILE GameState/SDLGameObject.h
+#pragma once
+#include "GameObject.h"
+#include "Vector2D.h"
+class SDLGameObject : public GameObject {
+
+public:
+	SDLGameObject(const LoaderParams* pParams);
+	virtual void draw(); 
+	virtual void update(); 
+	virtual void clean(); 
+
+	Vector2D getPosition() const { return m_position; }
+	int getWidth() const { return m_width; }
+	int getHeight() const { return m_height; }
+
+protected:
+	std::string m_textureID; 
+
+	int m_x;
+	int m_y;
+
+	int m_width; 
+	int m_height; 
+
+	int m_currentFrame;
+	int m_currentRow;
+
+	Vector2D m_velocity;
+	Vector2D m_position;
+
+};
+
+FILE GameState/TextureManager.cpp
+#include "TextureManager.h"
+
+bool TextureManager::load(std::string fileName, std::string id, SDL_Renderer* pRenderer)
+{
+	SDL_Surface* pTempSurface = IMG_Load(fileName.c_str());
+	if (pTempSurface == nullptr) {
+		std::cout << "SDL_Image Error: " << IMG_GetError() << std::endl;
+		return false;
+	}
+	
+	SDL_Texture* pTexture = SDL_CreateTextureFromSurface(pRenderer, pTempSurface);
+	SDL_FreeSurface(pTempSurface);
+
+	if (pTexture == nullptr) {
+		std::cout << "SDL_CreateTexture Error: " << SDL_GetError() << std::endl;
+		return false;
+	}
+	m_textureMap[id] = pTexture;
+	std::cout << "Texture loaded: " << id << std::endl;
+    return true;
+}
+
+void TextureManager::draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = 0;
+	srcRect.y = 0;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+
+}
+
+void TextureManager::drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = currentFrame * width;
+	srcRect.y = (currentRow - 1 ) * height;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+TextureManager* TextureManager::Instance()
+{
+	static TextureManager instance;
+	return &instance;
+}
+
+void TextureManager::clearFromTextureMap(std::string id)
+{
+	auto it = m_textureMap.find(id);
+	if (it != m_textureMap.end()) {
+		SDL_DestroyTexture(it->second);
+		m_textureMap.erase(it);
+		std::cout << "Texture cleared: " << id << std::endl;
+	} else {
+		std::cout << "Texture not found: " << id << std::endl;
+	}
+}
+
+FILE InputHandle/Enemy.cpp
+#include "Enemy.h"
+
+Enemy::Enemy(const LoaderParams* pParams) : SDLGameObject(pParams) {
+}
+
+void Enemy::draw() {
+	SDLGameObject::draw();
+}
+
+void Enemy::update() {
+	m_currentFrame = int(((SDL_GetTicks() / 100) % 6));
+	m_velocity.setX(1);
+	m_velocity.setY(1);
+	SDLGameObject::update();
+}
+
+void Enemy::clean() {
+	std::cout << "Enemy Cleaned" << std::endl;
+}
+FILE InputHandle/Enemy.h
+#pragma once
+#include "SDLGameObject.h"
+
+
+class Enemy : public SDLGameObject {
+public:
+	Enemy(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+};
+
+FILE InputHandle/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+
+
+#include "InputHandler.h"
+#include "Game.h"  
+#include "Enemy.h"
+#include "TextureManager.h"
+
+Game* Game::Instance() {
+	static Game instance;
+	return &instance;
+}
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+
+			if (TheTextureManager::Instance()->load("assets/animate.png", "animate", m_pRenderer)) {
+				std::cout << "loading texture successfully" << std::endl;
+			}
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// 初始化joystick
+		TheInputHandler::Instance()->initialiseJoysticks();
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+
+	 m_gameObjects.push_back(m_go);
+	 m_gameObjects.push_back(m_player);
+	 m_gameObjects.push_back(m_enemy);
+	
+
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	for(auto &go : m_gameObjects) {
+		go->draw();
+	}
+	
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	TheInputHandler::Instance()->clean();
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	TheInputHandler::Instance()->update();
+
+	// if (SDL_PollEvent(&event)) {
+	// 	switch (event.type) {
+	// 	case SDL_QUIT:
+	// 		m_bRunning = false;
+	// 		break;
+	// 	case SDL_KEYDOWN:
+	// 		if (event.key.keysym.sym == SDLK_ESCAPE) {
+	// 			m_bRunning = false;
+	// 		}
+	// 		break;
+	// 	default:
+	// 		break;
+	// 	}
+	// }
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+void Game::draw() {
+	for(auto &go : m_gameObjects) {
+		go->draw();
+	}
+}
+
+void Game::update() {
+
+	for(auto &go : m_gameObjects) {
+		go->update();
+	}
+}
+
+void Game::quit() {
+	m_bRunning = false;
+}
+

@@ -1,0 +1,665 @@
+FILE Movement/Game.h
+#pragma once
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+	void draw();
+
+	SDL_Renderer* getRenderer() const { return m_pRenderer; }
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+
+	std::shared_ptr<SDLGameObject> m_go = std::make_shared<SDLGameObject>(new LoaderParams(100, 100, 128, 82, "animate"));
+	std::shared_ptr<Player> m_player = std::make_shared<Player>(new LoaderParams(0, 0, 128, 82, "animate"));
+	std::shared_ptr<Enemy> m_enemy = std::make_shared<Enemy>(new LoaderParams(0, 0, 128, 82, "animate"));
+
+	std::vector<std::shared_ptr<SDLGameObject>> m_gameObjects;
+	Game() {};
+};
+
+typedef Game TheGame;
+FILE Movement/LoaderParams.h
+#pragma once
+#include <iostream>
+
+class LoaderParams {
+public:
+	LoaderParams(int x, int y, int width, int height, std::string textureID) :
+		m_x(x), m_y(y), m_width(width), m_height(height), m_textureID(textureID) {
+	}
+
+	int getX() const { return m_x; }
+	int getY() const { return m_y; }
+	int getWidth() const { return m_width; }
+	int getHeight() const { return m_height; }
+	std::string getTextureID() const { return m_textureID; }
+
+private:
+	int m_x;
+	int m_y;
+
+	int m_height;
+	int m_width;
+
+	std::string m_textureID;
+};
+
+FILE Movement/main.cpp
+#include "Game.h"
+
+Game* g_game = TheGame::Instance();
+const int FPS = 60;
+const int DELAY_TIME = 1000 / FPS;
+
+int main(int argc, char* argv[]) {
+	Uint32 frameStart, frameTime;
+	TheGame::Instance()->init("Chapter 4", 100, 100, 640, 480, 0);
+	g_game->setRunning(true);
+
+	while (TheGame::Instance()->running()) {
+		frameStart = SDL_GetTicks();
+		TheGame::Instance()->handleEvents();
+		TheGame::Instance()->update();
+		TheGame::Instance()->render();
+
+		frameTime = SDL_GetTicks() - frameStart;
+		if (frameTime < DELAY_TIME) {
+			SDL_Delay(DELAY_TIME - frameTime);
+		}
+	}
+	std::cout << "Game Over" << std::endl;
+	TheGame::Instance()->clean();
+	return 0;
+}
+FILE Movement/Player.cpp
+#include "Player.h"
+
+Player::Player(const LoaderParams* pParams) : SDLGameObject(pParams) {
+	std::cout << "Player Created" << std::endl;
+}
+
+void Player::draw() {
+	SDLGameObject::draw();
+}
+
+void Player::update() {
+	m_currentFrame = int(((SDL_GetTicks() / 100) % 6));
+	m_velocity.setX(2);
+	SDLGameObject::update();
+}
+
+void Player::clean() {
+	std::cout << "Player Cleaned" << std::endl;
+}
+FILE Movement/Player.h
+#pragma once
+#include "SDLGameObject.h"
+
+class Player : public SDLGameObject {
+public:
+	Player(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+};
+FILE Movement/Vector2D.h
+#pragma once
+#include <corecrt_math.h>
+class Vector2D {
+public:
+	Vector2D(float x = 0, float y = 0) : m_x(x), m_y(y) {}
+	float getX() const { return m_x; }
+	float getY() const { return m_y; }
+
+	void setX(float x) { m_x = x; }
+	void setY(float y) { m_y = y; }
+
+	float length() const { return sqrt(m_x * m_x + m_y * m_y); }
+
+	// 参数 const Vector2D& v2 中的 const：表示参数 v2 是一个常量引用，函数内部不能修改这个参数的值
+	// 函数末尾的 const：表示这个成员函数不会修改当前对象（this）的成员变量
+	Vector2D operator+(const Vector2D& v2) const {
+		// 栈上创建：Vector2D v(1, 2); 当函数返回时，这个临时对象会被复制到调用者的位置
+		/*
+			为什么使用栈而不是堆：
+			性能更好：栈上分配内存比堆上分配快得多
+			自动管理：栈上的对象会在作用域结束时自动销毁
+			避免内存泄漏：不需要手动 delete
+			符合 C++ 的值语义：向量运算通常返回新的值而不是指针
+		*/
+		return Vector2D(m_x + v2.getX(), m_y + v2.getY());
+	}
+
+	// 如果没有返回引用，
+	// 1.链式操作就无法实现
+	// 2.每次操作都会创建新的临时对象，性能会变差
+	Vector2D& operator+=(const Vector2D &v2) {
+		m_x += v2.m_x;
+		m_y += v2.m_y;
+		return *this;	
+	}
+
+	Vector2D operator-(const Vector2D& v2) const {
+		return Vector2D(m_x - v2.m_x, m_y - v2.m_y);
+	}
+
+	Vector2D& operator-=(const Vector2D &v2) {
+		m_x -= v2.m_x;
+		m_y -= v2.m_y;
+		return *this;
+	}
+
+	Vector2D operator*(float scalar) {
+		return Vector2D(m_x * scalar, m_y * scalar);	
+	}
+
+	Vector2D& operator*=(float scalar) {
+		m_x *= scalar;
+		m_y *= scalar;
+		return *this;
+	}
+
+	Vector2D operator/(float scalar) {
+		return Vector2D(m_x / scalar, m_y / scalar);
+	}
+
+	Vector2D& operator/=(float scalar) {
+		m_x /= scalar;
+		m_y /= scalar;
+		return *this;
+	}
+	
+	void normalize() {
+		float len = length();
+		if (len > 0 ) {
+			// 等价于  
+			// m_x = m_x * (1/len)
+			// m_y = m_y * (1/len)
+			(*this) *= 1 / len;
+		}
+	}
+	
+	
+private:
+	float m_x, m_y;
+};
+
+
+
+FILE SDLGameObjects/Enemy.cpp
+#include "Enemy.h"
+
+Enemy::Enemy(const LoaderParams* pParams) : SDLGameObject(pParams) {
+}
+
+void Enemy::draw() {
+	SDLGameObject::draw();
+}
+
+void Enemy::update() {
+	m_x += 1;
+	m_y += 1;
+	m_currentFrame = int(((SDL_GetTicks() / 100) % 6));
+}
+
+void Enemy::clean() {
+	std::cout << "Enemy Cleaned" << std::endl;
+}
+FILE SDLGameObjects/Game.h
+#pragma once
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+	void draw();
+
+	SDL_Renderer* getRenderer() const { return m_pRenderer; }
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+
+	std::shared_ptr<SDLGameObject> m_go = std::make_shared<SDLGameObject>(new LoaderParams(100, 100, 128, 82, "animate"));
+	std::shared_ptr<Player> m_player = std::make_shared<Player>(new LoaderParams(300, 300, 128, 82, "animate"));
+	std::shared_ptr<Enemy> m_enemy = std::make_shared<Enemy>(new LoaderParams(0, 0, 128, 82, "animate"));
+
+	std::vector<std::shared_ptr<SDLGameObject>> m_gameObjects;
+	Game() {};
+};
+
+typedef Game TheGame;
+FILE SDLGameObjects/main.cpp
+#include "Game.h"
+
+Game* g_game = TheGame::Instance();
+
+int main(int argc, char* argv[]) {
+	TheGame::Instance()->init("Chapter 3", 100, 100, 640, 480, 0);
+	g_game->setRunning(true);
+	while (TheGame::Instance()->running()) {
+		TheGame::Instance()->handleEvents();
+		TheGame::Instance()->update();
+		TheGame::Instance()->render();
+
+		SDL_Delay(10);
+	}
+	std::cout << "Game Over" << std::endl;
+	TheGame::Instance()->clean();
+	return 0;
+}
+FILE SDLGameObjects/Player.cpp
+#include "Player.h"
+
+Player::Player(const LoaderParams* pParams) : SDLGameObject(pParams) {
+	std::cout << "Player Created" << std::endl;
+}
+
+void Player::draw() {
+	SDLGameObject::draw();
+}
+
+void Player::update() {
+	m_x -= 1;
+	m_currentFrame = int(((SDL_GetTicks() / 100) % 6));
+}
+
+void Player::clean() {
+	std::cout << "Player Cleaned" << std::endl;
+}
+FILE SDLGameObjects/SDLGameObject.cpp
+#include "SDLGameObject.h"
+#include "Game.h"
+#include "TextureManager.h"
+
+SDLGameObject::SDLGameObject(const LoaderParams* pParams) : GameObject(pParams)
+{
+	m_textureID = pParams->getTextureID();
+
+	m_x = pParams->getX();
+	m_y = pParams->getY();
+
+	m_width = pParams->getWidth();
+	m_height = pParams->getHeight();
+
+	m_currentFrame = 1;
+	m_currentRow = 1;
+}
+
+void SDLGameObject::draw()
+{
+	TextureManager::Instance()->drawFrame(m_textureID, m_x, m_y, m_width, m_height,
+		m_currentRow, m_currentFrame, TheGame::Instance()->getRenderer());
+}
+
+void SDLGameObject::update()
+{
+	// Base class update function does nothing by default
+}
+
+void SDLGameObject::clean()
+{
+	std::cout << "SDLGameObject Cleaned" << std::endl;
+}
+FILE SDLGameObjects/SDLGameObject.h
+#pragma once
+#include "GameObject.h"
+class SDLGameObject : public GameObject {
+
+public:
+	SDLGameObject(const LoaderParams* pParams);
+	virtual void draw(); 
+	virtual void update(); 
+	virtual void clean(); 
+
+protected:
+	std::string m_textureID; 
+
+	int m_x;
+	int m_y;
+
+	int m_width; 
+	int m_height; 
+
+	int m_currentFrame;
+	int m_currentRow;
+
+};
+
+FILE TileMaps/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+#include "InputHandler.h"
+#include "Game.h"  
+#include "MenuButton.h"
+#include "PlayState.h"
+#include "MainMenuState.h"
+#include "Enemy.h"
+#include "AnimatedGraphic.h"
+
+int Game::getGameWidth() const
+{
+	return m_gameWidth;
+}
+
+int Game::getGameHeight() const
+{
+	return m_gameHeight;
+}
+
+Game* Game::Instance() {
+	static Game instance;
+	return &instance;
+}
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// 注册工厂能够创建的对象类型
+
+		TheGameObjectFactory::instance()->registerType("MenuButton",
+			new MenuButtonCreator());
+		TheGameObjectFactory::instance()->registerType("Player",
+			new PlayerCreator());
+		TheGameObjectFactory::instance()->registerType("Enemy",
+			new EnemyCreator());
+		TheGameObjectFactory::instance()->registerType("AnimatedGraphic",
+			new AnimatedGraphicCreator());
+
+		// 初始化进入 MenuState
+		m_pGameStateMachine = new GameStateMachine();
+		m_pGameStateMachine->pushState(new MainMenuState());
+
+		// 初始化joystick
+		TheInputHandler::Instance()->initialiseJoysticks();
+
+		m_gameHeight = height;
+		m_gameWidth = width;
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+
+
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	// Render the current game state
+	if (m_pGameStateMachine == nullptr) {
+		std::cerr << "GameStateMachine is not initialized!" << std::endl;
+		return;
+	}
+	m_pGameStateMachine->render();
+
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	TheInputHandler::Instance()->clean();
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	TheInputHandler::Instance()->update();
+
+	//if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+	//	m_bRunning = false;
+	//}
+
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RETURN)) {
+		// 切换到 PlayState
+		m_pGameStateMachine->changeState(new PlayState());
+	}
+
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+/*
+单条更新链
+	Game::update()
+	-> GameStateMachine::update()
+		-> PlayState::update()
+			-> 遍历 PlayState 的 m_gameObjects 调用各自 update()
+
+	+------------+      +---------------------+      +--------------------+
+	|   Game     | ---> |   GameStateMachine  | ---> |   Current GameState|
+	|            |      |                     |      | (e.g., PlayState)  |
+	|            |      |                     |      |                    |
+	| update()   | ---> | update()            | ---> | update()           |
+	|            |      |                     |      | - update GameObject|
+	+------------+      +---------------------+      +--------------------+
+*/
+void Game::update() {
+
+	m_pGameStateMachine->update();
+}
+
+void Game::quit() {
+	m_bRunning = false;
+}
+
+FILE TileMaps/Game.h
+#pragma once
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include "GameStateMachine.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void quit();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+
+	SDL_Renderer* getRenderer() const { return m_pRenderer; }
+
+	GameStateMachine* getStateMachine() const { return m_pGameStateMachine; }
+
+	int getGameWidth() const;
+	int getGameHeight() const;
+
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+	int m_gameWidth;
+	int m_gameHeight;
+
+	GameStateMachine* m_pGameStateMachine;
+	Game() {};
+};
+
+typedef Game TheGame;
+FILE TileMaps/TextureManager.cpp
+#include "TextureManager.h"
+
+bool TextureManager::load(std::string fileName, std::string id, SDL_Renderer* pRenderer)
+{
+	SDL_Surface* pTempSurface = IMG_Load(fileName.c_str());
+	if (pTempSurface == nullptr) {
+		std::cout << "SDL_Image Error: " << IMG_GetError() << std::endl;
+		return false;
+	}
+	
+	SDL_Texture* pTexture = SDL_CreateTextureFromSurface(pRenderer, pTempSurface);
+	SDL_FreeSurface(pTempSurface);
+
+	if (pTexture == nullptr) {
+		std::cout << "SDL_CreateTexture Error: " << SDL_GetError() << std::endl;
+		return false;
+	}
+	m_textureMap[id] = pTexture;
+	std::cout << "Texture loaded: " << id << std::endl;
+    return true;
+}
+
+void TextureManager::draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = 0;
+	srcRect.y = 0;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "DRAW SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+
+}
+
+void TextureManager::drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = currentFrame * width;
+	srcRect.y = (currentRow - 1 ) * height;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "DRAWFRAME SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+void TextureManager::drawTile(std::string id, int margin, int spacing, int x, int y, int width, int height, 
+	int currentRow, int currentFrame, SDL_Renderer* pRenderer)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = margin + (spacing + width ) * currentFrame; // 这里是列
+	srcRect.y = margin + (spacing + height) * currentRow;   // 这里是行
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, SDL_FLIP_NONE) < 0) {
+		std::cout << "DRAWFRAME SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+TextureManager* TextureManager::Instance()
+{
+	static TextureManager instance;
+	return &instance;
+}
+
+void TextureManager::clearFromTextureMap(std::string id)
+{
+	auto it = m_textureMap.find(id);
+	if (it != m_textureMap.end()) {
+		SDL_DestroyTexture(it->second);
+		m_textureMap.erase(it);
+		std::cout << "Texture cleared: " << id << std::endl;
+	}
+	else {
+		std::cout << "Texture not found: " << id << std::endl;
+	}
+}
+
+FILE TileMaps/TextureManager.h
+#pragma once
+
+#include <iostream>
+#include<map>
+#include "SDL.h"
+#include "SDL_image.h"
+
+class TextureManager {
+public:
+	bool load(std::string fileName, std::string id, SDL_Renderer* pRenderer);
+	void draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawTile(std::string id, int margin, int spacing, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer);
+	static TextureManager* Instance();
+	void clearFromTextureMap(std::string id);
+private:
+	std::map<std::string, SDL_Texture*> m_textureMap;
+	TextureManager() {}
+};
+
+typedef TextureManager TheTextureManager;
+

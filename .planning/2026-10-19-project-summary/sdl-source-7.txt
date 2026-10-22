@@ -1,0 +1,691 @@
+FILE AlienAttack/TextureManager.h
+#pragma once
+
+#include <iostream>
+#include<map>
+#include "SDL.h"
+#include "SDL_image.h"
+
+class TextureManager {
+public:
+	bool load(std::string fileName, std::string id, SDL_Renderer* pRenderer);
+	void draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer,double angle, int alpha, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawTile(std::string id, int margin, int spacing, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer);
+	static TextureManager* Instance();
+	void clearFromTextureMap(std::string id);
+
+	std::map<std::string, SDL_Texture*> getTextureMap() { return m_textureMap; }
+private:
+	std::map<std::string, SDL_Texture*> m_textureMap;
+	TextureManager() {}
+};
+
+typedef TextureManager TheTextureManager;
+
+FILE AlienAttack/TileLayer.h
+#pragma once
+#include "Level.h"
+#include "Vector2D.h"
+
+class TileLayer : public Layer
+{
+public:
+	TileLayer(int tileSize,
+		const std::vector<Tileset>& tilesets);
+	virtual void update();
+	virtual void render();
+
+	void setTileIDs(const std::vector<std::vector<int>>& data)
+	{
+		m_tileIDs = data;
+	}
+
+	void setTileSize(int tileSize)
+	{
+		m_tileSize = tileSize;
+	}
+
+	int getMapWidth() { return m_mapWidth; }
+	void setMapWidth(int mapWidth) { m_mapWidth = mapWidth; }
+
+	Tileset getTilesetByID(int tileID);
+
+	const std::vector<std::vector<int>>& getTileIDs() { return m_tileIDs; }
+
+	const Vector2D getPosition() { return m_position; }
+
+	const int getTileSize() { return m_tileSize; }
+
+private:
+	int m_numColumns;
+	int m_numRows;
+	int m_tileSize;
+	int m_mapWidth;
+
+	/*
+	*	当 m_position = (100, 50) 时(tileSize=32)：
+
+		世界坐标系：
+			(0,0) ────────────────────────────→ X
+			  │  ┌────┬────┬────┬────┬────┐
+			  │  │瓦片 │瓦片 │瓦片│瓦片 │瓦片│
+			  │  │0,0 │1,0 │2,0 │3,0 │4,0 │
+			  │  ├────┼────┼────┼────┼────┤
+			  │  │瓦片 │瓦片 │瓦片│瓦片│瓦片 │
+			  │  │0,1 │1,1 │2,1 │3,1 │4,1 │
+			  ↓  └────┴────┴────┴────┴────┘
+			  Y                   ↑
+				 m_position (100, 50)
+				 表示视口左上角在世界中的位置
+	*/
+	// 基于世界坐标的当前tile层的左上角偏移量
+	Vector2D m_position; //表示视口左上角在世界中的位置,决定了从世界地图的哪个位置开始渲染到屏幕上
+	Vector2D m_velocity;
+
+	// 对 std::vector<Tileset> 的常量引用。
+	// 作用是避免复制大对象（vector<Tileset> 可能非常大），同时防止在 TileLayer 类中修改它（因为 const 限定）。
+	// 表示 TileLayer 并不拥有 m_tilesets 的数据，而是使用外部传进来的数据
+	const std::vector<Tileset>& m_tilesets;
+	std::vector<std::vector<int>> m_tileIDs;
+
+};
+
+FILE AlienAttack/Vector2D.h
+#pragma once
+#include <cmath>
+class Vector2D {
+public:
+	Vector2D(float x = 0, float y = 0) : m_x(x), m_y(y) {}
+	float getX() const { return m_x; }
+	float getY() const { return m_y; }
+
+	void setX(float x) { m_x = x; }
+	void setY(float y) { m_y = y; }
+
+	float length() const { return sqrt(m_x * m_x + m_y * m_y); }
+
+	// 参数 const Vector2D& v2 中的 const：表示参数 v2 是一个常量引用，函数内部不能修改这个参数的值
+	// 函数末尾的 const：表示这个成员函数不会修改当前对象（this）的成员变量
+	Vector2D operator+(const Vector2D& v2) const {
+		// 栈上创建：Vector2D v(1, 2); 当函数返回时，这个临时对象会被复制到调用者的位置
+		/*
+			为什么使用栈而不是堆：
+			性能更好：栈上分配内存比堆上分配快得多
+			自动管理：栈上的对象会在作用域结束时自动销毁
+			避免内存泄漏：不需要手动 delete
+			符合 C++ 的值语义：向量运算通常返回新的值而不是指针
+		*/
+		return Vector2D(m_x + v2.getX(), m_y + v2.getY());
+	}
+
+	// 如果没有返回引用，
+	// 1.链式操作就无法实现
+	// 2.每次操作都会创建新的临时对象，性能会变差
+	Vector2D& operator+=(const Vector2D &v2) {
+		m_x += v2.m_x;
+		m_y += v2.m_y;
+		return *this;	
+	}
+
+	Vector2D operator-(const Vector2D& v2) const {
+		return Vector2D(m_x - v2.m_x, m_y - v2.m_y);
+	}
+
+	Vector2D& operator-=(const Vector2D &v2) {
+		m_x -= v2.m_x;
+		m_y -= v2.m_y;
+		return *this;
+	}
+
+	Vector2D operator*(float scalar) {
+		return Vector2D(m_x * scalar, m_y * scalar);	
+	}
+
+	Vector2D& operator*=(float scalar) {
+		m_x *= scalar;
+		m_y *= scalar;
+		return *this;
+	}
+
+	Vector2D operator/(float scalar) {
+		return Vector2D(m_x / scalar, m_y / scalar);
+	}
+
+	Vector2D& operator/=(float scalar) {
+		m_x /= scalar;
+		m_y /= scalar;
+		return *this;
+	}
+	
+	void normalize() {
+		float len = length();
+		if (len > 0 ) {
+			// 等价于  
+			// m_x = m_x * (1/len)
+			// m_y = m_y * (1/len)
+			(*this) *= 1 / len;
+		}
+	}
+	
+private:
+	float m_x, m_y;
+};
+
+
+
+FILE breakupHello/main.cpp
+#include <SDL.h>
+
+bool g_bRunning = false;
+SDL_Window* g_pWindow = nullptr;
+SDL_Renderer* g_pRenderer = nullptr;
+
+
+
+
+int main(int argc, char* argv[]) {
+	if (init("Game", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_SHOWN)) {
+		g_bRunning = true;
+	}
+	while (g_bRunning) {
+		SDL_Event event;
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				g_bRunning = false;
+			}
+		}
+		render();
+	}
+	clean();
+	return 0;
+}
+FILE DataDriveDesign/Enemy.h
+#pragma once
+#include "SDLGameObject.h"
+#include "GameObjectFactory.h"
+
+class Enemy : public SDLGameObject 
+{
+public:
+	void load(const LoaderParams* pParams);
+	Enemy();
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	int m_numFrames = 5; // Number of frames for animation
+};
+
+class EnemyCreator : public BaseCreator 
+{
+	GameObject* createGameObject() const
+	{
+		return new Enemy();
+	}
+};
+
+FILE DataDriveDesign/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+#include "InputHandler.h"
+#include "Game.h"  
+#include "MenuButton.h"
+#include "PlayState.h"
+#include "MainMenuState.h"
+#include "Enemy.h"
+#include "AnimatedGraphic.h"
+
+Game* Game::Instance() {
+	static Game instance;
+	return &instance;
+}
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// 注册工厂能够创建的对象类型
+
+		TheGameObjectFactory::instance()->registerType("MenuButton",
+			new MenuButtonCreator());
+		TheGameObjectFactory::instance()->registerType("Player",
+			new PlayerCreator());
+		TheGameObjectFactory::instance()->registerType("Enemy",
+			new EnemyCreator());
+		TheGameObjectFactory::instance()->registerType("AnimatedGraphic",
+			new AnimatedGraphicCreator());
+
+		// 初始化进入 MenuState
+		m_pGameStateMachine = new GameStateMachine();
+		m_pGameStateMachine->pushState(new MainMenuState());
+
+		// 初始化joystick
+		TheInputHandler::Instance()->initialiseJoysticks();
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+
+
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	// Render the current game state
+	if (m_pGameStateMachine == nullptr) {
+		std::cerr << "GameStateMachine is not initialized!" << std::endl;
+		return;
+	}
+	m_pGameStateMachine->render();
+
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	TheInputHandler::Instance()->clean();
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	TheInputHandler::Instance()->update();
+
+	//if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+	//	m_bRunning = false;
+	//}
+
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RETURN)) {
+		// 切换到 PlayState
+		m_pGameStateMachine->changeState(new PlayState());
+	}
+
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+/*
+单条更新链
+	Game::update()
+	-> GameStateMachine::update()
+		-> PlayState::update()
+			-> 遍历 PlayState 的 m_gameObjects 调用各自 update()
+
+	+------------+      +---------------------+      +--------------------+
+	|   Game     | ---> |   GameStateMachine  | ---> |   Current GameState|
+	|            |      |                     |      | (e.g., PlayState)  |
+	|            |      |                     |      |                    |
+	| update()   | ---> | update()            | ---> | update()           |
+	|            |      |                     |      | - update GameObject|
+	+------------+      +---------------------+      +--------------------+
+*/
+void Game::update() {
+
+	m_pGameStateMachine->update();
+}
+
+void Game::quit() {
+	m_bRunning = false;
+}
+
+FILE DataDriveDesign/Game.h
+#pragma once
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include "GameStateMachine.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void quit();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+
+	SDL_Renderer* getRenderer() const { return m_pRenderer; }
+
+	GameStateMachine* getStateMachine() const { return m_pGameStateMachine; }
+
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+
+	GameStateMachine* m_pGameStateMachine;
+	Game() {};
+};
+
+typedef Game TheGame;
+FILE DataDriveDesign/GameObject.h
+#pragma once
+#include <iostream>
+#include "SDL.h"
+#include "LoaderParams.h"
+
+
+class GameObject {
+public:
+	virtual void draw() = 0;
+	virtual void update() = 0;
+	virtual void clean() = 0;
+
+	// 新的资源载入方法用于和creator解耦（创造对象与加载对象资源解耦）
+	virtual void load(const LoaderParams* pParams) = 0;
+protected:
+	GameObject() {};
+	virtual ~GameObject() {};
+};
+
+FILE DataDriveDesign/GameStateMachine.cpp
+#include "GameStateMachine.h"
+#include <iostream>
+
+// 入栈但不删除栈顶
+void GameStateMachine::pushState(GameState* pState) {
+	m_gameStates.push_back(pState);
+	// initialize the new state
+	m_gameStates.back()->onEnter();
+}
+
+// 删除栈顶
+void GameStateMachine::popState() {
+	if (!m_gameStates.empty()) {
+		if (m_gameStates.back()->onExit()) {
+			/*
+				m_gameStates 是一个 std::vector<GameState*>，也就是说它存的是指针；
+				如果只调用 pop_back()，指针从 vector 中移除了，但内存没释放，导致内存泄漏；
+				如果只调用 delete，而不 pop_back()，那么这个“野指针”还留在容器里，之后访问会导致崩溃；
+			*/
+			delete m_gameStates.back();
+			m_gameStates.pop_back();
+		}
+		else {
+			// Handle failure to exit state
+			std::cerr << "Failed to exit state: " << m_gameStates.back()->getStateId() << std::endl;
+			return;
+		}
+	}
+}
+
+// 切换状态，先删除栈顶，再入栈新状态
+void GameStateMachine::changeState(GameState* pState) {
+
+	if (!m_gameStates.empty()) {
+
+		// Check if the new state is the same as the current state
+		if ( pState->getStateId() == m_gameStates.back()->getStateId() ) {
+			return;
+		}
+
+		if (m_gameStates.back()->onExit()) {
+			delete m_gameStates.back();
+			m_gameStates.pop_back();
+		}
+		else {
+			// Handle failure to exit state
+			std::cerr << "Failed to exit state: " << m_gameStates.back()->getStateId() << std::endl;
+			return;
+		}
+	}
+	m_gameStates.push_back(pState);
+	// Initialize the new state
+	m_gameStates.back()->onEnter();
+}
+
+
+void GameStateMachine::update() {
+	if (!m_gameStates.empty()) {
+		m_gameStates.back()->update();
+	}
+}
+
+void GameStateMachine::render() {
+	if (!m_gameStates.empty()) {
+		m_gameStates.back()->render();
+	}
+}
+
+FILE DataDriveDesign/Player.cpp
+#include "Player.h"
+#include "InputHandler.h"
+
+Player::Player(): SDLGameObject() {
+
+}
+
+void Player::load(const LoaderParams* pParams) {
+	std::cout << "Player Created" << std::endl;
+	SDLGameObject::load(pParams);
+}
+
+void Player::draw() {
+	SDLGameObject::draw();
+}
+
+void Player::update() {
+	
+	handleInput();
+
+	// m_numFrames代表一共5帧动画
+	m_currentFrame = int(((SDL_GetTicks() / 100) % m_numFrames));
+	
+	SDLGameObject::update();
+}
+
+void Player::clean() {
+	std::cout << "Player Cleaned" << std::endl;
+}
+
+void Player::handleInput() {
+	// Handle Mouse input for movement
+	Vector2D* vec = TheInputHandler::Instance()->getMousePosition();
+	m_velocity = (*vec - m_position) / 50.0f; // Adjust speed as needed
+
+
+	// Handle keyboard input for movement
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RIGHT)) {
+		m_velocity.setX(2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_LEFT)) {
+		m_velocity.setX(-2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_UP)) {
+		m_velocity.setY(-2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_DOWN)) {
+		m_velocity.setY(2);
+	}
+}
+
+FILE DataDriveDesign/Player.h
+#pragma once
+#include "SDLGameObject.h"
+#include "GameObjectFactory.h"
+
+class Player : public SDLGameObject {
+public:
+	Player();
+	virtual void load(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	void handleInput();
+	int m_numFrames = 5; // Number of frames for animation
+};
+
+class PlayerCreator : public BaseCreator
+{
+	GameObject* createGameObject() const
+	{
+		return new Player();
+	}
+};
+FILE DataDriveDesign/PlayState.cpp
+#include "PlayState.h"
+#include "TextureManager.h"
+#include "Game.h"
+#include "InputHandler.h"
+#include "PauseState.h"
+#include "GameOverState.h"
+#include "StateParser.h"
+#include <iostream>
+
+const std::string PlayState::s_playID = "PLAY";
+
+void PlayState::update() {
+
+	// Check if the player wants to pause the game
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+		TheGame::Instance()->getStateMachine()->pushState(new PauseState()); // Push PauseState onto the stack
+		return; // Exit early to avoid updating game objects while paused
+	}
+	// 
+	// Update logic for the play state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update();
+	}
+
+	if (m_gameObjects.size() > 1) {
+		std::cout << "Before state change, m_gameObjects size = " << m_gameObjects.size() << std::endl;
+		// Check for collisions between game objects
+		//for (size_t i = 0; i < m_gameObjects.size(); ++i) {
+			//for (size_t j = i + 1; j < m_gameObjects.size() ; ++j) {
+				if (checkCollision(dynamic_cast<SDLGameObject*>(m_gameObjects[0]), dynamic_cast<SDLGameObject*>(m_gameObjects[1]))) {
+					std::cout << "Collision detected between object " << 0 << " and object " << 1 << std::endl;
+					// Handle collision logic here
+					TheGame::Instance()->getStateMachine()->changeState(new GameOverState()); // Change to GameOverState on collision
+					//return; // 这里必须return防止playState::OnExit()清理了资源导致循环访问出界
+				}
+			//}
+		//}
+	}
+}
+
+void PlayState::render() {
+	// Render logic for the play state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->draw(); // Draw each game object
+	}
+}
+
+bool PlayState::onEnter() {
+
+	std::cout << "Entering Play State" << std::endl;
+	StateParser stateParser;
+	stateParser.parseState("assets/test.xml", s_playID, &m_gameObjects, &m_textureIDList);
+	return true;
+}
+
+bool PlayState::onExit() {
+	std::cout << "onExit: Clearing " << m_gameObjects.size() << " objects" << std::endl;
+
+	// 清理游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	for (int i = 0; i < m_textureIDList.size(); i++)
+	{
+		TheTextureManager::Instance()->clearFromTextureMap(m_textureIDList[i]);
+	}
+
+	std::cout << "Exiting Play State" << std::endl;
+	return true;
+}
+
+bool PlayState::checkCollision(SDLGameObject* p1, SDLGameObject* p2) {
+
+	float leftA, leftB;
+	float rightA, rightB;
+	float topA, topB;
+	float bottomA, bottomB;
+
+	leftA = p1->getPosition().getX();
+	rightA = p1->getPosition().getX() + p1->getWidth();
+	topA = p1->getPosition().getY();
+	bottomA = p1->getPosition().getY() + p1->getHeight();
+
+
+	leftB = p2->getPosition().getX();
+	rightB = p2->getPosition().getX() + p2->getWidth();
+	topB = p2->getPosition().getY();
+	bottomB = p2->getPosition().getY() + p2->getHeight();
+
+	if (bottomA <= topB) {
+		return false; // A is above B
+	}
+	if (topA >= bottomB) {
+		return false; // A is below B
+	}
+
+	if (rightA <= leftB) {
+		return false; // A is to the left of B
+	}
+
+	if (leftA >= rightB) {
+		return false; // A is to the right of B
+	}
+
+	return true;
+}
+FILE DataDriveDesign/PlayState.h
+#pragma once
+#include "GameState.h"
+#include "GameObject.h"
+#include "SDLGameObject.h"
+
+class PlayState : public GameState {
+public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	bool checkCollision(SDLGameObject* p1, SDLGameObject* p2);
+	virtual std::string getStateId() const override { return s_playID; }
+private:
+	static const std::string s_playID;
+	std::vector<GameObject*> m_gameObjects; // 存储游戏对象
+};
+

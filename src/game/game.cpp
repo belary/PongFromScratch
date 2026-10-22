@@ -163,7 +163,7 @@ bool init_game(GameState* gameState)
 {
     float paddleSizeX = 50.0f, paddleSizeY = 100.0f, ballSize = 50.0f;
 
-    Entity* e = create_entity(gameState, {10.0f, 10.0f, paddleSizeX, paddleSizeY});
+    Entity* e = create_entity(gameState, {100.0f, 500.0f, paddleSizeX, paddleSizeY});
     add_component(e, COMPONENT_LEFT_PADDLE);
     e->transform.materialIdx = get_material(gameState, ASSET_SPRITE_PADDLE);
 

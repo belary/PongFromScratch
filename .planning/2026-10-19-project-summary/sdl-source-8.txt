@@ -1,0 +1,728 @@
+FILE DataDriveDesign/TextureManager.cpp
+#include "TextureManager.h"
+
+bool TextureManager::load(std::string fileName, std::string id, SDL_Renderer* pRenderer)
+{
+	SDL_Surface* pTempSurface = IMG_Load(fileName.c_str());
+	if (pTempSurface == nullptr) {
+		std::cout << "SDL_Image Error: " << IMG_GetError() << std::endl;
+		return false;
+	}
+	
+	SDL_Texture* pTexture = SDL_CreateTextureFromSurface(pRenderer, pTempSurface);
+	SDL_FreeSurface(pTempSurface);
+
+	if (pTexture == nullptr) {
+		std::cout << "SDL_CreateTexture Error: " << SDL_GetError() << std::endl;
+		return false;
+	}
+	m_textureMap[id] = pTexture;
+	std::cout << "Texture loaded: " << id << std::endl;
+    return true;
+}
+
+void TextureManager::draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = 0;
+	srcRect.y = 0;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "DRAW SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+
+}
+
+void TextureManager::drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = currentFrame * width;
+	srcRect.y = (currentRow - 1 ) * height;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "DRAWFRAME SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+TextureManager* TextureManager::Instance()
+{
+	static TextureManager instance;
+	return &instance;
+}
+
+void TextureManager::clearFromTextureMap(std::string id)
+{
+	auto it = m_textureMap.find(id);
+	if (it != m_textureMap.end()) {
+		SDL_DestroyTexture(it->second);
+		m_textureMap.erase(it);
+		std::cout << "Texture cleared: " << id << std::endl;
+	} else {
+		std::cout << "Texture not found: " << id << std::endl;
+	}
+}
+
+FILE DataDriveDesign/TextureManager.h
+#pragma once
+
+#include <iostream>
+#include<map>
+#include "SDL.h"
+#include "SDL_image.h"
+
+class TextureManager {
+public:
+	bool load(std::string fileName, std::string id, SDL_Renderer* pRenderer);
+	void draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	static TextureManager* Instance();
+	void clearFromTextureMap(std::string id);
+private:
+	std::map<std::string, SDL_Texture*> m_textureMap;
+	TextureManager() {}
+};
+
+typedef TextureManager TheTextureManager;
+
+FILE demo2/main.cpp
+#include <SDL.h>
+#include <iostream>
+
+int main(int argc, char* argv[]) {
+	// Initialize SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+		std::cout << "SDL_Init error: " << SDL_GetError() << std::endl;
+		return 1;
+	}
+
+	SDL_Window* win = SDL_CreateWindow("Hello SDL2",
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		640, 480, 
+		SDL_WINDOW_SHOWN);
+	if (win == nullptr) {
+		std::cout << "SDL_CreateWindow error: " << SDL_GetError() << std::endl;
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_Renderer* pRender = SDL_CreateRenderer(win, -1, 0);
+	if (pRender == nullptr) {
+		std::cout << "SDL_CreateRenderer error: " << SDL_GetError() << std::endl;
+		SDL_DestroyWindow(win);
+		SDL_Quit();
+		return 1;
+	}
+
+	SDL_SetRenderDrawColor(pRender, 255, 0, 0, 255); // Set draw color to red
+	SDL_RenderClear(pRender); // Clear the window with the draw color
+	SDL_RenderPresent(pRender); // Update the window with the renderer
+
+	SDL_Delay(5000); // Wait for 2 second
+	
+	SDL_Quit(); // Clean up SDL
+
+	return 0;
+}
+FILE GameObjects/Enemy.cpp
+#include "Enemy.h"
+
+void Enemy::load(int x, int y, int width, int height, std::string textureID) {
+	GameObject::load(x, y, width, height, textureID);
+	std::cout << "Enemy::load" << std::endl;
+}
+
+
+void Enemy::draw(SDL_Renderer *pRenderer) {
+	GameObject::draw(pRenderer);
+}
+
+void Enemy::update() {
+	m_x += 1;
+	m_y += 1;
+	m_currentFrame = int(((SDL_GetTicks() / 100) % 6));
+}
+FILE GameObjects/Enemy.h
+#pragma once
+#include "GameObject.h"
+
+
+class Enemy : public GameObject {
+public:
+	Enemy(std::string textureID, int x, int y, int width, int height) : GameObject(textureID, x, y, width, height) {
+		std::cout << "Enemy created with texture ID: " << textureID << std::endl;
+	}
+	void load(int x, int y, int width, int height, std::string textureID);
+	void draw(SDL_Renderer* pRenderer);
+	void update();
+	void clean() {
+		// Cleanup logic here
+		std::cout << "Cleaning Enemy" << std::endl;
+	}
+};
+
+FILE GameObjects/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+
+
+#include "Game.h"  
+#include "Enemy.h"
+#include "TextureManager.h"
+
+Game* Game::Instance() {
+	static Game instance;
+	return &instance;
+}
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+
+			if (TheTextureManager::Instance()->load("assets/animate.png", "animate", m_pRenderer)) {
+				std::cout << "loading texture successfully" << std::endl;
+			}
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+
+	//m_go->load(100, 100, 128, 82, "animate");
+	//m_player->load(300, 300, 128, 82, "animate");
+	//m_enemy->load(0, 0, 128, 82, "animate");
+	
+	m_gameObjects.push_back(m_go);
+	m_gameObjects.push_back(m_player);
+	m_gameObjects.push_back(m_enemy);
+	
+
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	for(auto &go : m_gameObjects) {
+		go->draw(m_pRenderer);
+	}
+	
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	SDL_Event event;
+	if (SDL_PollEvent(&event)) {
+		switch (event.type) {
+		case SDL_QUIT:
+			m_bRunning = false;
+			break;
+		case SDL_KEYDOWN:
+			if (event.key.keysym.sym == SDLK_ESCAPE) {
+				m_bRunning = false;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+void Game::draw() {
+	for(auto &go : m_gameObjects) {
+		go->draw(m_pRenderer);
+	}
+}
+
+void Game::update() {
+
+	for(auto &go : m_gameObjects) {
+		go->update();
+	}
+}
+
+
+FILE GameObjects/Game.h
+#ifndef __GAME__
+#define __GAME__
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+	void draw();
+
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+
+	std::shared_ptr<GameObject> m_go = std::make_shared<GameObject>("animate", 100, 100, 128, 82);
+	std::shared_ptr<Player> m_player = std::make_shared<Player>("animate", 300, 300, 128, 82);
+	std::shared_ptr<Enemy> m_enemy = std::make_shared<Enemy>("animate", 0, 0, 128, 82);
+
+	std::vector<std::shared_ptr<GameObject>> m_gameObjects;
+	Game() {};
+};
+
+typedef Game TheGame;
+#endif
+
+FILE GameObjects/GameObject.cpp
+#include "GameObject.h"
+#include "TextureManager.h"
+
+void GameObject::load(int x, int y, int width, int height, std::string textureID) {
+	m_x = x;
+	m_y = y;
+	m_width = width;
+	m_height = height;
+	m_textureID = textureID;
+
+	m_currentFrame = 1;
+	m_currentRow = 1;
+	std::cout << "GameObject::load() called" << std::endl;
+}
+
+void GameObject::draw(SDL_Renderer* pRenderer) {
+	TextureManager::Instance()
+		->drawFrame(m_textureID, m_x, m_y, m_width, m_height, m_currentRow, m_currentFrame, pRenderer);
+}
+
+void GameObject::update() {
+	m_x += 1;
+}
+
+
+
+FILE GameObjects/GameObject.h
+#pragma once
+#include <iostream>
+#include "SDL.h"
+
+
+
+
+class GameObject {
+public:
+	GameObject(std::string textureID, int x, int y, int width, int height)
+		: m_textureID(textureID), m_x(x), m_y(y), m_width(width), m_height(height),
+		m_currentFrame(1), m_currentRow(1) {
+	}
+	virtual void load(int x, int y, int width, int height, std::string textureID);
+	virtual void draw(SDL_Renderer* pRenderer);
+	virtual void update();
+	virtual void clean() {
+		// Cleanup logic here
+		std::cout << "Cleaning GameObject" << std::endl;
+	}
+protected:
+	std::string m_textureID;
+
+	int m_currentFrame;
+	int m_currentRow;
+
+	int m_x;
+	int m_y;
+
+	int m_width;
+	int m_height;
+};
+
+FILE GameObjects/main.cpp
+#include "Game.h"
+
+Game* g_game = TheGame::Instance();
+
+int main(int argc, char* argv[]) {
+	g_game->init("Chapter 3", 100, 100, 640, 480, 0);
+	g_game->setRunning(true);
+	while (g_game->running()) {
+		g_game->handleEvents();
+		g_game->update();
+		g_game->render();
+
+		SDL_Delay(10);
+	}
+	g_game->clean();
+	return 0;
+}
+FILE GameObjects/Player.cpp
+#include "Player.h"
+
+Player::Player(std::string textureID, int x, int y, int width, int height)
+	: GameObject(textureID, x, y, width, height) {
+	std::cout << "Player Created" << std::endl;
+}
+
+void Player::load(int x, int y, int width, int height, std::string textureID) {
+	GameObject::load(x, y, width, height, textureID);
+	std::cout << "Player Loaded" << std::endl;
+}
+
+void Player::draw(SDL_Renderer* renderer) {
+	GameObject::draw(renderer);
+}
+
+void Player::update() {
+	m_x -= 1;
+}
+
+void Player::clean() {
+	GameObject::clean();
+	std::cout << "Player Cleaned" << std::endl;
+}
+
+FILE GameObjects/Player.h
+#pragma once  
+#include "GameObject.h"  
+
+class Player : public GameObject {  
+public:  
+	Player(std::string textureID, int x, int y, int width, int height);
+    void load(int x, int y, int width, int height, std::string textureID);  
+    void draw(SDL_Renderer* pRenderer);  
+    void update();  
+    void clean();  
+};
+
+FILE GameObjects/TextureManager.cpp
+#include "TextureManager.h"
+
+bool TextureManager::load(std::string fileName, std::string id, SDL_Renderer* pRenderer)
+{
+	SDL_Surface* pTempSurface = IMG_Load(fileName.c_str());
+	if (pTempSurface == nullptr) {
+		std::cout << "SDL_Image Error: " << IMG_GetError() << std::endl;
+		return false;
+	}
+	
+	SDL_Texture* pTexture = SDL_CreateTextureFromSurface(pRenderer, pTempSurface);
+	SDL_FreeSurface(pTempSurface);
+
+	if (pTexture == nullptr) {
+		std::cout << "SDL_CreateTexture Error: " << SDL_GetError() << std::endl;
+		return false;
+	}
+	m_textureMap[id] = pTexture;
+	std::cout << "Texture loaded: " << id << std::endl;
+    return true;
+}
+
+void TextureManager::draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = 0;
+	srcRect.y = 0;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+
+}
+
+void TextureManager::drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip)
+{
+	SDL_Rect srcRect, destRect;
+	srcRect.x = currentFrame * width;
+	srcRect.y = (currentRow - 1 ) * height;
+	srcRect.w = destRect.w = width;
+	srcRect.h = destRect.h = height;
+	destRect.x = x;
+	destRect.y = y;
+	if (SDL_RenderCopyEx(pRenderer, m_textureMap[id], &srcRect, &destRect, 0, nullptr, flip) < 0) {
+		std::cout << "SDL_RenderCopyEx Error: " << SDL_GetError() << std::endl;
+	}
+}
+
+TextureManager* TextureManager::Instance()
+{
+	static TextureManager instance;
+	return &instance;
+}
+
+FILE GameObjects/TextureManager.h
+#pragma once
+
+#include <iostream>
+#include<map>
+#include "SDL.h"
+#include "SDL_image.h"
+
+class TextureManager {
+public:
+	bool load(std::string fileName, std::string id, SDL_Renderer* pRenderer);
+	void draw(std::string id, int x, int y, int width, int height, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	void drawFrame(std::string id, int x, int y, int width, int height, int currentRow, int currentFrame, SDL_Renderer* pRenderer, SDL_RendererFlip flip = SDL_FLIP_NONE);
+	static TextureManager* Instance();
+private:
+	std::map<std::string, SDL_Texture*> m_textureMap;
+	TextureManager() {}
+};
+
+typedef TextureManager TheTextureManager;
+
+FILE GameSkeleton/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+
+
+#include "Game.h"  
+#include "TextureManager.h"
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+
+			if (TheTextureManager::Instance()->load("assets/animate.png", "animate", m_pRenderer)) {
+				std::cout << "loading texture successfully" << std::endl;
+			}
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	TheTextureManager::Instance()->draw("animate", 0, 0, 128, 82, m_pRenderer);
+	TheTextureManager::Instance()->drawFrame("animate", 100, 100, 128, 82, 1, m_currentFrame, m_pRenderer);
+	
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	SDL_Event event;
+	if (SDL_PollEvent(&event)) {
+		switch (event.type) {
+		case SDL_QUIT:
+			m_bRunning = false;
+			break;
+		case SDL_KEYDOWN:
+			if (event.key.keysym.sym == SDLK_ESCAPE) {
+				m_bRunning = false;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+void Game::update() {
+	m_currentFrame = int(((SDL_GetTicks() / 100) % 6));
+	//std::cout << "Current Frame is" <<  m_currentFrame << std::endl;
+}
+
+FILE GameSkeleton/Game.h
+#ifndef __GAME__
+#define __GAME__
+#include "SDL.h"
+#include "TextureManager.h"
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+};
+#endif
+
+FILE GameSkeleton/main.cpp
+#include "Game.h"
+
+Game* g_game = nullptr;
+
+int main(int argc, char* argv[]) {
+	g_game = new Game();
+	g_game->init("Chapter 1", 100, 100, 640, 480, 0);
+	g_game->setRunning(true);
+	while (g_game->running()) {
+		g_game->handleEvents();
+		g_game->update();
+		g_game->render();
+	}
+	g_game->clean();
+	return 0;
+}
+FILE GameState/AnimatedGraphic.cpp
+#include "AnimatedGraphic.h"
+
+AnimatedGraphic::AnimatedGraphic(const LoaderParams* pParams, int animSpeed) 
+	: SDLGameObject(pParams), m_numFrames(animSpeed) {
+	// Initialize the current frame to 0
+	m_currentFrame = 0;
+}
+
+void AnimatedGraphic::draw() {
+	SDLGameObject::draw();
+}
+
+void AnimatedGraphic::update() {
+	// Update the current frame based on time
+	m_currentFrame = int(((SDL_GetTicks() / 1000) % m_numFrames));
+	SDLGameObject::update();
+}
+
+void AnimatedGraphic::clean() {
+	std::cout << "AnimatedGraphic Cleaned" << std::endl;
+}
+
+FILE GameState/AnimatedGraphic.h
+#pragma
+#include "SDLGameObject.h"
+class AnimatedGraphic : public SDLGameObject {
+public:
+	AnimatedGraphic(const LoaderParams* pParams, int animSpeed);
+	virtual void draw() override;
+	virtual void update() override;
+	virtual void clean() override;
+private:
+	int m_numFrames;
+};
+FILE GameState/Enemy.cpp
+#include "Enemy.h"
+
+Enemy::Enemy(const LoaderParams* pParams) : SDLGameObject(pParams) {
+	std::cout << "Enemy Created" << std::endl;
+	m_velocity.setY(2);
+	m_velocity.setX(0.001);
+}
+
+void Enemy::draw() {
+	SDLGameObject::draw();
+}
+
+void Enemy::update() {
+	m_currentFrame = int(((SDL_GetTicks() / 100) % m_numFrames));
+
+	if (m_position.getY() < 0) {
+		m_velocity.setY(2); // Move down if above the screen
+	} else if (m_position.getY() > 400) {
+		m_velocity.setY(-2); // Move up if below the screen
+	}
+	SDLGameObject::update();
+}
+
+void Enemy::clean() {
+	std::cout << "Enemy Cleaned" << std::endl;
+}
+FILE GameState/Enemy.h
+#pragma once
+#include "SDLGameObject.h"
+
+
+class Enemy : public SDLGameObject {
+public:
+	Enemy(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	int m_numFrames = 5; // Number of frames for animation
+};
+

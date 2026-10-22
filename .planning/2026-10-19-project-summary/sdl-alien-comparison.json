@@ -1,0 +1,266 @@
+[
+  {
+    "File": "AnimatedGraphic.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "AnimatedGraphic.h",
+    "Status": "identical"
+  },
+  {
+    "File": "base64.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "base64.h",
+    "Status": "identical"
+  },
+  {
+    "File": "Bullet.h",
+    "Status": "main-only"
+  },
+  {
+    "File": "BulletHandler.cpp",
+    "Status": "main-only"
+  },
+  {
+    "File": "BulletHandler.h",
+    "Status": "main-only"
+  },
+  {
+    "File": "Collision.h",
+    "Status": "main-only"
+  },
+  {
+    "File": "CollisionManager.cpp",
+    "Status": "main-only"
+  },
+  {
+    "File": "CollisionManager.h",
+    "Status": "main-only"
+  },
+  {
+    "File": "Enemy.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "Enemy.h",
+    "Status": "changed"
+  },
+  {
+    "File": "Eskeletor.h",
+    "Status": "main-only"
+  },
+  {
+    "File": "Game.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "Game.h",
+    "Status": "changed"
+  },
+  {
+    "File": "GameObject.h",
+    "Status": "changed"
+  },
+  {
+    "File": "GameObjectFactory.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "GameObjectFactory.h",
+    "Status": "identical"
+  },
+  {
+    "File": "GameOverState.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "GameOverState.h",
+    "Status": "identical"
+  },
+  {
+    "File": "GameState.h",
+    "Status": "identical"
+  },
+  {
+    "File": "GameStateMachine.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "GameStateMachine.h",
+    "Status": "identical"
+  },
+  {
+    "File": "InputHandler.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "InputHandler.h",
+    "Status": "identical"
+  },
+  {
+    "File": "Layer.h",
+    "Status": "identical"
+  },
+  {
+    "File": "Level.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "Level.h",
+    "Status": "changed"
+  },
+  {
+    "File": "LevelParser.cpp",
+    "Status": "changed"
+  },
+  {
+    "File": "LevelParser.h",
+    "Status": "changed"
+  },
+  {
+    "File": "LoaderParams.h",
+    "Status": "identical"
+  },
+  {
+    "File": "main.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "MainMenuState.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "MainMenuState.h",
+    "Status": "identical"
+  },
+  {
+    "File": "MenuButton.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "MenuButton.h",
+    "Status": "identical"
+  },
+  {
+    "File": "MenuState.h",
+    "Status": "identical"
+  },
+  {
+    "File": "ObjectLayer.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "ObjectLayer.h",
+    "Status": "identical"
+  },
+  {
+    "File": "PauseState.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "PauseState.h",
+    "Status": "identical"
+  },
+  {
+    "File": "Player.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "Player.h",
+    "Status": "changed"
+  },
+  {
+    "File": "PlayState.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "PlayState.h",
+    "Status": "identical"
+  },
+  {
+    "File": "ScrollingBackground.cpp",
+    "Status": "main-only"
+  },
+  {
+    "File": "ScrollingBackground.h",
+    "Status": "main-only"
+  },
+  {
+    "File": "SDLGameObject.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "SDLGameObject.h",
+    "Status": "identical"
+  },
+  {
+    "File": "ShooterObject.cpp",
+    "Status": "changed"
+  },
+  {
+    "File": "ShooterObject.h",
+    "Status": "changed"
+  },
+  {
+    "File": "SoundManager.cpp",
+    "Status": "changed"
+  },
+  {
+    "File": "SoundManager.h",
+    "Status": "identical"
+  },
+  {
+    "File": "StateParser.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "StateParser.h",
+    "Status": "identical"
+  },
+  {
+    "File": "TextureManager.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "TextureManager.h",
+    "Status": "changed"
+  },
+  {
+    "File": "TileLayer.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "TileLayer.h",
+    "Status": "changed"
+  },
+  {
+    "File": "tinystr.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "tinystr.h",
+    "Status": "identical"
+  },
+  {
+    "File": "tinyxml.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "tinyxml.h",
+    "Status": "identical"
+  },
+  {
+    "File": "tinyxmlerror.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "tinyxmlparser.cpp",
+    "Status": "identical"
+  },
+  {
+    "File": "Vector2D.h",
+    "Status": "changed"
+  }
+]

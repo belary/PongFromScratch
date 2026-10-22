@@ -1,0 +1,698 @@
+FILE AlienAttack - 副本/PauseState.cpp
+#include "PauseState.h"
+#include "Game.h"
+#include "MenuButton.h"
+#include "MainMenuState.h"
+#include "StateParser.h"
+
+const std::string PauseState::s_pauseID = "PAUSE";
+
+void PauseState::update()
+{
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update(); // 更新暂停状态的游戏对象
+	}
+}
+
+void PauseState::render()
+{
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->draw(); // 绘制暂停状态的游戏对象
+	}
+}
+bool PauseState::onEnter()
+{
+	std::cout << "Entering Pause State" << std::endl;
+	StateParser stateParser;
+	stateParser.parseState("assets/test.xml", s_pauseID, &m_gameObjects, &m_textureIDList);
+
+	m_callbacks.push_back(0);
+	m_callbacks.push_back(s_pauseToMenu);
+	m_callbacks.push_back(s_resumePlay);
+
+	setCallbacks(m_callbacks);
+
+	return true;
+}
+
+bool PauseState::onExit()
+{
+	// 清理暂停状态的游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	for (int i = 0; i < m_textureIDList.size(); i++)
+	{
+		TheTextureManager::Instance()->clearFromTextureMap(m_textureIDList[i]);
+	}
+	std::cout << "Exiting Pause State" << std::endl;
+	return true;
+}
+
+void PauseState::s_resumePlay()
+{
+	TheGame::Instance()->getStateMachine()->popState(); // 从暂停状态恢复到游戏状态
+}
+
+void PauseState::s_pauseToMenu()
+{
+	TheGame::Instance()->getStateMachine()->changeState(new MainMenuState()); // 从暂停状态返回到菜单状态
+}
+
+
+void PauseState::setCallbacks(const std::vector<Callback>& callbacks)
+{
+	for (int i = 0; i < m_gameObjects.size(); i++)
+	{
+		if (dynamic_cast<MenuButton*>(m_gameObjects[i]))
+		{
+			MenuButton* pButton =
+				dynamic_cast<MenuButton*>(m_gameObjects[i]);
+			pButton->setCallback(callbacks[pButton->getCallbackID()]);
+		}
+	}
+}
+
+FILE AlienAttack - 副本/PauseState.h
+#pragma once
+#include "GameState.h"
+#include "MenuState.h"
+
+class GameObject; // 前向声明 GameObject 类
+
+class PauseState : public MenuState {
+public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	virtual std::string getStateId() const override { return s_pauseID; }
+
+private:
+	virtual void setCallbacks(const std::vector<Callback>&
+		callbacks);
+
+	std::vector<GameObject*> m_gameObjects; // 存储暂停状态的游戏对象
+
+	static const std::string s_pauseID;
+	static void s_resumePlay(); // 静态函数，用于从暂停状态恢复游戏
+	static void s_pauseToMenu(); // 静态函数，用于从暂停状态返回菜单
+};
+
+FILE AlienAttack - 副本/Player.cpp
+#include "Game.h"
+#include "Player.h"
+#include "InputHandler.h"
+
+Player::Player() : ShooterObject() {
+
+}
+
+void Player::load(const LoaderParams* pParams) {
+	std::cout << "Player Created" << std::endl;
+	ShooterObject::load(pParams);
+}
+
+void Player::draw() {
+	ShooterObject::draw();
+}
+
+void Player::update() {
+
+	if (TheGame::Instance()->getLevelComplete())
+	{
+		if (m_position.getX() >= TheGame::Instance()->getGameWidth())
+		{
+			TheGame::Instance()->setCurrentLevel(TheGame::Instance()->getCurrentLevel() + 1);
+		}
+		else
+		{
+			m_velocity.setY(0);
+			m_velocity.setX(3);
+			ShooterObject::update();
+			handleAnimation();
+		}
+	}
+	else
+	{
+		if (!m_bDying) // 正常情况
+		{
+			m_velocity.setX(0);
+			m_velocity.setY(0);
+
+			handleInput();
+			ShooterObject::update();
+			handleAnimation();
+		}
+		else // 死亡动画
+		{
+			// m_numFrames代表一共x帧动画
+			m_currentFrame = int(((SDL_GetTicks() / 100) % m_numFrames));
+
+			if (m_dyingCounter == m_dyingTime)
+			{
+				ressurect();
+			}
+			m_dyingCounter++;
+		}
+	}
+}
+
+void Player::clean() {
+	std::cout << "Player Cleaned" << std::endl;
+}
+
+void Player::ressurect()
+{
+	TheGame::Instance()->setPlayerLives(TheGame::Instance()->getPlayerLives() - 1);
+
+	m_position.setX(10);
+	m_position.setY(200);
+	m_bDying = false;
+
+	m_textureID = "player";
+
+	m_currentFrame = 0;
+	m_numFrames = 5;
+	m_width = 101;
+	m_height = 46;
+
+	m_dyingCounter = 0;
+	m_invulnerable = true;
+}
+
+void Player::handleAnimation()
+{
+	if (m_invulnerable)
+	{
+		// invlunerable finished, set values back
+		if (m_invulnerableCounter == m_invulnerableTime)
+		{
+			m_invulnerable = false;
+			m_invulnerableCounter = 0;
+			m_alpha = 255;
+		}
+		else // otherwise, flash the alpha on and off
+		{
+			if (m_alpha == 255)
+			{
+				m_alpha = 0;
+			}
+			else
+			{
+				m_alpha = 255;
+			}
+		}
+		// increase the counter
+		m_invulnerableCounter++;
+	}
+
+	// 模拟飞行的时候机头方向变化，给玩家一种自然的“飞行中动态摇摆”感
+	// 右飞则右边倾斜10度，左飞则左倾斜10度
+	if (!m_bDead)
+	{
+		if (m_velocity.getX() > 0)
+		{
+			m_angle = 10.0;
+		}
+		else if (m_velocity.getX() < 0)
+		{
+			m_angle = -10.0;
+		}
+		else
+		{
+			m_angle = 0.0;
+		}
+	}
+
+	m_currentFrame = int(
+		(SDL_GetTicks() / 100) % m_numFrames
+		);
+
+}
+
+void Player::handleInput() {
+	// Handle Mouse input for movement
+	Vector2D* vec = TheInputHandler::Instance()->getMousePosition();
+	m_velocity = (*vec - m_position) / 50.0f; // Adjust speed as needed
+
+
+	// Handle keyboard input for movement
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RIGHT)) {
+		m_velocity.setX(2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_LEFT)) {
+		m_velocity.setX(-2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_UP)) {
+		m_velocity.setY(-2);
+	}
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_DOWN)) {
+		m_velocity.setY(2);
+	}
+}
+
+FILE AlienAttack - 副本/Player.h
+#pragma once
+#include "GameObjectFactory.h"
+#include "ShooterObject.h"
+
+class Player : public ShooterObject {
+public:
+	Player();
+	virtual void load(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	void ressurect();
+	void handleAnimation();
+	void handleInput();
+
+	int m_numFrames = 5; // Number of frames for animation
+
+	// player can be invulnerable for a time
+	int m_invulnerable;
+	int m_invulnerableTime;
+	int m_invulnerableCounter;
+};
+
+class PlayerCreator : public BaseCreator
+{
+	GameObject* createGameObject() const
+	{
+		return new Player();
+	}
+};
+FILE AlienAttack - 副本/PlayState.cpp
+#include "PlayState.h"
+#include "TextureManager.h"
+#include "Game.h"
+#include "InputHandler.h"
+#include "PauseState.h"
+#include "GameOverState.h"
+#include "StateParser.h"
+#include "LevelParser.h"
+#include <iostream>
+
+const std::string PlayState::s_playID = "PLAY";
+
+void PlayState::update() {
+
+	// Check if the player wants to pause the game
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+		TheGame::Instance()->getStateMachine()->pushState(new PauseState()); // Push PauseState onto the stack
+		return; // Exit early to avoid updating game objects while paused
+	}
+	// 
+	// Update logic for the play state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update();
+	}
+
+	if (m_gameObjects.size() > 1) {
+		std::cout << "Before state change, m_gameObjects size = " << m_gameObjects.size() << std::endl;
+		// Check for collisions between game objects
+		if (checkCollision(dynamic_cast<SDLGameObject*>(m_gameObjects[0]), dynamic_cast<SDLGameObject*>(m_gameObjects[1]))) {
+			std::cout << "Collision detected between object " << 0 << " and object " << 1 << std::endl;
+			// Handle collision logic here
+			TheGame::Instance()->getStateMachine()->changeState(new GameOverState()); // Change to GameOverState on collision
+			//return; // 这里必须return防止playState::OnExit()清理了资源导致循环访问出界
+		}
+	}
+
+	pLevel->update();
+}
+
+void PlayState::render() {
+	pLevel->render();
+	// Render logic for the play state
+	//for (auto& gameObject : m_gameObjects) {
+	//	gameObject->draw(); // Draw each game object
+	//}
+}
+
+bool PlayState::onEnter() {
+
+	LevelParser levelParser;
+	pLevel = levelParser.parseLevel("assets/map1.tmx");
+	std::cout << "Entering Play State" << std::endl;
+	//StateParser stateParser;
+	//stateParser.parseState("assets/test.xml", s_playID, &m_gameObjects, &m_textureIDList);
+	return true;
+}
+
+bool PlayState::onExit() {
+	std::cout << "onExit: Clearing " << m_gameObjects.size() << " objects" << std::endl;
+
+	// 清理游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	for (int i = 0; i < m_textureIDList.size(); i++)
+	{
+		TheTextureManager::Instance()->clearFromTextureMap(m_textureIDList[i]);
+	}
+
+	std::cout << "Exiting Play State" << std::endl;
+	return true;
+}
+
+bool PlayState::checkCollision(SDLGameObject* p1, SDLGameObject* p2) {
+
+	float leftA, leftB;
+	float rightA, rightB;
+	float topA, topB;
+	float bottomA, bottomB;
+
+	leftA = p1->getPosition().getX();
+	rightA = p1->getPosition().getX() + p1->getWidth();
+	topA = p1->getPosition().getY();
+	bottomA = p1->getPosition().getY() + p1->getHeight();
+
+
+	leftB = p2->getPosition().getX();
+	rightB = p2->getPosition().getX() + p2->getWidth();
+	topB = p2->getPosition().getY();
+	bottomB = p2->getPosition().getY() + p2->getHeight();
+
+	if (bottomA <= topB) {
+		return false; // A is above B
+	}
+	if (topA >= bottomB) {
+		return false; // A is below B
+	}
+
+	if (rightA <= leftB) {
+		return false; // A is to the left of B
+	}
+
+	if (leftA >= rightB) {
+		return false; // A is to the right of B
+	}
+
+	return true;
+}
+FILE AlienAttack - 副本/PlayState.h
+#pragma once
+#include "GameState.h"
+#include "GameObject.h"
+#include "SDLGameObject.h"
+#include "Level.h"
+
+class PlayState : public GameState {
+public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	bool checkCollision(SDLGameObject* p1, SDLGameObject* p2);
+	virtual std::string getStateId() const override { return s_playID; }
+private:
+	static const std::string s_playID;
+	std::vector<GameObject*> m_gameObjects; // 存储游戏对象
+	Level* pLevel;
+};
+
+FILE AlienAttack - 副本/SDLGameObject.cpp
+#include "SDLGameObject.h"
+#include "Game.h"
+#include "TextureManager.h"
+
+void SDLGameObject::draw()
+{
+	if (m_velocity.getX() > 0) {
+	TextureManager::Instance()->drawFrame(m_textureID, (int)m_position.getX(), (int)m_position.getY(), m_width, m_height,
+		m_currentRow, m_currentFrame, TheGame::Instance()->getRenderer(), SDL_FLIP_HORIZONTAL);
+	}
+	else {
+	TextureManager::Instance()->drawFrame(m_textureID, (int)m_position.getX(), (int)m_position.getY(), m_width, m_height,
+		m_currentRow, m_currentFrame, TheGame::Instance()->getRenderer() );
+	}
+}
+
+void SDLGameObject::update()
+{
+	// Base class update function does nothing by default
+	m_position += m_velocity;
+}
+
+void SDLGameObject::clean()
+{
+	std::cout << "SDLGameObject Cleaned" << std::endl;
+}
+
+// ✅ 工厂只负责「创建」空的对象实例，不用管对象初始化需要哪些参数。
+// ✅ 初始化可以在外面统一调用 load，可以灵活地从 XML 文件读取参数，甚至可以多次调用 load 做重置。
+// ✅ 也避免了让工厂必须知道 LoaderParams 的内部结构。
+// 
+// 将 LoaderParams 从构造函数移到 load 的目的，就是为了让工厂只关心如何「造对象」，不需要知道「用哪些具体参数配置对象」。
+// 这样就能让工厂保持简单、灵活，并适合从外部文件（比如 XML）加载数据后再 load 进去。
+// e.g. 之前是： Player::Player(const LoaderParams* pParams) { ... }
+//      现在是:  
+//         GameObject* obj = TheGameObjectFactory::Instance()->create("Player");
+//         obj->load(pParams);
+void SDLGameObject::load(const LoaderParams* pParams)
+{
+	m_textureID = pParams->getTextureID();
+
+	m_position = Vector2D(pParams->getX(), pParams->getY());
+	m_velocity = Vector2D(0, 0);
+	m_acceleration = Vector2D(0, 0);
+
+	m_width = pParams->getWidth();
+	m_height = pParams->getHeight();
+
+	m_numFrames = pParams->getNumFrames();
+	m_currentFrame = 1;
+	m_currentRow = 1;
+}
+
+SDLGameObject::SDLGameObject(): GameObject()
+{
+}
+
+FILE AlienAttack - 副本/SDLGameObject.h
+#pragma once
+#include "GameObject.h"
+#include "Vector2D.h"
+class SDLGameObject : public GameObject {
+
+public:
+	virtual void draw(); 
+	virtual void update(); 
+	virtual void clean(); 
+	virtual void load(const LoaderParams* pParams);
+	Vector2D getPosition() const { return m_position; }
+	int getWidth() const { return m_width; }
+	int getHeight() const { return m_height; }
+
+protected:
+	SDLGameObject();
+
+	std::string m_textureID; 
+
+	int m_x;
+	int m_y;
+
+	int m_width; 
+	int m_height; 
+
+	int m_currentFrame;
+	int m_currentRow;
+	int m_numFrames;
+
+	Vector2D m_velocity;
+	Vector2D m_position;
+	Vector2D m_acceleration;
+	
+	int m_callbackID;
+
+};
+
+FILE AlienAttack - 副本/ShooterObject.cpp
+#include "Game.h"
+#include "ShooterObject.h"
+
+
+void ShooterObject::doDyingAnimation()
+{
+	// keep scrolling the tile map
+	scroll(TheGame::Instance()->getScrollSpeed());
+
+	m_currentFrame = int(
+		(SDL_GetTicks() / (1000 / 3))
+		%
+		m_numFrame
+		);
+
+	if (m_dyingCounter == m_dyingTime)
+	{
+		m_bDead = true;
+	}
+	m_dyingCounter++;
+}
+
+FILE AlienAttack - 副本/ShooterObject.h
+#pragma once
+#include "GameObject.h"
+
+class ShooterObject : public GameObject
+{
+public:
+	virtual ~ShooterObject() {}
+	virtual void load(std::unique_ptr<LoaderParams> const
+		&pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean() {} // not implemted
+	virtual void collision() {}  // not implemted
+	virtual std::string type() { return "SDLGameObject"; }
+
+protected:
+	ShooterObject();
+
+	// draw animation for the object being destroyed
+	void doDyingAnimation();
+
+	// how fast will this object fire bullets; with a counter
+	int m_bulletFiringSpeed;
+	int m_bulletCounter;
+
+	// how fast the object move
+	int m_moveSpeed;
+
+	// how long will the death animation takes? with a counter
+	int m_dyingTime;
+	int m_dyingCounter;
+
+	// has the death sound played?
+	bool m_bPlayerDeathSound;
+};
+
+
+FILE AlienAttack - 副本/SoundManager.cpp
+#include "SoundManager.h"
+
+bool SoundManager::load(std::string fileName, std::string id, sound_type type)
+{
+	if (type == SOUND_MUSIC)
+	{
+		/*
+		* Mix_LoadMUS(const char *file)：
+			用途：加载音乐文件（流式解码用）。
+			适合播放：背景音乐（只允许一个通道）。
+			配套释放函数：Mix_FreeMusic()
+			和 Mix_LoadWAV 的区别：Mix_LoadWAV() 加载 chunk（预解码），而 Mix_LoadMUS() 加载 music（流式解码）。
+		*/
+		Mix_Music* pMusic = Mix_LoadMUS(fileName.c_str());
+		if (pMusic == 0)
+		{
+			std::cout << "Could not load music: ERROR - "
+				<< Mix_GetError() << std::endl;
+			return false;
+		}
+		m_music[id] = pMusic;
+		return true;
+	}
+	else if (type == SOUND_SFX)
+	{
+		Mix_Chunk* pChunk = Mix_LoadWAV(fileName.c_str());
+		if (pChunk == 0)
+		{
+			std::cout << "Could not load SFX: ERROR - "
+				<< Mix_GetError() << std::endl;
+			return false;
+		}
+		return true;
+	}
+
+	return false;
+}
+
+void SoundManager::playSound(std::string id, int loop)
+{
+
+	/*
+	* 用途：在指定通道播放音效。
+
+		特点：支持自动分配空闲通道；占用通道会替换原有音效；支持循环播放。
+		配套函数：
+		Mix_HaltChannel(channel) → 立即停止通道音效；
+		Mix_VolumeChunk(chunk, volume) → 设置音效音量；
+		Mix_LoadWAV(path) → 加载音效。
+	*/
+	Mix_PlayChannel(-1, m_sfxs[id], loop);
+}
+
+void SoundManager::playMusic(std::string id, int loop)
+{
+	/*
+	* 用途：播放一个音乐对象（背景音乐用）。
+		注意事项：一次只能播放一个 music，如果有音乐正在淡出，新播放会阻塞。
+		循环参数：0 → 播一次，-1 → 无限循环，n → 播 n+1 次。
+		配套函数：Mix_HaltMusic()（立即停止音乐），Mix_FadeOutMusic()（淡出音乐），Mix_LoadMUS()（加载音乐）。
+	*/
+	Mix_PlayMusic(m_music[id], loop);
+}
+
+
+
+FILE AlienAttack - 副本/SoundManager.h
+#pragma once
+#include <iostream>
+#include <map>
+
+#include "SDL_mixer.h"
+
+enum sound_type
+{
+	SOUND_MUSIC = 0,
+	SOUND_SFX = 1
+};
+
+class SoundManager
+{
+public:
+	static SoundManager* Instance()
+	{
+		static SoundManager instance;
+		return &instance;
+	}
+
+	bool load(std::string fileName, std::string id, sound_type type);
+
+	void playSound(std::string id, int loop);
+	void playMusic(std::string id, int loop);
+private:
+	SoundManager() {
+		/*
+		初始化 SDL2_mixer 音频播放环境
+		  1.22050 → 采样率（Hz）表示声音播放的精度。
+			22050Hz 是一个常用的较低质量采样率（CD 质量是 44100Hz）。
+			
+		  2.AUDIO_S16 → 采样格式 表示每个采样点是有符号 16 位整数（signed 16-bit）。
+			在 SDL2_mixer 中常用的是 AUDIO_S16SYS（系统字节序的 16 位）或 AUDIO_S16。
+
+		  3.2 表示立体声（stereo），1 表示单声道（mono
+			
+		  4.4096 → 混音缓冲区大小（chunk size）表示混音时每次处理的音频样本数量。
+			数值越大：延迟更高，但 CPU 负担小。
+			数值越小：延迟更低，但 CPU 占用高，可能卡顿。
+		*/
+		Mix_OpenAudio(22050, AUDIO_S16, 2, 4096);
+	}
+	~SoundManager() { Mix_CloseAudio(); }
+	
+	std::map<std::string, Mix_Chunk*> m_sfxs;
+	std::map<std::string, Mix_Music*> m_music;
+
+	SoundManager& operator=(const SoundManager&);
+};
+
+typedef SoundManager TheSoundManager;
+

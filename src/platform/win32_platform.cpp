@@ -43,17 +43,13 @@ LRESULT CALLBACK platform_window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, L
     break;
 
     case WM_KEYUP:
-    {
-        OutputDebugStringA("key up\n");
-    }
-    break;
     case WM_KEYDOWN:
     {
         // // CAKEZ_TRACE("key %d is pressed.", (int)wParam);
-        OutputDebugStringA("key down\n");
         bool isDown = uMsg == WM_KEYDOWN ? true : false;
         uint32_t keyID = INVALID_IDX;
 
+        // 将windows消息转换为自定义的keyID
         switch ((int)wParam)
         {
         case 'W':
@@ -73,6 +69,10 @@ LRESULT CALLBACK platform_window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, L
         if (keyID < KEY_COUNT)
         {
             input.keys[keyID].halfTransitionCount++;
+            char buffer[256];
+            sprintf_s(buffer, "key %c, pressed: %d times, isDown: %d\n",
+                      (char)wParam, input.keys[keyID].halfTransitionCount, isDown);
+            OutputDebugStringA(buffer);
             input.keys[keyID].isDown = isDown;
         }
     }

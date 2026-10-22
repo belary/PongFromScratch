@@ -1,0 +1,478 @@
+FILE AlienAttack - 副本/InputHandler.cpp
+#include "InputHandler.h"
+#include "SDL.h"
+#include "Game.h"
+/**
+   AXIS VALUES ================================================
+• Left and right movement on stick one is axis 0
+• Up and down movement on stick one is axis 1
+• Left and right movement on stick two is axis 3
+• Up and down movement on stick two is axis 4
+
+   STICK VALUES ================================================
+• Left stick is 1
+• Right stick is 2
+*/
+void InputHandler::initialiseJoysticks() {
+	if (SDL_WasInit(SDL_INIT_JOYSTICK) == 0) {
+		SDL_InitSubSystem(SDL_INIT_JOYSTICK);
+	}
+
+	int numJoysticks = SDL_NumJoysticks();
+	std::cout << "Detected " << numJoysticks << " joystick devices" << std::endl;
+
+	for (int i = 0; i < numJoysticks; i++) {
+		std::cout << "Opening joystick " << i << ": " << SDL_JoystickNameForIndex(i) << std::endl;
+		SDL_Joystick* joy = SDL_JoystickOpen(i);
+
+		if (joy != nullptr) {
+			m_joysticks.push_back(joy);
+			m_joystickValues.push_back(std::make_pair(new Vector2D(0, 0), new Vector2D(0, 0)));
+			std::cout << "Successfully opened joystick " << i << std::endl;
+			// Print joystick info
+			std::cout << "Number of buttons: " << SDL_JoystickNumButtons(joy) << std::endl;
+			std::cout << "Number of axes: " << SDL_JoystickNumAxes(joy) << std::endl;
+			std::cout << "Number of hats: " << SDL_JoystickNumHats(joy) << std::endl;
+
+			// init buttons state (not pushed)for each joystick
+			std::vector<bool> tempButtons;
+			for (int j = 0; j < SDL_JoystickNumButtons(joy); j++) {
+				tempButtons.push_back(false);
+			}
+			m_buttonStates.push_back(tempButtons);
+			SDL_JoystickEventState(SDL_ENABLE);
+		}
+		else {
+			std::cout << "Failed to open joystick " << i << ": " << SDL_GetError() << std::endl;
+		}
+	}
+
+	if (numJoysticks == 0) {
+		std::cout << "No joysticks found" << std::endl;
+	} else {
+		m_bJoysticksInitialised = true;
+	}
+
+	std::cout << "Initialization complete, total " << m_joysticks.size() << " joysticks" << std::endl;
+}
+
+void InputHandler::clean() {
+	if (m_bJoysticksInitialised) {
+		for (unsigned int i = 0; i < m_joysticks.size(); i++) {
+			SDL_JoystickClose(m_joysticks[i]);
+		}
+	}
+}
+
+void InputHandler::update() {
+
+	SDL_Event event;
+
+	while (SDL_PollEvent(&event)) {
+		// 添加事件类型调试信息
+		//std::cout << "Event type: " << event.type << std::endl;
+
+		if (event.type == SDL_QUIT) {
+			TheGame::Instance()->quit();
+		}
+
+		// 摇杆事件处理
+		if (TheInputHandler::Instance()->isJoystickInitialised()) {
+			if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
+				std::cout << "Joystick button event detected" << std::endl;
+				int whichOne = event.jbutton.which;
+				int button = event.jbutton.button;
+				int state = event.jbutton.state;  // SDL_PRESSED or SDL_RELEASED
+
+				// Get controller name
+				const char* controllerName = SDL_JoystickName(m_joysticks[whichOne]);
+				std::cout << "Controller: " << controllerName << std::endl;
+				std::cout << "Button number: " << button << std::endl;
+
+				// Button mapping based on controller type
+				const char* buttonName = "";
+				// Xbox 360 Controller mapping
+				switch (button) {
+				case 0: buttonName = "A"; break;
+				case 1: buttonName = "B"; break;
+				case 2: buttonName = "X"; break;
+				case 3: buttonName = "Y"; break;
+				case 4: buttonName = "LB"; break;
+				case 5: buttonName = "RB"; break;
+				case 6: buttonName = "Back"; break;
+				case 7: buttonName = "Start"; break;
+				case 8: buttonName = "Left Stick"; break;
+				case 9: buttonName = "Right Stick"; break;
+				default: buttonName = "Unknown"; break;
+					// }
+				}
+
+				std::cout << "Joystick " << whichOne << " Button " << buttonName << " "
+					<< (state == SDL_PRESSED ? "Pressed" : "Released") << std::endl;
+			}
+
+			// Handle Button states
+			if (event.type == SDL_JOYBUTTONDOWN) {
+				int whichOne = event.jaxis.which;
+				m_buttonStates[whichOne][event.jbutton.button] = true;
+			}
+			if (event.type = SDL_JOYBUTTONUP) {
+				int whichOne = event.jaxis.which;
+				m_buttonStates[whichOne][event.jbutton.button] = false;
+			}
+
+			// Handle D-pad
+			if (event.type == SDL_JOYHATMOTION) {
+				std::cout << "D-pad event detected" << std::endl;
+				int whichOne = event.jhat.which;
+				int hat = event.jhat.hat;
+				int value = event.jhat.value;
+
+				std::cout << "Joystick " << whichOne << " D-pad status: ";
+
+				if (value & SDL_HAT_UP) std::cout << "Up ";
+				if (value & SDL_HAT_DOWN) std::cout << "Down ";
+				if (value & SDL_HAT_LEFT) std::cout << "Left ";
+				if (value & SDL_HAT_RIGHT) std::cout << "Right ";
+				if (value == 0) std::cout << "Center";
+
+				std::cout << std::endl;
+			}
+
+			// Handle analog sticks
+			if (event.type == SDL_JOYAXISMOTION) {
+				std::cout << "Analog stick event detected" << std::endl;
+				int whichOne = event.jaxis.which;
+				int axis = event.jaxis.axis;
+				int value = event.jaxis.value;
+
+				std::cout << "Joystick " << whichOne << " Stick ";
+				if (axis == 0) std::cout << "Left Stick X-axis: ";
+				else if (axis == 1) std::cout << "Left Stick Y-axis: ";
+				else if (axis == 2) std::cout << "Right Stick X-axis: ";
+				else if (axis == 3) std::cout << "Right Stick Y-axis: ";
+				else if (axis == 4) std::cout << "L2 Trigger: ";  // For PS4
+				else if (axis == 5) std::cout << "R2 Trigger: ";  // For PS4
+				else std::cout << "Unknown axis " << axis << ": ";
+				std::cout << value << std::endl;
+
+
+				// update the joystick values
+				// ========================== left stick move left or right
+				if (axis == 0) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setX(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setX(-1);
+					}
+					else {
+						m_joystickValues[whichOne].first->setX(0);
+					}
+				}
+				// ========================== left stick move up or down
+				if (axis == 1) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setY(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setY(-1);
+					}
+					else {
+						m_joystickValues[whichOne].first->setY(0);
+					}
+				}
+				// ========================== right stick move left or right
+				if (axis == 3) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setX(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setX(-1);
+					}
+					else {
+						m_joystickValues[whichOne].second->setX(0);
+					}
+				}
+				// ========================== right stick move up or down
+				if (axis == 4) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setY(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setY(-1);
+					}
+					else {
+						m_joystickValues[whichOne].second->setY(0);
+					}
+
+				}
+			}
+
+
+		}//Joystick initialised check
+
+		// Handle mouse motion
+		if (event.type == SDL_MOUSEMOTION) {
+			//std::cout << "Mouse motion event detected" << std::endl;
+			float x = event.motion.x;
+			float y = event.motion.y;
+			// Update mouse position
+			if (m_mousePosition == nullptr) {
+				m_mousePosition = new Vector2D(x, y);
+			}
+			else {
+				m_mousePosition->setX(x);
+				m_mousePosition->setY(y);
+			}
+			//std::cout << "Mouse position: (" << x << ", " << y << ")" << std::endl;
+		}
+
+		// Handle mouse button events
+		if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
+
+			std::cout << "Mouse button event detected" << std::endl;
+			int button = event.button.button;
+			bool pressed = (event.type == SDL_MOUSEBUTTONDOWN);
+
+			// Update mouse button state
+			if (button >= m_mouseButtonStates.size()) {
+				// Resize vector if necessary
+				m_mouseButtonStates.resize(button + 1, false);
+			}
+			m_mouseButtonStates[button] = pressed;
+
+			std::cout << "Mouse button " << button << (pressed ? " pressed" : " released") << std::endl;
+		}
+
+
+	} //SDL_PollEvent
+}
+
+bool InputHandler::isJoystickInitialised() const {
+	return m_bJoysticksInitialised;
+}
+
+
+float InputHandler::xvalue(int joy, int stick) {
+	if (m_joystickValues.size() > 0) {
+		if (stick == 1) {
+			return m_joystickValues[joy].first->getX();
+		}
+		else if (stick == 2) {
+			return m_joystickValues[joy].second->getX();
+		}
+	}
+	return 0;
+}
+
+float InputHandler::yvalue(int joy, int stick) {
+	if (m_joystickValues.size() > 0) {
+		if (stick == 1) {
+			return m_joystickValues[joy].first->getY();
+		}
+		else if (stick == 2) {
+			return m_joystickValues[joy].second->getY();
+		}
+	}
+	return 0;
+}
+
+bool InputHandler::getButtonState(int joy, int buttonNumber) const {
+	return m_buttonStates[joy][buttonNumber];
+}
+
+bool InputHandler::getMouseButtonState(int button) const {
+	if (m_mouseButtonStates.size() > button) {
+		return m_mouseButtonStates[button];
+	}
+	return false;
+}
+
+Vector2D* InputHandler::getMousePosition() const {
+	return m_mousePosition;
+}
+FILE AlienAttack - 副本/InputHandler.h
+#pragma once
+#include <vector>
+#include <iostream>
+
+#include "Vector2D.h"
+#include "SDL.h"
+// 这里要注意 SDL会根据不同的设备返回左右键的值不同
+enum mouse_buttons {
+	LEFT = 1,
+	MIDDLE = 2,
+	RIGHT = 3
+};
+
+class InputHandler {
+public:
+
+	static InputHandler* Instance() {
+		static InputHandler instance; // Guaranteed to be destroyed, instantiated on first use
+		return &instance;
+	}
+
+	void initialiseJoysticks();
+	bool isJoystickInitialised() const;
+
+	void update();
+	void clean();
+
+	float xvalue(int joy, int stick);
+	float yvalue(int joy, int stick);
+
+	bool getButtonState(int joy, int button) const;
+
+
+	bool getMouseButtonState(int button) const;
+
+	Vector2D* getMousePosition() const;
+
+	bool isKeyDown(SDL_Scancode key) const {
+
+		if (m_keystates == nullptr) {
+			std::cerr << "Error: Keystates not initialized." << std::endl;
+			return false;
+		}
+		if (m_keystates[key] != 0) {
+			if (m_keystates[key] == 1) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
+		return false;
+	}
+
+private:
+	bool m_bJoysticksInitialised;
+	/*
+		m_joystickValues 是一个存储摇杆输入值的向量，其中每个元素是一个包含两个整数的 pair。这个变量的具体作用是：
+		存储每个摇杆的 X 和 Y 轴的值
+		每个 pair 中的两个整数分别代表：
+			第一个整数 (first): 摇杆的 X 轴值
+			第二个整数 (second): 摇杆的 Y 轴值
+		这个设计允许：
+			支持多个摇杆（通过 m_joysticks 向量）
+			每个摇杆都有其对应的 X 和 Y 轴值
+			在游戏循环中通过 update() 方法更新这些值
+			其他游戏组件可以方便地查询摇杆的当前状态
+	*/
+	std::vector<SDL_Joystick*> m_joysticks;
+	std::vector<std::pair<Vector2D*, Vector2D*>> m_joystickValues;
+	const int m_joystickDeadZone = 10000;
+
+	// 按键
+	std::vector<std::vector<bool>> m_buttonStates;
+
+	// 鼠标
+	// 坐标
+	Vector2D* m_mousePosition;
+	// 鼠标按键状态
+	std::vector<bool> m_mouseButtonStates;
+
+
+	/* 键盘: 
+		SDL 会帮我们维护一个键盘状态数组，只需调用一次，就能获得所有按键的当前状态。
+		所以每一帧的处理过程中，只需检查这个数组即可获取键盘的按下状态。
+	*/
+	const Uint8* m_keystates;
+
+	InputHandler() : m_bJoysticksInitialised(false), m_mousePosition(new Vector2D(0, 0)){
+		m_keystates = const_cast<Uint8*>(SDL_GetKeyboardState(nullptr)); // 获取当前键盘状态
+		m_mouseButtonStates.resize(3, false); // 初始化鼠标按键状态，假设最多有3个按键（左、中、右）
+	}; // 初始化鼠标位置
+	~InputHandler() {
+		if (m_mousePosition != nullptr) {
+			delete m_mousePosition;
+		}
+	}; // 清理鼠标位置
+
+};
+
+typedef InputHandler TheInputHandler;
+FILE AlienAttack - 副本/Layer.h
+#pragma once
+#include <vector>
+
+class Layer
+{
+public:
+	virtual void render() = 0;
+	virtual void update() = 0;
+protected:
+	virtual ~Layer() {}
+	std::vector<Layer*>* getLayers() {
+		return &m_layers;
+	}
+	std::vector<Layer*> m_layers;
+};
+
+FILE AlienAttack - 副本/Level.cpp
+#include "Level.h"
+
+void Level::render()
+{
+	for (int i = 0; i < m_layers.size(); i++)
+	{
+		m_layers[i]->render();
+	}
+}
+
+Level::Level()
+{
+}
+
+void Level::update()
+{
+	for (int i = 0; i < m_layers.size(); i++)
+	{
+		m_layers[i]->update();
+	}
+}
+
+FILE AlienAttack - 副本/Level.h
+#pragma once
+#include <string>
+#include <vector>
+#include "Layer.h"
+#include "LevelParser.h"
+
+struct Tileset
+{
+	int firstGridID;
+	int tileWidth;
+	int tileHeight;
+	int spacing;
+	int margin;
+	int width;
+	int height;
+	int numColumns;
+	std::string name;
+};
+class Level
+{
+public:
+	~Level() {}
+	void update();
+	void render();
+	std::vector<Tileset>* getTilesets()
+	{
+		return &m_tilesets;
+	}
+
+	std::vector<Layer*>* getLayers()
+	{
+		return &m_layers;
+	}
+
+private:
+	Level();
+	friend class LevelParser;
+	std::vector<Tileset> m_tilesets;
+	std::vector<Layer*> m_layers;
+};
+

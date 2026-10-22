@@ -1,0 +1,667 @@
+FILE GameState/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+#include "InputHandler.h"
+#include "Game.h"  
+#include "Enemy.h"
+#include "TextureManager.h"
+#include "MenuState.h"
+#include "PlayState.h"
+
+Game* Game::Instance() {
+	static Game instance;
+	return &instance;
+}
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// 初始化进入 MenuState
+		m_pGameStateMachine = new GameStateMachine();
+		m_pGameStateMachine->pushState(new MenuState()); 
+
+		// 初始化joystick
+		TheInputHandler::Instance()->initialiseJoysticks();
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+
+
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	// Render the current game state
+	if (m_pGameStateMachine == nullptr) {
+		std::cerr << "GameStateMachine is not initialized!" << std::endl;
+		return;
+	}
+	m_pGameStateMachine->render();
+
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	TheInputHandler::Instance()->clean();
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	TheInputHandler::Instance()->update();
+
+	//if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+	//	m_bRunning = false;
+	//}
+
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RETURN)) {
+		// 切换到 PlayState
+		m_pGameStateMachine->changeState(new PlayState());
+	}
+
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+/*
+单条更新链
+	Game::update()
+	-> GameStateMachine::update()
+		-> PlayState::update()
+			-> 遍历 PlayState 的 m_gameObjects 调用各自 update()
+
+	+------------+      +---------------------+      +--------------------+
+	|   Game     | ---> |   GameStateMachine  | ---> |   Current GameState|
+	|            |      |                     |      | (e.g., PlayState)  |
+	|            |      |                     |      |                    |
+	| update()   | ---> | update()            | ---> | update()           |
+	|            |      |                     |      | - update GameObject|
+	+------------+      +---------------------+      +--------------------+
+*/
+void Game::update() {
+
+	m_pGameStateMachine->update();
+}
+
+void Game::quit() {
+	m_bRunning = false;
+}
+
+FILE GameState/GameObject.h
+#pragma once
+#include <iostream>
+#include "SDL.h"
+#include "LoaderParams.h"
+
+
+class GameObject {
+public:
+	virtual void draw() = 0;
+	virtual void update() = 0;
+	virtual void clean() = 0;
+protected:
+	GameObject(const LoaderParams* pParams) {};
+	virtual ~GameObject() {};
+};
+
+FILE GameState/GameOverState.cpp
+#include "GameOverState.h"
+#include "MenuState.h"
+#include "PlayState.h"
+#include "AnimatedGraphic.h"
+#include "InputHandler.h"
+#include "MenuButton.h"
+#include "Game.h"
+
+const std::string GameOverState::s_gameOverID = "GAMEOVER";
+
+void GameOverState::s_gameOverToMain()
+{
+	TheGame::Instance()->getStateMachine()->changeState(new MenuState());
+}
+
+void GameOverState::s_restartPlay()
+{
+	TheGame::Instance()->getStateMachine()->changeState(new PlayState());
+}
+
+void GameOverState::update()
+{
+	// Update logic for the game over state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update(); // Update each game object
+	}
+	// Check for input to restart or return to main menu
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RETURN)) {
+		s_restartPlay(); // Restart the game
+	} else if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+		s_gameOverToMain(); // Return to main menu
+	}
+}
+
+void GameOverState::render()
+{
+	// Render logic for the game over state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->draw(); // Draw each game object
+	}
+}
+
+bool GameOverState::onEnter()
+{
+	std::cout << "Entering Game Over State" << std::endl;
+	// Load resources for the game over state
+	if (!TheTextureManager::Instance()->load("assets/gameover.png", "gameovertext", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load game over texture" << std::endl;
+		return false;
+	}
+	if (!TheTextureManager::Instance()->load("assets/restart.png", "restartbutton", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load restart texture" << std::endl;
+		return false;
+	}
+	if (!TheTextureManager::Instance()->load("assets/main.png", "mainbutton", TheGame::Instance()->getRenderer())) {
+		std::cerr << "Failed to load main menu texture" << std::endl;
+		return false;
+	}
+
+	// Create game objects for the game over state
+	m_gameObjects.push_back(new AnimatedGraphic(new LoaderParams(200, 100, 190, 30, "gameovertext"), 2));
+	m_gameObjects.push_back(new MenuButton(new LoaderParams(200, 200, 200, 80, "mainbutton"), s_gameOverToMain));
+	m_gameObjects.push_back(new MenuButton(new LoaderParams(200, 300, 200, 80, "restartbutton"), s_restartPlay));
+
+	return true;
+}
+
+bool GameOverState::onExit()
+{
+	// 清理游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	std::cout << "Exiting GameOver State" << std::endl;
+	return true;
+}
+
+
+FILE GameState/GameOverState.h
+#pragma once
+#include "GameState.h"
+class GameObject; // 前向声明 GameObject 类
+
+class GameOverState : public GameState {
+	public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	virtual std::string getStateId() const override { return s_gameOverID; }
+private:
+	std::vector<GameObject*> m_gameObjects; // 存储游戏结束状态的游戏对象
+
+
+	static const std::string s_gameOverID;
+	static void s_gameOverToMain(); // 静态函数，用于退出游戏
+	static void s_restartPlay(); // 静态函数，用于重新开始游戏
+};
+
+FILE GameState/GameState.h
+#pragma once
+#include <string>
+#include <vector>
+// ��ͼ
+class GameState {
+public:
+
+
+	virtual void update() = 0;
+	virtual void render() = 0;
+
+	virtual bool onEnter() = 0;
+	virtual bool onExit() = 0;
+
+	// ���� State ʵ��������ͬһ��ֵ
+	virtual std::string getStateId() const = 0; 
+
+};
+
+FILE GameState/GameStateMachine.h
+#pragma once
+#include "GameState.h"
+#include <string>
+
+class GameStateMachine {
+public:
+
+	void pushState(GameState* pState);
+	void changeState(GameState* pState);
+	void popState();
+
+	void update();
+	void render();
+private:
+	std::vector<GameState*> m_gameStates;
+};
+
+FILE GameState/InputHandler.cpp
+#include "InputHandler.h"
+#include "SDL.h"
+#include "Game.h"
+/**
+   AXIS VALUES ================================================
+• Left and right movement on stick one is axis 0
+• Up and down movement on stick one is axis 1
+• Left and right movement on stick two is axis 3
+• Up and down movement on stick two is axis 4
+
+   STICK VALUES ================================================
+• Left stick is 1
+• Right stick is 2
+*/
+void InputHandler::initialiseJoysticks() {
+	if (SDL_WasInit(SDL_INIT_JOYSTICK) == 0) {
+		SDL_InitSubSystem(SDL_INIT_JOYSTICK);
+	}
+
+	int numJoysticks = SDL_NumJoysticks();
+	std::cout << "Detected " << numJoysticks << " joystick devices" << std::endl;
+
+	for (int i = 0; i < numJoysticks; i++) {
+		std::cout << "Opening joystick " << i << ": " << SDL_JoystickNameForIndex(i) << std::endl;
+		SDL_Joystick* joy = SDL_JoystickOpen(i);
+
+		if (joy != nullptr) {
+			m_joysticks.push_back(joy);
+			m_joystickValues.push_back(std::make_pair(new Vector2D(0, 0), new Vector2D(0, 0)));
+			std::cout << "Successfully opened joystick " << i << std::endl;
+			// Print joystick info
+			std::cout << "Number of buttons: " << SDL_JoystickNumButtons(joy) << std::endl;
+			std::cout << "Number of axes: " << SDL_JoystickNumAxes(joy) << std::endl;
+			std::cout << "Number of hats: " << SDL_JoystickNumHats(joy) << std::endl;
+
+			// init buttons state (not pushed)for each joystick
+			std::vector<bool> tempButtons;
+			for (int j = 0; j < SDL_JoystickNumButtons(joy); j++) {
+				tempButtons.push_back(false);
+			}
+			m_buttonStates.push_back(tempButtons);
+			SDL_JoystickEventState(SDL_ENABLE);
+		}
+		else {
+			std::cout << "Failed to open joystick " << i << ": " << SDL_GetError() << std::endl;
+		}
+	}
+
+	if (numJoysticks == 0) {
+		std::cout << "No joysticks found" << std::endl;
+	} else {
+		m_bJoysticksInitialised = true;
+	}
+
+	std::cout << "Initialization complete, total " << m_joysticks.size() << " joysticks" << std::endl;
+}
+
+void InputHandler::clean() {
+	if (m_bJoysticksInitialised) {
+		for (unsigned int i = 0; i < m_joysticks.size(); i++) {
+			SDL_JoystickClose(m_joysticks[i]);
+		}
+	}
+}
+
+void InputHandler::update() {
+
+	SDL_Event event;
+
+	while (SDL_PollEvent(&event)) {
+		// 添加事件类型调试信息
+		//std::cout << "Event type: " << event.type << std::endl;
+
+		if (event.type == SDL_QUIT) {
+			TheGame::Instance()->quit();
+		}
+
+		// 摇杆事件处理
+		if (TheInputHandler::Instance()->isJoystickInitialised()) {
+			if (event.type == SDL_JOYBUTTONDOWN || event.type == SDL_JOYBUTTONUP) {
+				std::cout << "Joystick button event detected" << std::endl;
+				int whichOne = event.jbutton.which;
+				int button = event.jbutton.button;
+				int state = event.jbutton.state;  // SDL_PRESSED or SDL_RELEASED
+
+				// Get controller name
+				const char* controllerName = SDL_JoystickName(m_joysticks[whichOne]);
+				std::cout << "Controller: " << controllerName << std::endl;
+				std::cout << "Button number: " << button << std::endl;
+
+				// Button mapping based on controller type
+				const char* buttonName = "";
+				// Xbox 360 Controller mapping
+				switch (button) {
+				case 0: buttonName = "A"; break;
+				case 1: buttonName = "B"; break;
+				case 2: buttonName = "X"; break;
+				case 3: buttonName = "Y"; break;
+				case 4: buttonName = "LB"; break;
+				case 5: buttonName = "RB"; break;
+				case 6: buttonName = "Back"; break;
+				case 7: buttonName = "Start"; break;
+				case 8: buttonName = "Left Stick"; break;
+				case 9: buttonName = "Right Stick"; break;
+				default: buttonName = "Unknown"; break;
+					// }
+				}
+
+				std::cout << "Joystick " << whichOne << " Button " << buttonName << " "
+					<< (state == SDL_PRESSED ? "Pressed" : "Released") << std::endl;
+			}
+
+			// Handle Button states
+			if (event.type == SDL_JOYBUTTONDOWN) {
+				int whichOne = event.jaxis.which;
+				m_buttonStates[whichOne][event.jbutton.button] = true;
+			}
+			if (event.type = SDL_JOYBUTTONUP) {
+				int whichOne = event.jaxis.which;
+				m_buttonStates[whichOne][event.jbutton.button] = false;
+			}
+
+			// Handle D-pad
+			if (event.type == SDL_JOYHATMOTION) {
+				std::cout << "D-pad event detected" << std::endl;
+				int whichOne = event.jhat.which;
+				int hat = event.jhat.hat;
+				int value = event.jhat.value;
+
+				std::cout << "Joystick " << whichOne << " D-pad status: ";
+
+				if (value & SDL_HAT_UP) std::cout << "Up ";
+				if (value & SDL_HAT_DOWN) std::cout << "Down ";
+				if (value & SDL_HAT_LEFT) std::cout << "Left ";
+				if (value & SDL_HAT_RIGHT) std::cout << "Right ";
+				if (value == 0) std::cout << "Center";
+
+				std::cout << std::endl;
+			}
+
+			// Handle analog sticks
+			if (event.type == SDL_JOYAXISMOTION) {
+				std::cout << "Analog stick event detected" << std::endl;
+				int whichOne = event.jaxis.which;
+				int axis = event.jaxis.axis;
+				int value = event.jaxis.value;
+
+				std::cout << "Joystick " << whichOne << " Stick ";
+				if (axis == 0) std::cout << "Left Stick X-axis: ";
+				else if (axis == 1) std::cout << "Left Stick Y-axis: ";
+				else if (axis == 2) std::cout << "Right Stick X-axis: ";
+				else if (axis == 3) std::cout << "Right Stick Y-axis: ";
+				else if (axis == 4) std::cout << "L2 Trigger: ";  // For PS4
+				else if (axis == 5) std::cout << "R2 Trigger: ";  // For PS4
+				else std::cout << "Unknown axis " << axis << ": ";
+				std::cout << value << std::endl;
+
+
+				// update the joystick values
+				// ========================== left stick move left or right
+				if (axis == 0) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setX(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setX(-1);
+					}
+					else {
+						m_joystickValues[whichOne].first->setX(0);
+					}
+				}
+				// ========================== left stick move up or down
+				if (axis == 1) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setY(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].first->setY(-1);
+					}
+					else {
+						m_joystickValues[whichOne].first->setY(0);
+					}
+				}
+				// ========================== right stick move left or right
+				if (axis == 3) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setX(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setX(-1);
+					}
+					else {
+						m_joystickValues[whichOne].second->setX(0);
+					}
+				}
+				// ========================== right stick move up or down
+				if (axis == 4) {
+					if (value > m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setY(1);
+					}
+					else if (value < -m_joystickDeadZone) {
+						m_joystickValues[whichOne].second->setY(-1);
+					}
+					else {
+						m_joystickValues[whichOne].second->setY(0);
+					}
+
+				}
+			}
+
+
+		}//Joystick initialised check
+
+		// Handle mouse motion
+		if (event.type == SDL_MOUSEMOTION) {
+			//std::cout << "Mouse motion event detected" << std::endl;
+			int x = event.motion.x;
+			int y = event.motion.y;
+			// Update mouse position
+			if (m_mousePosition == nullptr) {
+				m_mousePosition = new Vector2D(x, y);
+			}
+			else {
+				m_mousePosition->setX(x);
+				m_mousePosition->setY(y);
+			}
+			//std::cout << "Mouse position: (" << x << ", " << y << ")" << std::endl;
+		}
+
+		// Handle mouse button events
+		if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
+
+			std::cout << "Mouse button event detected" << std::endl;
+			int button = event.button.button;
+			bool pressed = (event.type == SDL_MOUSEBUTTONDOWN);
+
+			// Update mouse button state
+			if (button >= m_mouseButtonStates.size()) {
+				// Resize vector if necessary
+				m_mouseButtonStates.resize(button + 1, false);
+			}
+			m_mouseButtonStates[button] = pressed;
+
+			std::cout << "Mouse button " << button << (pressed ? " pressed" : " released") << std::endl;
+		}
+
+
+	} //SDL_PollEvent
+}
+
+bool InputHandler::isJoystickInitialised() const {
+	return m_bJoysticksInitialised;
+}
+
+
+float InputHandler::xvalue(int joy, int stick) {
+	if (m_joystickValues.size() > 0) {
+		if (stick == 1) {
+			return m_joystickValues[joy].first->getX();
+		}
+		else if (stick == 2) {
+			return m_joystickValues[joy].second->getX();
+		}
+	}
+	return 0;
+}
+
+float InputHandler::yvalue(int joy, int stick) {
+	if (m_joystickValues.size() > 0) {
+		if (stick == 1) {
+			return m_joystickValues[joy].first->getY();
+		}
+		else if (stick == 2) {
+			return m_joystickValues[joy].second->getY();
+		}
+	}
+	return 0;
+}
+
+bool InputHandler::getButtonState(int joy, int buttonNumber) const {
+	return m_buttonStates[joy][buttonNumber];
+}
+
+bool InputHandler::getMouseButtonState(int button) const {
+	if (m_mouseButtonStates.size() > button) {
+		return m_mouseButtonStates[button];
+	}
+	return false;
+}
+
+Vector2D* InputHandler::getMousePosition() const {
+	return m_mousePosition;
+}
+FILE GameState/LoaderParams.h
+#pragma once
+#include <iostream>
+
+class LoaderParams {
+public:
+	LoaderParams(float x, float y, int width, int height, std::string textureID) :
+		m_x(x), m_y(y), m_width(width), m_height(height), m_textureID(textureID) {
+	}
+
+	float getX() const { return m_x; }
+	float getY() const { return m_y; }
+	int getWidth() const { return m_width; }
+	int getHeight() const { return m_height; }
+	std::string getTextureID() const { return m_textureID; }
+
+private:
+	float m_x;
+	float m_y;
+
+	int m_height;
+	int m_width;
+
+	std::string m_textureID;
+};
+
+FILE GameState/main.cpp
+#include "Game.h"
+
+Game* g_game = TheGame::Instance();
+const int FPS = 60;
+const int DELAY_TIME = 1000 / FPS;
+
+int main(int argc, char* argv[]) {
+	Uint32 frameStart, frameTime;
+	TheGame::Instance()->init("Chapter 4", 100, 100, 640, 480, 0);
+	g_game->setRunning(true);
+
+	while (TheGame::Instance()->running()) {
+		frameStart = SDL_GetTicks();
+		TheGame::Instance()->handleEvents();
+		TheGame::Instance()->update();
+		TheGame::Instance()->render();
+
+		// setup frame rate control
+		frameTime = SDL_GetTicks() - frameStart;
+		if (frameTime < DELAY_TIME) {
+			SDL_Delay(DELAY_TIME - frameTime);
+		}
+	}
+	std::cout << "Game Over" << std::endl;
+	TheGame::Instance()->clean();
+	return 0;
+}
+FILE GameState/MenuButton.cpp
+#include "MenuButton.h"
+#include "InputHandler.h"
+
+
+
+MenuButton::MenuButton(const LoaderParams* pParams, MenuCallback cb) :
+SDLGameObject(pParams), m_callback(cb) {
+	m_currentFrame = MOUSE_OUT; // 初始状态为鼠标未悬停
+}
+
+void MenuButton::draw() {
+
+	SDLGameObject::draw();
+}
+
+void MenuButton::update() {
+	// 检查鼠标位置
+	Vector2D* mousePos = TheInputHandler::Instance()->getMousePosition();
+	if (mousePos) {
+		if (mousePos->getX() < m_position.getX() || mousePos->getX() > m_position.getX() + m_width ||
+			mousePos->getY() < m_position.getY() || mousePos->getY() > m_position.getY() + m_height) {
+			m_currentFrame = MOUSE_OUT; // 鼠标不在按钮上
+		}
+		else {
+			m_currentFrame = MOUSE_OVER; // 鼠标悬停在按钮上
+			if (TheInputHandler::Instance()->getMouseButtonState(LEFT) && m_bReleased) {
+				m_currentFrame = CLICKED; // 鼠标点击按钮
+				m_callback(); // 调用回调函数
+				m_bReleased = false; // 设置为未释放状态，防止重复触发
+			}
+			else {
+				m_bReleased = true; // 鼠标释放
+			}
+		}
+	}
+}
+
+void MenuButton::clean() {
+	std::cout << "MenuButton Cleaned" << std::endl;
+	// 清理按钮资源
+	SDLGameObject::clean();
+}
+

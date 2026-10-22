@@ -1,0 +1,668 @@
+FILE AlienAttack - 副本/LevelParser.cpp
+#include "LevelParser.h"
+#include "TileLayer.h"
+#include "ObjectLayer.h"
+#include "Game.h"
+#include "base64.h"
+#include <zlib.h>
+#include "Level.h"
+
+Level* LevelParser::parseLevel(const char* levelFile)
+{
+	// 载入tmx文件
+	TiXmlDocument levelDoc;
+	levelDoc.LoadFile(levelFile);
+
+	// 创建level对象
+	Level* pLevel = new Level(); // 这里是堆上创建对象？是的，后面需要手动delete
+	TiXmlElement* pRoot = levelDoc.RootElement();
+	pRoot->Attribute("tilewidth", &m_tileSize); // 宽度作为size? 基本上每个tile都是正方形
+	pRoot->Attribute("width", &m_width);
+	pRoot->Attribute("height", &m_height);
+
+	// 解析Properties节点 ： map-->properties
+	for (TiXmlElement* properties = pRoot->FirstChildElement(); properties != NULL; properties = properties->NextSiblingElement())
+	{
+		if (properties->Value() == std::string("properties"))
+		{
+			for (TiXmlElement* property = properties->FirstChildElement(); property != NULL; property = property->NextSiblingElement())
+			{
+				parseTexture(property);
+			}
+		}
+	}
+
+
+	// 解析Tileset节点： map-->tileset
+	for (TiXmlElement* e = pRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		if (e->Value() == std::string("tileset"))
+		{
+			parseTilesets(e, pLevel->getTilesets()); // 为什么这里直接getTilesets（）new的时候已经生成了vector的入口地址吗？是的，
+		}
+	}
+
+	// 解析Layer节点： map->layer, map->objectgroup
+	//  NULL 是 C 语言风格的空指针（通常定义为 #define NULL 0）。
+	//  nullptr 是 C++11 引入的关键字，表示空指针，类型安全，推荐使用。
+	for (TiXmlElement* e = pRoot->FirstChildElement(); e != NULL; /*NULL和 nullptr区别是什么？*/ e = e->NextSiblingElement())
+	{
+		if (e->Value() == std::string("layer") || e->Value() == std::string("objectgroup"))
+		{
+			// 解析ObjectLayer节点
+			if (e->FirstChildElement()->Value() == std::string("object"))
+			{
+				parseObjectLayer(e, pLevel->getLayers());
+			}
+			else if (e->FirstChildElement()->Value() == std::string("data"))
+			{
+				parseTileLayer(e, pLevel->getLayers(), pLevel->getTilesets());
+			}
+		}
+	}
+
+	return pLevel;
+}
+
+void LevelParser::parseTilesets(TiXmlElement* pTilesetRoot, std::vector<Tileset>* pTilesets)
+{
+	// 将tile图集载入到纹理管理器中
+	TheTextureManager::Instance()->load(
+		pTilesetRoot->FirstChildElement()->Attribute("source"),
+		pTilesetRoot->Attribute("name"),
+		TheGame::Instance()->getRenderer());
+
+	// 创建tileset对象
+	Tileset tileset;
+
+	// 使用子节点的数据初始化
+	pTilesetRoot->FirstChildElement()->Attribute("width", &tileset.width); //单位是像素
+	pTilesetRoot->FirstChildElement()->Attribute("height", &tileset.height);
+
+	// 使用自身节点的数据初始化
+	pTilesetRoot->Attribute("firstgid", &tileset.firstGridID);
+	pTilesetRoot->Attribute("tilewidth", &tileset.tileWidth);
+	pTilesetRoot->Attribute("tileheight", &tileset.tileHeight);
+	pTilesetRoot->Attribute("spacing", &tileset.spacing);
+	pTilesetRoot->Attribute("margin", &tileset.margin);
+
+	tileset.name = pTilesetRoot->Attribute("name");
+	tileset.numColumns = tileset.width / (tileset.tileWidth + tileset.spacing);
+
+	// 这个指针是level的成员变量，支持多tileset
+	pTilesets->push_back(tileset);
+}
+
+void LevelParser::parseTileLayer(TiXmlElement* pTileElement,
+	std::vector<Layer*>* pLayers, const std::vector<Tileset>* pTilesets)
+{
+	// const std::vector<Tileset>& 是 常量引用，
+	// 它可以绑定到一个 指向 const std::vector<Tileset> 类型的指针解引用后的对象，
+	// 前提是你传的是 *pTilesets，而不是 pTilesets 本身。
+	// *pTilesets 解引用后，类型是 std::vector<Tileset>&
+	// 可以自动绑定到 const std::vector<Tileset>&
+	TileLayer* pTileLayer = new TileLayer(m_tileSize, *pTilesets);
+
+	// tile data
+	std::vector<std::vector<int>> data;
+	std::string decodedIDs;
+	TiXmlElement* pDataNode = nullptr;
+
+	// 找到data节点
+	for (TiXmlElement* e = pTileElement->FirstChildElement(); e != nullptr; e = e->NextSiblingElement())
+	{
+		if (e->Value() == std::string("data"))
+		{
+			pDataNode = e;
+			break;
+		}
+	}
+
+	if (pDataNode != nullptr)
+	{
+		// 提取data数据: 改用TiXmlNode对象了
+		for (TiXmlNode* e = pDataNode->FirstChild(); e != nullptr; e = e->NextSibling())
+		{
+			TiXmlText* text = e->ToText();
+			std::string t = text->Value(); // XML 解析并获取 base64 编码的字符串
+			decodedIDs = base64_decode(t); // base64 解码得到压缩的字节数据
+		}
+	}
+	else
+	{
+		std::cerr << "Error: <data> node not found in tile layer." << std::endl;
+		return;
+	}
+
+	// 解压
+	// uLongf 是 zlib 提供的一个类型，本质上是 unsigned long，用于表示缓冲区长度。
+	// m_width* m_height 计算的是地图的格子数量（比如 100x100 共 10000 个格子）。
+	// sizeof(int) 返回一个 int 占用的字节数，通常是 4。所以整个表达式是：总共多少字节的数据，而不是元素个数。
+	uLongf sizeOfGids = m_width * m_height * sizeof(int); // 这是所有元素的字节数,解压后需要的字节数
+
+	int numOfGids = m_width * m_height; // 这才是所有元素个数
+
+	//  存储 字节数 个 unsigned
+	std::vector<unsigned> gids(numOfGids); // 存储图块id
+
+	// 使用 zlib 的 uncompress 解压数据, 将解压后的数据存入一个 std::vector<unsigned>
+	/*
+	*   int uncompress(
+			Bytef *dest,        // 输出缓冲区
+			uLongf *destLen,    // 输出缓冲区大小（传入传出）
+			const Bytef *source,// 输入压缩数据
+			uLong sourceLen     // 输入压缩数据长度
+		);
+	*/
+	uncompress(
+		(Bytef*)&gids[0], &sizeOfGids, (const Bytef*)decodedIDs.c_str(), decodedIDs.size()
+	);
+
+	/*
+	*   假设：m_width = 3 m_height = 2
+		那么 gids 是一个长度为 3×2=6 的一维数组，
+		比如：gids = [11, 12, 13, 21, 22, 23]
+		对应的是一个二维地图数据（2行3列）：
+			11 12 13
+			21 22 23
+
+		对应转换逻辑
+		rows	cols	gids 下标	赋值
+			0	0	0	data[0][0] = 11
+			0	1	1	data[0][1] = 12
+			0	2	2	data[0][2] = 13
+			1	0	3	data[1][0] = 21
+			1	1	4	data[1][1] = 22
+			1	2	5	data[1][2] = 23
+	*/
+	std::vector<int> layerRow(m_width);
+	for (int j = 0; j < m_height; j++)
+	{
+		data.push_back(layerRow);
+	}
+	for (int rows = 0; rows < m_height; rows++)
+	{
+		for (int cols = 0; cols < m_width; cols++)
+		{
+			// 把一维数组 gids 中的内容，按行主序转存到二维数组 data 中
+			data[rows][cols] = gids[rows * m_width + cols];
+		}
+	}
+
+	pTileLayer->setTileIDs(data);
+	pLayers->push_back(pTileLayer);
+
+
+}
+
+void LevelParser::parseTexture(TiXmlElement* pTextureRoot)
+{
+	TheTextureManager::Instance()->load(pTextureRoot->Attribute("value"),
+		pTextureRoot->Attribute("name"),
+		TheGame::Instance()->getRenderer()
+	);
+}
+
+void LevelParser::parseObjectLayer(TiXmlElement* pObjectElement, std::vector<Layer*>* pLayers)
+{
+	ObjectLayer* pObjectLayer = new ObjectLayer();
+	std::cout << pObjectElement->FirstChildElement()->Value();
+
+	for (TiXmlElement* e = pObjectElement->FirstChildElement(); e != nullptr; e = e->NextSiblingElement())
+	{
+		std::cout << e->Value();
+		if (e->Value() == std::string("object"))
+		{
+			int x, y, width, height, numFrames, callbackID, animSpeed;
+			std::string textureID;
+
+			// 设置对象的类型和坐标
+			e->Attribute("x", &x);
+			e->Attribute("y", &y);
+			GameObject* pGameObject = TheGameObjectFactory::instance()
+				->create(e->Attribute("type"));
+
+			// 设置对象的属性
+			for (TiXmlElement* properties = e->FirstChildElement(); properties != nullptr; properties = properties->NextSiblingElement())
+			{
+				if (properties->Value() == std::string("properties"))
+				{
+					for (TiXmlElement* property = properties->FirstChildElement(); property != nullptr; property = property->NextSiblingElement())
+					{
+						if (property->Attribute("name") == std::string("numFrames"))
+						{
+							property->Attribute("value", &numFrames);
+						}
+						else if (property->Attribute("name") == std::string("textureHeight"))
+						{
+							property->Attribute("value", &height);
+						}
+						else if (property->Attribute("name") == std::string("textureID"))
+						{
+							textureID = property->Attribute("value"); // 这里要注意是之前纹理管理器加载的ID
+						}
+						else if (property->Attribute("name") == std::string("textureWidth"))
+						{
+							property->Attribute("value", &width);
+						}
+						//else if (property->Attribute("name") == std::string("callbackID"))
+						//{
+						//	property->Attribute("value", &callbackID);
+						//}
+					/*	else if (property->Attribute("name") == std::string("animeSpeed"))
+						{
+							property->Attribute("value", &animSpeed);
+						}*/
+					}
+				}
+			}
+
+			pGameObject->load(
+				new LoaderParams(x, y, width, height, textureID, numFrames  )
+			);
+			pObjectLayer->getGameObjects()->push_back(pGameObject);
+		}// load object data end
+	}
+	pLayers->push_back(pObjectLayer);
+
+}
+
+FILE AlienAttack - 副本/LevelParser.h
+#pragma once
+#include <vector>
+#include <iostream>
+#include "tinyxml.h"
+
+
+class Level;
+struct Tileset;
+class Layer;
+class TileLayer;
+
+
+class LevelParser
+{
+public:
+	Level* parseLevel(const char* levelFile);
+
+private:
+	void parseTilesets(TiXmlElement* pTilesetRoot,
+		std::vector<Tileset>* pTilesets);
+
+	void parseTileLayer(TiXmlElement* pTileElement,
+		std::vector<Layer*>* pLayers, const std::vector<Tileset>* pTilesets);
+
+	void parseTexture(TiXmlElement* pTextureRoot);
+	void parseObjectLayer(TiXmlElement* pObjectElement,
+		std::vector<Layer*>* pLayers);
+
+	int m_tileSize; // 一个 tile 的边长（像素）
+	int m_width; // 单位是一个tile
+	int m_height;
+};
+
+FILE AlienAttack - 副本/LoaderParams.h
+#pragma once
+#include <iostream>
+
+class LoaderParams {
+public:
+	LoaderParams(float x, float y, int width, int height, std::string textureID, int numFrames, 
+		int callBackID = 0, int animSpeed = 0) :
+		m_x(x), m_y(y), m_width(width), m_height(height), m_textureID(textureID), m_numFrames(numFrames),
+		m_callbackID(callBackID), m_animSpeed(animSpeed) {
+	}
+
+	float getX() const { return m_x; }
+	float getY() const { return m_y; }
+	int getWidth() const { return m_width; }
+	int getHeight() const { return m_height; }
+	int getNumFrames() const { return m_numFrames; }
+	int getCallbackID() const { return m_callbackID; }
+	int getAnimSpeed() const { return m_animSpeed; }
+
+	std::string getTextureID() const { return m_textureID; }
+
+private:
+	float m_x;
+	float m_y;
+
+	int m_height;
+	int m_width;
+
+	int m_numFrames;
+	int m_callbackID;
+	int m_animSpeed;
+
+	std::string m_textureID;
+};
+
+FILE AlienAttack - 副本/main.cpp
+#include "Game.h"
+
+Game* g_game = TheGame::Instance();
+const int FPS = 60;
+const int DELAY_TIME = 1000 / FPS;
+
+int main(int argc, char* argv[]) {
+	Uint32 frameStart, frameTime;
+	TheGame::Instance()->init("Chapter 6", 100, 100, 640, 480, 0);
+	g_game->setRunning(true);
+
+	while (TheGame::Instance()->running()) {
+		frameStart = SDL_GetTicks();
+		TheGame::Instance()->handleEvents();
+		TheGame::Instance()->update();
+		TheGame::Instance()->render();
+
+		// setup frame rate control
+		frameTime = SDL_GetTicks() - frameStart;
+		if (frameTime < DELAY_TIME) {
+			SDL_Delay(DELAY_TIME - frameTime);
+		}
+	}
+	std::cout << "Game Over" << std::endl;
+	TheGame::Instance()->clean();
+	return 0;
+}
+FILE AlienAttack - 副本/MainMenuState.cpp
+#include <iostream>
+#include "MainMenuState.h"
+#include "PlayState.h"
+#include "TextureManager.h"
+#include "Game.h"
+#include "MenuButton.h"
+#include "StateParser.h"
+
+
+const std::string MainMenuState::s_menuID = "MENU";
+
+void MainMenuState::update() {
+	// Update logic for the menu state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update();
+	}
+}
+
+void MainMenuState::render() {
+    for (auto& gameObject : m_gameObjects) {
+        gameObject->draw(); // 绘制每个游戏对象
+	}
+}
+
+/*
+ *	在 onEnter 中创建对象，是为了让每个状态只关心并管理它自己需要的对象和资源。
+ *	这样使 Game 类保持干净，FSM 切换时只需调用 onEnter / onExit，就能自动加载和清理资源。
+ *	未来扩展其他状态（如 OptionsState、WinState）也不会需要修改 Game 或 MainMenuState。
+ * 
+ * 
+ ┌───────────────────────┐
+ │       Game            │
+ │ (窗口/渲染器/入口点)     │
+ └─────────┬─────────────┘
+           │
+           ▼
+ ┌───────────────────────┐
+ │  GameStateMachine     │
+ │ (Finite State Machine)│
+ └─────────┬─────────────┘
+           │
+     manages current
+           ▼
+ ┌───────────────────────┐
+ │     GameState         │
+ │  (抽象基类/接口)        │
+ └─────────┬─────────────┘
+           │
+    ┌──────┴─────────────┬─────────────┐
+    ▼                    ▼             ▼
+┌───────────┐     ┌────────────┐  ┌────────────┐
+│ MainMenuState │     │ PlayState  │  │ PauseState │
+│ (onEnter) │     │ (onEnter)  │  │ (onEnter)  │
+└─────┬─────┘     └─────┬──────┘  └─────┬──────┘
+      │                 │               │
+  owns GameObjects   owns GameObjects   owns GameObjects
+ (按钮、标题等)       (玩家、敌人等)     (菜单按钮)
+
+*/
+bool MainMenuState::onEnter() {
+
+	std::cout << "Entering Menu State" << std::endl;
+
+    StateParser stateParser;
+    stateParser.parseState("assets/test.xml", s_menuID, &m_gameObjects, &m_textureIDList);
+    // callback 列表的添加顺序必须与 XML 中的 callbackID 一致，
+    // 否则按钮就会绑定到错误的函数指针上，导致程序行为异常。
+    m_callbacks.push_back(0);
+    m_callbacks.push_back(s_menuToPlay);
+    m_callbacks.push_back(s_exitFromMenu);
+
+    setCallbacks(m_callbacks);
+    
+	return true;
+}
+
+bool MainMenuState::onExit() 
+{
+    for (auto& gameObject : m_gameObjects) 
+    {
+        gameObject->clean(); // 清理每个游戏对象
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+    for (int i = 0; i < m_textureIDList.size(); i++)
+    {
+        TheTextureManager::Instance()->clearFromTextureMap(m_textureIDList[i]);
+    }
+	std::cout << "Exiting Menu State" << std::endl;
+	return true;
+}
+
+
+void MainMenuState::setCallbacks(const std::vector<Callback>& callbacks)
+{
+    // 遍历所有 GameObject，找出是 MenuButton 类型的，
+    // 然后根据 callbackID 从 callbacks 向量中找到对应函数，并通过 setCallback() 绑定给这个按钮。
+    for (int i = 0; i < m_gameObjects.size(); i++)
+    {
+        if (dynamic_cast<MenuButton*>(m_gameObjects[i]))
+        {
+            MenuButton* pButton =
+                dynamic_cast<MenuButton*>(m_gameObjects[i]);
+            pButton->setCallback(callbacks[pButton->getCallbackID()]); // 通过 setCallback() 绑定给这个按钮。
+        }
+    }
+}
+
+void MainMenuState::s_menuToPlay() {
+
+	std::cout << "Switching to Play State" << std::endl;
+    // 切换到 PlayState
+    TheGame::Instance()->getStateMachine()->changeState(new PlayState());
+}
+
+void MainMenuState::s_exitFromMenu() {
+	std::cout << "Exiting Game" << std::endl;
+    // 退出游戏
+    TheGame::Instance()->quit();
+}
+
+
+
+FILE AlienAttack - 副本/MainMenuState.h
+#pragma once
+#include "MenuState.h"
+#include "GameObject.h"
+
+class MainMenuState : public MenuState {
+public:
+	virtual void update() override;
+	virtual void render() override;
+
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	virtual std::string getStateId() const override { return s_menuID; }
+private:
+	static const std::string s_menuID;
+	std::vector<GameObject*> m_gameObjects; // 存储菜单项目
+
+	virtual void setCallbacks(const std::vector<Callback>&
+		callbacks);
+
+	// callback functions for menu item
+	static void s_menuToPlay(); // 静态函数，用于从菜单状态切换到游戏状态
+	static void s_exitFromMenu(); // 静态函数，用于退出游戏
+};
+
+FILE AlienAttack - 副本/MenuButton.cpp
+#include "MenuButton.h"
+#include "InputHandler.h"
+
+
+
+void MenuButton::load(const LoaderParams* pParams) 
+{
+	SDLGameObject::load(pParams);
+
+	m_currentFrame = MOUSE_OUT; // 初始状态为鼠标未悬停
+	m_callbackID = pParams->getCallbackID();
+}
+
+MenuButton::MenuButton(): SDLGameObject()
+{
+}
+
+void MenuButton::draw() {
+
+	SDLGameObject::draw();
+}
+
+void MenuButton::update() {
+	// 检查鼠标位置
+	Vector2D* mousePos = TheInputHandler::Instance()->getMousePosition();
+	if (mousePos) {
+		if (mousePos->getX() < m_position.getX() || mousePos->getX() > m_position.getX() + m_width ||
+			mousePos->getY() < m_position.getY() || mousePos->getY() > m_position.getY() + m_height) {
+			m_currentFrame = MOUSE_OUT; // 鼠标不在按钮上
+		}
+		else {
+			m_currentFrame = MOUSE_OVER; // 鼠标悬停在按钮上
+			if (TheInputHandler::Instance()->getMouseButtonState(LEFT) && m_bReleased) {
+				m_currentFrame = CLICKED; // 鼠标点击按钮
+				m_callback(); // 调用回调函数
+				m_bReleased = false; // 设置为未释放状态，防止重复触发
+			}
+			else {
+				m_bReleased = true; // 鼠标释放
+			}
+		}
+	}
+}
+
+void MenuButton::clean() {
+	std::cout << "MenuButton Cleaned" << std::endl;
+	// 清理按钮资源
+	SDLGameObject::clean();
+}
+
+FILE AlienAttack - 副本/MenuButton.h
+#pragma once
+#include "SDLGameObject.h"
+#include "GameObjectFactory.h"
+
+/*
+	一种成员函数指针类型。
+	表示指向 MenuState 类里返回 void，不带参数的成员函数。
+	void (MenuState::*)() 是 类型,描述「这是一个指向 MenuState 成员函数的指针类型
+
+	使用了这个类型定义的变量 func, 声明了一个名为 func 的成员函数指针变量
+	void (MenuState::*func)()
+
+	void(*)()				普通全局或 static 函数指针	void func()
+	void(MenuState::*)()	成员函数指针 (需要对象调用)	MenuState::func()
+*/
+
+
+class MenuButton : public SDLGameObject {
+public:
+	MenuButton();
+	void load(const LoaderParams* pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+
+	void setCallback(void(*callback)()) { m_callback = callback; }
+	int getCallbackID() { return m_callbackID; }
+
+private:
+	enum button_state {
+		MOUSE_OUT = 0,
+		MOUSE_OVER = 1,
+		CLICKED = 2
+	};
+
+	void (*m_callback)(); // 静态函数指针作为成员变量
+	bool m_bReleased; // 用于判断按钮是否被释放
+};
+
+
+// 非public继承 MenuButtonCreator* 不能隐式转换为 BaseCreator*
+class MenuButtonCreator : public BaseCreator // 必须是public 继承，继承 BaseCreator时没有写 public，默认是 private 继承
+{
+	// 基类签名是const该成员函数不改变类成员
+	GameObject* createGameObject() const
+	{
+		return new MenuButton();
+	}
+};
+
+FILE AlienAttack - 副本/MenuState.h
+#pragma once
+#include "GameState.h"
+
+class MenuState : public GameState {
+protected:
+	typedef void(*Callback)();
+	virtual void setCallbacks(const std::vector<Callback>& callbacks)
+		= 0;
+	std::vector<Callback> m_callbacks;
+};
+
+FILE AlienAttack - 副本/ObjectLayer.cpp
+#include "ObjectLayer.h"
+
+void ObjectLayer::render()
+{
+	for (int i = 0; i < m_gameObjects.size(); i++)
+	{
+		m_gameObjects[i]->draw();
+	}
+}
+
+void ObjectLayer::update()
+{
+	for (int i = 0; i < m_gameObjects.size(); i++)
+	{
+		m_gameObjects[i]->update();
+	}
+}
+FILE AlienAttack - 副本/ObjectLayer.h
+#pragma once
+#include "Level.h"
+#include "GameObject.h"
+#include <vector>
+
+
+class ObjectLayer : public Layer
+{
+public:
+	virtual void update();
+	virtual void render();
+	std::vector<GameObject*>* getGameObjects()
+	{
+		return &m_gameObjects;
+	}
+private:
+	std::vector<GameObject*> m_gameObjects;
+};
+

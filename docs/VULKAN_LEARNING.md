@@ -5,6 +5,8 @@
 > 📁 **文档位置**：本文件是 Vulkan 学习的知识库，包含核心概念、API 说明和常见错误解决方案。
 >
 > 📚 **相关文档**：
+> - [PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md) - SDL2 游戏架构与 Vulkan 综合经验、来源归属、自测和学习计划
+> - [SDL_PROJECT_EXPERIENCE.md](./SDL_PROJECT_EXPERIENCE.md) - SDL-proj 全部 13 个子目录的技术经验、源码依据与完成度
 > - [SESSION_HISTORY.md](./SESSION_HISTORY.md) - 学习会话历史记录
 > - [src/renderer/vk_renderer.cpp](../src/renderer/vk_renderer.cpp) - 主要实现代码
 > - [src/renderer/vk_init.cpp](../src/renderer/vk_init.cpp) - 初始化辅助函数

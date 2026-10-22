@@ -1,0 +1,5690 @@
+[
+  {
+    "Path": ".gitignore",
+    "Bytes": 833,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/AlienAttack.vcxproj",
+    "Bytes": 11160,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/AlienAttack.vcxproj.filters",
+    "Bytes": 8925,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/AlienAttack.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/AnimatedGraphic.cpp",
+    "Bytes": 638,
+    "Kind": "application-source",
+    "SHA256": "8B62EBE043BCE06FB37F963649C82BAD9D68AED8A5A0F9ECC0B2BDFB64990BD4"
+  },
+  {
+    "Path": "AlienAttack/AnimatedGraphic.h",
+    "Bytes": 461,
+    "Kind": "application-source",
+    "SHA256": "B7EB327283920946B3F79364FB59A1A21EB17A8A7051600D9BE9A6FA3ED8D7D0"
+  },
+  {
+    "Path": "AlienAttack/base64.cpp",
+    "Bytes": 3738,
+    "Kind": "third-party-helper",
+    "SHA256": "80817640E9E7821A3A61F38D389299526B03C773EE1F8BC41B0F99A7CEE78608"
+  },
+  {
+    "Path": "AlienAttack/base64.h",
+    "Bytes": 140,
+    "Kind": "third-party-helper",
+    "SHA256": "EF091A48A65114612CE319D6CCD289BB639E7A6D70E07FD8AD76DC50AFD68311"
+  },
+  {
+    "Path": "AlienAttack/Bullet.h",
+    "Bytes": 1669,
+    "Kind": "application-source",
+    "SHA256": "95BDF3740CCC9DDEA495CC0EA1286FE3411C7072DABAEB096BCBCB5A310A2B7B"
+  },
+  {
+    "Path": "AlienAttack/BulletHandler.cpp",
+    "Bytes": 2814,
+    "Kind": "application-source",
+    "SHA256": "7AE5492C792482883326DA9910F818FE0FFC5D01F1414D94585F2A40A6BDA999"
+  },
+  {
+    "Path": "AlienAttack/BulletHandler.h",
+    "Bytes": 903,
+    "Kind": "application-source",
+    "SHA256": "F09E3497275ACD4C5973F93312031E52E2BFBD5A29A3832A3F3177A543F4BDD5"
+  },
+  {
+    "Path": "AlienAttack/CMakeLists.txt",
+    "Bytes": 2694,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/Collision.h",
+    "Bytes": 1010,
+    "Kind": "application-source",
+    "SHA256": "DEAAD90CE96B2FD0E2456F88E48BDEC2CAECA1315C0957A0C0EBED8123C37D16"
+  },
+  {
+    "Path": "AlienAttack/CollisionManager.cpp",
+    "Bytes": 5436,
+    "Kind": "application-source",
+    "SHA256": "492889208928B23FA0A51C97224534C59734D33164310667BBB3841F4F5071F2"
+  },
+  {
+    "Path": "AlienAttack/CollisionManager.h",
+    "Bytes": 481,
+    "Kind": "application-source",
+    "SHA256": "D92B4BF9520FE84025E00ACCCACF21F6C6F5D4A46DC69483D63A1745B69C2BB1"
+  },
+  {
+    "Path": "AlienAttack/Enemy.cpp",
+    "Bytes": 687,
+    "Kind": "application-source",
+    "SHA256": "686AD7722AFD929AEB3A5DCB0D1CE3927F99FD5468997231140E2EB484A38D45"
+  },
+  {
+    "Path": "AlienAttack/Enemy.h",
+    "Bytes": 714,
+    "Kind": "application-source",
+    "SHA256": "7E033049F0D9A51F4643DAEBABA686405284BDAD3A1CB028C189894FB6362AC1"
+  },
+  {
+    "Path": "AlienAttack/Eskeletor.h",
+    "Bytes": 1660,
+    "Kind": "application-source",
+    "SHA256": "8287881A40BAF872AB2B951A10ED34CDC6139E4B361178E51B505FEA7B04D3B4"
+  },
+  {
+    "Path": "AlienAttack/Game.cpp",
+    "Bytes": 3922,
+    "Kind": "application-source",
+    "SHA256": "214B4558230CC03F4B879046BE1437399306A1DE4B8B3A653533C0DC585DA76F"
+  },
+  {
+    "Path": "AlienAttack/Game.h",
+    "Bytes": 1162,
+    "Kind": "application-source",
+    "SHA256": "73AACBE02D544CC738C0114DC841E383B63218185D1039F931603804C2643BF6"
+  },
+  {
+    "Path": "AlienAttack/GameObject.h",
+    "Bytes": 1989,
+    "Kind": "application-source",
+    "SHA256": "C2C046F297EE7CC669E219916FDF6AC0F7D81A459C1519BA597E8AC50ECCB2FC"
+  },
+  {
+    "Path": "AlienAttack/GameObjectFactory.cpp",
+    "Bytes": 1025,
+    "Kind": "application-source",
+    "SHA256": "C6E6096495E523A6EDFF63C5639832CD5BB3452BC15FFF017431BF20E156051B"
+  },
+  {
+    "Path": "AlienAttack/GameObjectFactory.h",
+    "Bytes": 492,
+    "Kind": "application-source",
+    "SHA256": "002D4367961E5534A8C5127AEB1482E94958F1810060485EF7F3FF2835698DFD"
+  },
+  {
+    "Path": "AlienAttack/GameOverState.cpp",
+    "Bytes": 2496,
+    "Kind": "application-source",
+    "SHA256": "6303E8C70C0F2A8A3F815C3EA044A06BF6986C7D4E0312895BBCD51393370E2B"
+  },
+  {
+    "Path": "AlienAttack/GameOverState.h",
+    "Bytes": 743,
+    "Kind": "application-source",
+    "SHA256": "69F9700DFAB5BB42DD7B4612AF4580DE20E450F445DA3BFD928A41B686DB53A0"
+  },
+  {
+    "Path": "AlienAttack/GameState.h",
+    "Bytes": 374,
+    "Kind": "application-source",
+    "SHA256": "0C6F7EB86B996B99C41A8242653A134DFAF45BA261F1B4DE231F77EF03438252"
+  },
+  {
+    "Path": "AlienAttack/GameStateMachine.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "F55292C88E32A63ADEFD1209C93E3DD0FAD067F2935250E62008B709CEC7A358"
+  },
+  {
+    "Path": "AlienAttack/GameStateMachine.h",
+    "Bytes": 284,
+    "Kind": "application-source",
+    "SHA256": "A3F0297AF0878AEB6C3E9140C5B746F5D70B65EB723BE3885041FC4DD621F80B"
+  },
+  {
+    "Path": "AlienAttack/InputHandler.cpp",
+    "Bytes": 8837,
+    "Kind": "application-source",
+    "SHA256": "80F8B35ABA7DEE984CF5326B1D58F9D3E21712A7E82A5FD9CA8706FECACE9F59"
+  },
+  {
+    "Path": "AlienAttack/InputHandler.h",
+    "Bytes": 2712,
+    "Kind": "application-source",
+    "SHA256": "0867F2F30AD98C98773448D6572750F2331C1C9C4ED9C39C0AC1B62523A86D86"
+  },
+  {
+    "Path": "AlienAttack/Layer.h",
+    "Bytes": 253,
+    "Kind": "application-source",
+    "SHA256": "0C6E845D5380A50501503130F0077BD65C85032325D05474AB33A993DE0654F7"
+  },
+  {
+    "Path": "AlienAttack/Level.cpp",
+    "Bytes": 263,
+    "Kind": "application-source",
+    "SHA256": "69386D1750790391250E54A5BF12E61128333881ADE17A671410EE5D2E994E71"
+  },
+  {
+    "Path": "AlienAttack/Level.h",
+    "Bytes": 1065,
+    "Kind": "application-source",
+    "SHA256": "CF920DCDBEBBA684791F47E998CD84AF42F0CBFE3506A9DE44712CABBED72069"
+  },
+  {
+    "Path": "AlienAttack/LevelParser.cpp",
+    "Bytes": 10414,
+    "Kind": "application-source",
+    "SHA256": "B4B2979DB57C496BCEE9496E76978EDC990C5BE1CFBC0D96A30C0959E5875561"
+  },
+  {
+    "Path": "AlienAttack/LevelParser.h",
+    "Bytes": 745,
+    "Kind": "application-source",
+    "SHA256": "34169249312DB7AA1F455014E8449C9D18041251BE9C2D055E01E26779EC0719"
+  },
+  {
+    "Path": "AlienAttack/LoaderParams.h",
+    "Bytes": 913,
+    "Kind": "application-source",
+    "SHA256": "DB960370018E3852BF9B2675E33388DF35F58DD14AF169682769A7914348DE35"
+  },
+  {
+    "Path": "AlienAttack/main.cpp",
+    "Bytes": 710,
+    "Kind": "application-source",
+    "SHA256": "0A3D9395C6ADF1D652DC9C85EBA48BDDFCB637B472A78ECD04506878CF22C681"
+  },
+  {
+    "Path": "AlienAttack/MainMenuState.cpp",
+    "Bytes": 4365,
+    "Kind": "application-source",
+    "SHA256": "D5116C0F9728845752E9673647A2764131FB8609EDF30F27C1B481B9EF6D254A"
+  },
+  {
+    "Path": "AlienAttack/MainMenuState.h",
+    "Bytes": 718,
+    "Kind": "application-source",
+    "SHA256": "D9DA30F5C33856287A565A2C54921FD201B9709B341D282AB0BAEF71341091A8"
+  },
+  {
+    "Path": "AlienAttack/MenuButton.cpp",
+    "Bytes": 1300,
+    "Kind": "application-source",
+    "SHA256": "241ECD28DF3A8F9B859CAB0F7112266CCA423B7BC640670795CE26DE030087B0"
+  },
+  {
+    "Path": "AlienAttack/MenuButton.h",
+    "Bytes": 1452,
+    "Kind": "application-source",
+    "SHA256": "54C655CF5A9088C9F8943100C3D27DD0BD1AFE94DCD779B86E54251AEA85811D"
+  },
+  {
+    "Path": "AlienAttack/MenuState.h",
+    "Bytes": 239,
+    "Kind": "application-source",
+    "SHA256": "288A77AE044D0718AE291E98B61546DD76F74A2451C12A9E08CAC735AA89E1CF"
+  },
+  {
+    "Path": "AlienAttack/ObjectLayer.cpp",
+    "Bytes": 273,
+    "Kind": "application-source",
+    "SHA256": "3EF75E65F0896F663F71408DA2F41CB656DB8AEA38332760FB876CE8D95CABDA"
+  },
+  {
+    "Path": "AlienAttack/ObjectLayer.h",
+    "Bytes": 316,
+    "Kind": "application-source",
+    "SHA256": "174F506715CED0D2AFFBC8363E01F434BC6B3922D4A7B4BE293196D96BF68B8D"
+  },
+  {
+    "Path": "AlienAttack/PauseState.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "600B63E3CB7B1E70FC95860B9E0D0D5239F0303D6E37E963E021A5AFA7F13824"
+  },
+  {
+    "Path": "AlienAttack/PauseState.h",
+    "Bytes": 750,
+    "Kind": "application-source",
+    "SHA256": "309506BB218A8D77C43895892E8370D898059A82F621D3D4A7531DE3162D4F55"
+  },
+  {
+    "Path": "AlienAttack/Player.cpp",
+    "Bytes": 3012,
+    "Kind": "application-source",
+    "SHA256": "C9A1EDD543E298E506ACA6B1B56BCEADCA9884FE5739E6EA4CC2219605E9BFF2"
+  },
+  {
+    "Path": "AlienAttack/Player.h",
+    "Bytes": 661,
+    "Kind": "application-source",
+    "SHA256": "94B1A419F9632FCB98B9068EEA615BF244B7AE1135F6F46D4C2B7F44ACE906C5"
+  },
+  {
+    "Path": "AlienAttack/PlayState.cpp",
+    "Bytes": 3204,
+    "Kind": "application-source",
+    "SHA256": "E127C5685328410EA9D9D1DDBB45269E107CE7A25904C548266D71F13D82943C"
+  },
+  {
+    "Path": "AlienAttack/PlayState.h",
+    "Bytes": 564,
+    "Kind": "application-source",
+    "SHA256": "EC91AE06DF48B1211FFCBE3E31F26DC881EE5DC12805631D14B1F7AFCC66C5D3"
+  },
+  {
+    "Path": "AlienAttack/ScrollingBackground.cpp",
+    "Bytes": 2319,
+    "Kind": "application-source",
+    "SHA256": "35B4DBE9C1D114BE75ACA4667DFC876E3F8C83E8FA096432588A31BBDAB1D18C"
+  },
+  {
+    "Path": "AlienAttack/ScrollingBackground.h",
+    "Bytes": 785,
+    "Kind": "application-source",
+    "SHA256": "827EF5DC14B01927B6D51DD9D31560E2A7869858BA61A50B24BDA608B2D8690C"
+  },
+  {
+    "Path": "AlienAttack/SDLGameObject.cpp",
+    "Bytes": 2042,
+    "Kind": "application-source",
+    "SHA256": "135818E5319DFA4124DFB86A97E447764F5E68E0C84FDC528E12CC4E83E986AF"
+  },
+  {
+    "Path": "AlienAttack/SDLGameObject.h",
+    "Bytes": 675,
+    "Kind": "application-source",
+    "SHA256": "08AC19459EE23B57DC93CCF9913144974796A3FE78BF1054DFAA614495541396"
+  },
+  {
+    "Path": "AlienAttack/ShooterObject.cpp",
+    "Bytes": 1416,
+    "Kind": "application-source",
+    "SHA256": "6640215502F56BEF404EEB0DD30926343293FA162D51E757416BE2E6B5EED2D6"
+  },
+  {
+    "Path": "AlienAttack/ShooterObject.h",
+    "Bytes": 871,
+    "Kind": "application-source",
+    "SHA256": "771CD74E3A7790B64DA6A6F35A58A363EDA940F7B7F577079E03CE3DCBE415A3"
+  },
+  {
+    "Path": "AlienAttack/SoundManager.cpp",
+    "Bytes": 2903,
+    "Kind": "application-source",
+    "SHA256": "1B156728ABABC51E888945DE04D4F146AF2AFA5F8C8A0A8E1129662F5F0A5BD1"
+  },
+  {
+    "Path": "AlienAttack/SoundManager.h",
+    "Bytes": 1441,
+    "Kind": "application-source",
+    "SHA256": "62FC964E46782CD1D0D4DD694EEDB93FBB05F03CE4B082A50F352D70B06052F1"
+  },
+  {
+    "Path": "AlienAttack/StateParser.cpp",
+    "Bytes": 3892,
+    "Kind": "application-source",
+    "SHA256": "0D166153A71F79DAD6F8154F668DB9155D34A5282E2D01311FFEAB3A3080B87E"
+  },
+  {
+    "Path": "AlienAttack/StateParser.h",
+    "Bytes": 472,
+    "Kind": "application-source",
+    "SHA256": "8AD0F002336ECB8B269C678E1700AC82E0147E97B18E3FBAD411101AF585D6D9"
+  },
+  {
+    "Path": "AlienAttack/TextureManager.cpp",
+    "Bytes": 2934,
+    "Kind": "application-source",
+    "SHA256": "4D3717A356E7C8DC0034D1F1E31D5B696975D4F61BD6DE8C10AB9420D368E275"
+  },
+  {
+    "Path": "AlienAttack/TextureManager.h",
+    "Bytes": 980,
+    "Kind": "application-source",
+    "SHA256": "B808C51DD434619B200B282BAFF4530C3A2978E09AF80A55D0E643D833B56FFE"
+  },
+  {
+    "Path": "AlienAttack/TileLayer.cpp",
+    "Bytes": 4234,
+    "Kind": "application-source",
+    "SHA256": "4D55A850B61C76B8009E68CC91EE5998CC8C8C48D202354D48FA121865E0074E"
+  },
+  {
+    "Path": "AlienAttack/TileLayer.h",
+    "Bytes": 2185,
+    "Kind": "application-source",
+    "SHA256": "6CD735A385534CAF0001F5D6F7DB9D8D7D3D7A2752D4A688D09AC6C719088DD7"
+  },
+  {
+    "Path": "AlienAttack/tinystr.cpp",
+    "Bytes": 2507,
+    "Kind": "third-party-helper",
+    "SHA256": "220612A57261E51016670678A1474E28C3EECB30B0544CF16EFB9851ECB4CB5B"
+  },
+  {
+    "Path": "AlienAttack/tinystr.h",
+    "Bytes": 8198,
+    "Kind": "third-party-helper",
+    "SHA256": "718E05D00AE40D2EABD688C64B980FA40419ACE7C12D9685C710888CAF102DD5"
+  },
+  {
+    "Path": "AlienAttack/tinyxml.cpp",
+    "Bytes": 37594,
+    "Kind": "third-party-helper",
+    "SHA256": "D3517D20E1A9D1651DD36B89F984DE08DCD0D2D28868BFC554A15590F92E7BF6"
+  },
+  {
+    "Path": "AlienAttack/tinyxml.h",
+    "Bytes": 64888,
+    "Kind": "third-party-helper",
+    "SHA256": "E3ADAFEA3036D51A86EED98398812E9B287EC3C89CF222AC27EC3C7933931AD7"
+  },
+  {
+    "Path": "AlienAttack/tinyxmlerror.cpp",
+    "Bytes": 1791,
+    "Kind": "third-party-helper",
+    "SHA256": "2367FC5035030390FD2D420501ED9AFF5A5D32C59F3C5B1EFB9A769D469ED926"
+  },
+  {
+    "Path": "AlienAttack/tinyxmlparser.cpp",
+    "Bytes": 37242,
+    "Kind": "third-party-helper",
+    "SHA256": "1DD6068847EE18697E559B7876136BCAAF3C9ECA58C28863320E8A21C8F4AEB5"
+  },
+  {
+    "Path": "AlienAttack/Vector2D.h",
+    "Bytes": 2050,
+    "Kind": "application-source",
+    "SHA256": "690D87BD0A10F2580AE20340691B48EC34EF8F82C382C72E2BD081FA7BE8A332"
+  },
+  {
+    "Path": "AlienAttack/.vscode/c_cpp_properties.json",
+    "Bytes": 802,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/.vscode/launch.json",
+    "Bytes": 475,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/.vscode/tasks.json",
+    "Bytes": 3305,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/attack.xml",
+    "Bytes": 2288,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/blocks1.png",
+    "Bytes": 36610,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/blocks2.png",
+    "Bytes": 26407,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/blocks3.png",
+    "Bytes": 39920,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/boom.wav",
+    "Bytes": 59066,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/boss1.png",
+    "Bytes": 8403,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/bossexplosion.png",
+    "Bytes": 67859,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/bullet1.png",
+    "Bytes": 3137,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/bullet2.png",
+    "Bytes": 3414,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/bullet3.png",
+    "Bytes": 5008,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/button.png",
+    "Bytes": 27885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/clouds.png",
+    "Bytes": 205614,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/clouds2.png",
+    "Bytes": 104823,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/DST_Announce.ogg",
+    "Bytes": 1416542,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/DST_ElectroRock.ogg",
+    "Bytes": 2359144,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/enemy1.png",
+    "Bytes": 4887,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/enemy2.png",
+    "Bytes": 3125,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/enemy3.png",
+    "Bytes": 5558,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/exit.png",
+    "Bytes": 27477,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/explosion.png",
+    "Bytes": 23495,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/gameover.png",
+    "Bytes": 12241,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/heli.png",
+    "Bytes": 39645,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/helicopter.png",
+    "Bytes": 5545,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/helicopter2.png",
+    "Bytes": 6885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/Icon.png",
+    "Bytes": 7197,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/largeexplosion.png",
+    "Bytes": 49197,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/lives.png",
+    "Bytes": 5484,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/main.png",
+    "Bytes": 19480,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/map1.tmx",
+    "Bytes": 17616,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/map2.tmx",
+    "Bytes": 2357,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/objecttypes.xml",
+    "Bytes": 398,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/phaser.wav",
+    "Bytes": 13606,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/restart.png",
+    "Bytes": 16969,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/resume.png",
+    "Bytes": 16681,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/smallexplosion.png",
+    "Bytes": 5097,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/test.xml",
+    "Bytes": 2292,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/Thumbs.db",
+    "Bytes": 68096,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/assets/turret.png",
+    "Bytes": 3986,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/build/CMakeCache.txt",
+    "Bytes": 3065,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/build/CMakeFiles/cmake.check_cache",
+    "Bytes": 85,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/build/CMakeFiles/CMakeConfigureLog.yaml",
+    "Bytes": 266,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/build/CMakeFiles/3.30.3/CMakeSystem.cmake",
+    "Bytes": 414,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/AlienAttack.Build.CppClean.log",
+    "Bytes": 2656,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/AlienAttack.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/AlienAttack.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/AlienAttack.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.exe.recipe",
+    "Bytes": 310,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.log",
+    "Bytes": 1785,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.Build.CppClean.log",
+    "Bytes": 2424,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.exe.recipe",
+    "Bytes": 304,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.log",
+    "Bytes": 2653,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.Build.CppClean.log",
+    "Bytes": 1453,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.log",
+    "Bytes": 1172,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.log",
+    "Bytes": 2103,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.Build.CppClean.log",
+    "Bytes": 2515,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.log",
+    "Bytes": 3229,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/CL.command.1.tlog",
+    "Bytes": 15934,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/Cl.items.tlog",
+    "Bytes": 2739,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/CL.read.1.tlog",
+    "Bytes": 510594,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/CL.write.1.tlog",
+    "Bytes": 10914,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/DataDriveDesign.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/link.command.1.tlog",
+    "Bytes": 5564,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/link.read.1.tlog",
+    "Bytes": 9012,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/link.secondary.1.tlog",
+    "Bytes": 1542,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/DataDriveDesign.tlog/link.write.1.tlog",
+    "Bytes": 3212,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/CL.command.1.tlog",
+    "Bytes": 10994,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/Cl.items.tlog",
+    "Bytes": 1763,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/CL.read.1.tlog",
+    "Bytes": 378758,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/CL.write.1.tlog",
+    "Bytes": 7056,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/GameState.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/link.command.1.tlog",
+    "Bytes": 4152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/link.read.1.tlog",
+    "Bytes": 6940,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/link.secondary.1.tlog",
+    "Bytes": 1015,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/GameState.tlog/link.write.1.tlog",
+    "Bytes": 2158,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/CL.command.1.tlog",
+    "Bytes": 5134,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/Cl.items.tlog",
+    "Bytes": 823,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/CL.read.1.tlog",
+    "Bytes": 189194,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/CL.write.1.tlog",
+    "Bytes": 3524,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/InputHandle.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/link.command.1.tlog",
+    "Bytes": 2704,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/link.read.1.tlog",
+    "Bytes": 4808,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/link.secondary.1.tlog",
+    "Bytes": 512,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/InputHandle.tlog/link.write.1.tlog",
+    "Bytes": 1152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/CL.command.1.tlog",
+    "Bytes": 4314,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/Cl.items.tlog",
+    "Bytes": 662,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/CL.read.1.tlog",
+    "Bytes": 160710,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/CL.write.1.tlog",
+    "Bytes": 2878,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/link.command.1.tlog",
+    "Bytes": 2454,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/link.read.1.tlog",
+    "Bytes": 4460,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/link.secondary.1.tlog",
+    "Bytes": 421,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/link.write.1.tlog",
+    "Bytes": 970,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/Movement.tlog/Movement.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/CL.command.1.tlog",
+    "Bytes": 20618,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/Cl.items.tlog",
+    "Bytes": 3004,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/CL.read.1.tlog",
+    "Bytes": 638862,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/CL.write.1.tlog",
+    "Bytes": 11946,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/link.command.1.tlog",
+    "Bytes": 6188,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/link.read.1.tlog",
+    "Bytes": 9806,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/link.secondary.1.tlog",
+    "Bytes": 1683,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/link.write.1.tlog",
+    "Bytes": 3494,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack/x64/Debug/TileMaps.tlog/TileMaps.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/AlienAttack.vcxproj",
+    "Bytes": 10640,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/AlienAttack.vcxproj.filters",
+    "Bytes": 7878,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/AlienAttack.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/AnimatedGraphic.cpp",
+    "Bytes": 638,
+    "Kind": "application-source",
+    "SHA256": "8B62EBE043BCE06FB37F963649C82BAD9D68AED8A5A0F9ECC0B2BDFB64990BD4"
+  },
+  {
+    "Path": "AlienAttack - 副本/AnimatedGraphic.h",
+    "Bytes": 461,
+    "Kind": "application-source",
+    "SHA256": "B7EB327283920946B3F79364FB59A1A21EB17A8A7051600D9BE9A6FA3ED8D7D0"
+  },
+  {
+    "Path": "AlienAttack - 副本/base64.cpp",
+    "Bytes": 3738,
+    "Kind": "third-party-helper",
+    "SHA256": "80817640E9E7821A3A61F38D389299526B03C773EE1F8BC41B0F99A7CEE78608"
+  },
+  {
+    "Path": "AlienAttack - 副本/base64.h",
+    "Bytes": 140,
+    "Kind": "third-party-helper",
+    "SHA256": "EF091A48A65114612CE319D6CCD289BB639E7A6D70E07FD8AD76DC50AFD68311"
+  },
+  {
+    "Path": "AlienAttack - 副本/Enemy.cpp",
+    "Bytes": 687,
+    "Kind": "application-source",
+    "SHA256": "686AD7722AFD929AEB3A5DCB0D1CE3927F99FD5468997231140E2EB484A38D45"
+  },
+  {
+    "Path": "AlienAttack - 副本/Enemy.h",
+    "Bytes": 578,
+    "Kind": "application-source",
+    "SHA256": "4124AC2974608E8DAA94CC9C4015216142DD4AE5B7A51AE99C84724B12DDF467"
+  },
+  {
+    "Path": "AlienAttack - 副本/Game.cpp",
+    "Bytes": 3922,
+    "Kind": "application-source",
+    "SHA256": "214B4558230CC03F4B879046BE1437399306A1DE4B8B3A653533C0DC585DA76F"
+  },
+  {
+    "Path": "AlienAttack - 副本/Game.h",
+    "Bytes": 1084,
+    "Kind": "application-source",
+    "SHA256": "FFD3F66EBDB04962ACAD873CEF9285BA050A3CE998288479FFD59227A0DE452D"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameObject.h",
+    "Bytes": 1675,
+    "Kind": "application-source",
+    "SHA256": "4BBBEEF94BE073C63F5CB23BC1FEE519201DF5E58CF71751C826B468F9CDDDAE"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameObjectFactory.cpp",
+    "Bytes": 1025,
+    "Kind": "application-source",
+    "SHA256": "C6E6096495E523A6EDFF63C5639832CD5BB3452BC15FFF017431BF20E156051B"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameObjectFactory.h",
+    "Bytes": 492,
+    "Kind": "application-source",
+    "SHA256": "002D4367961E5534A8C5127AEB1482E94958F1810060485EF7F3FF2835698DFD"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameOverState.cpp",
+    "Bytes": 2496,
+    "Kind": "application-source",
+    "SHA256": "6303E8C70C0F2A8A3F815C3EA044A06BF6986C7D4E0312895BBCD51393370E2B"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameOverState.h",
+    "Bytes": 743,
+    "Kind": "application-source",
+    "SHA256": "69F9700DFAB5BB42DD7B4612AF4580DE20E450F445DA3BFD928A41B686DB53A0"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameState.h",
+    "Bytes": 374,
+    "Kind": "application-source",
+    "SHA256": "0C6F7EB86B996B99C41A8242653A134DFAF45BA261F1B4DE231F77EF03438252"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameStateMachine.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "F55292C88E32A63ADEFD1209C93E3DD0FAD067F2935250E62008B709CEC7A358"
+  },
+  {
+    "Path": "AlienAttack - 副本/GameStateMachine.h",
+    "Bytes": 284,
+    "Kind": "application-source",
+    "SHA256": "A3F0297AF0878AEB6C3E9140C5B746F5D70B65EB723BE3885041FC4DD621F80B"
+  },
+  {
+    "Path": "AlienAttack - 副本/InputHandler.cpp",
+    "Bytes": 8837,
+    "Kind": "application-source",
+    "SHA256": "80F8B35ABA7DEE984CF5326B1D58F9D3E21712A7E82A5FD9CA8706FECACE9F59"
+  },
+  {
+    "Path": "AlienAttack - 副本/InputHandler.h",
+    "Bytes": 2712,
+    "Kind": "application-source",
+    "SHA256": "0867F2F30AD98C98773448D6572750F2331C1C9C4ED9C39C0AC1B62523A86D86"
+  },
+  {
+    "Path": "AlienAttack - 副本/Layer.h",
+    "Bytes": 253,
+    "Kind": "application-source",
+    "SHA256": "0C6E845D5380A50501503130F0077BD65C85032325D05474AB33A993DE0654F7"
+  },
+  {
+    "Path": "AlienAttack - 副本/Level.cpp",
+    "Bytes": 263,
+    "Kind": "application-source",
+    "SHA256": "69386D1750790391250E54A5BF12E61128333881ADE17A671410EE5D2E994E71"
+  },
+  {
+    "Path": "AlienAttack - 副本/Level.h",
+    "Bytes": 604,
+    "Kind": "application-source",
+    "SHA256": "4D102D68A0DFB940FB3D41A5D93F5854D62607CFC3557583617C75EA6354B232"
+  },
+  {
+    "Path": "AlienAttack - 副本/LevelParser.cpp",
+    "Bytes": 9158,
+    "Kind": "application-source",
+    "SHA256": "D315B48DD28BDDBB99482F84F53860FF6770ED7AD068E3E81511652D4A508BC5"
+  },
+  {
+    "Path": "AlienAttack - 副本/LevelParser.h",
+    "Bytes": 702,
+    "Kind": "application-source",
+    "SHA256": "01A14D36B71E25677D714A0EA645B06858590F522180E5920D5B240C619A9E09"
+  },
+  {
+    "Path": "AlienAttack - 副本/LoaderParams.h",
+    "Bytes": 913,
+    "Kind": "application-source",
+    "SHA256": "DB960370018E3852BF9B2675E33388DF35F58DD14AF169682769A7914348DE35"
+  },
+  {
+    "Path": "AlienAttack - 副本/main.cpp",
+    "Bytes": 710,
+    "Kind": "application-source",
+    "SHA256": "0A3D9395C6ADF1D652DC9C85EBA48BDDFCB637B472A78ECD04506878CF22C681"
+  },
+  {
+    "Path": "AlienAttack - 副本/MainMenuState.cpp",
+    "Bytes": 4365,
+    "Kind": "application-source",
+    "SHA256": "D5116C0F9728845752E9673647A2764131FB8609EDF30F27C1B481B9EF6D254A"
+  },
+  {
+    "Path": "AlienAttack - 副本/MainMenuState.h",
+    "Bytes": 718,
+    "Kind": "application-source",
+    "SHA256": "D9DA30F5C33856287A565A2C54921FD201B9709B341D282AB0BAEF71341091A8"
+  },
+  {
+    "Path": "AlienAttack - 副本/MenuButton.cpp",
+    "Bytes": 1300,
+    "Kind": "application-source",
+    "SHA256": "241ECD28DF3A8F9B859CAB0F7112266CCA423B7BC640670795CE26DE030087B0"
+  },
+  {
+    "Path": "AlienAttack - 副本/MenuButton.h",
+    "Bytes": 1452,
+    "Kind": "application-source",
+    "SHA256": "54C655CF5A9088C9F8943100C3D27DD0BD1AFE94DCD779B86E54251AEA85811D"
+  },
+  {
+    "Path": "AlienAttack - 副本/MenuState.h",
+    "Bytes": 239,
+    "Kind": "application-source",
+    "SHA256": "288A77AE044D0718AE291E98B61546DD76F74A2451C12A9E08CAC735AA89E1CF"
+  },
+  {
+    "Path": "AlienAttack - 副本/ObjectLayer.cpp",
+    "Bytes": 273,
+    "Kind": "application-source",
+    "SHA256": "3EF75E65F0896F663F71408DA2F41CB656DB8AEA38332760FB876CE8D95CABDA"
+  },
+  {
+    "Path": "AlienAttack - 副本/ObjectLayer.h",
+    "Bytes": 316,
+    "Kind": "application-source",
+    "SHA256": "174F506715CED0D2AFFBC8363E01F434BC6B3922D4A7B4BE293196D96BF68B8D"
+  },
+  {
+    "Path": "AlienAttack - 副本/PauseState.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "600B63E3CB7B1E70FC95860B9E0D0D5239F0303D6E37E963E021A5AFA7F13824"
+  },
+  {
+    "Path": "AlienAttack - 副本/PauseState.h",
+    "Bytes": 750,
+    "Kind": "application-source",
+    "SHA256": "309506BB218A8D77C43895892E8370D898059A82F621D3D4A7531DE3162D4F55"
+  },
+  {
+    "Path": "AlienAttack - 副本/Player.cpp",
+    "Bytes": 3012,
+    "Kind": "application-source",
+    "SHA256": "C9A1EDD543E298E506ACA6B1B56BCEADCA9884FE5739E6EA4CC2219605E9BFF2"
+  },
+  {
+    "Path": "AlienAttack - 副本/Player.h",
+    "Bytes": 644,
+    "Kind": "application-source",
+    "SHA256": "D91C3F59BFE2B490E2293A915016B3C7C68C611B61234751B8CC93AE9EB91240"
+  },
+  {
+    "Path": "AlienAttack - 副本/PlayState.cpp",
+    "Bytes": 3204,
+    "Kind": "application-source",
+    "SHA256": "E127C5685328410EA9D9D1DDBB45269E107CE7A25904C548266D71F13D82943C"
+  },
+  {
+    "Path": "AlienAttack - 副本/PlayState.h",
+    "Bytes": 564,
+    "Kind": "application-source",
+    "SHA256": "EC91AE06DF48B1211FFCBE3E31F26DC881EE5DC12805631D14B1F7AFCC66C5D3"
+  },
+  {
+    "Path": "AlienAttack - 副本/SDLGameObject.cpp",
+    "Bytes": 2042,
+    "Kind": "application-source",
+    "SHA256": "135818E5319DFA4124DFB86A97E447764F5E68E0C84FDC528E12CC4E83E986AF"
+  },
+  {
+    "Path": "AlienAttack - 副本/SDLGameObject.h",
+    "Bytes": 675,
+    "Kind": "application-source",
+    "SHA256": "08AC19459EE23B57DC93CCF9913144974796A3FE78BF1054DFAA614495541396"
+  },
+  {
+    "Path": "AlienAttack - 副本/ShooterObject.cpp",
+    "Bytes": 352,
+    "Kind": "application-source",
+    "SHA256": "07FA3CD2B9612505627FE6ED3553E138CABE7806CE56BD8850791179B8D6FEC4"
+  },
+  {
+    "Path": "AlienAttack - 副本/ShooterObject.h",
+    "Bytes": 842,
+    "Kind": "application-source",
+    "SHA256": "24A7F0E463EFE6B64B50A53E73A79B3AE8FD913D81E6787B3C964EC0273443C5"
+  },
+  {
+    "Path": "AlienAttack - 副本/SoundManager.cpp",
+    "Bytes": 1917,
+    "Kind": "application-source",
+    "SHA256": "17CD8F9515ED6880E9F4C068E02462C81345365466C228B4461B72697E41C22A"
+  },
+  {
+    "Path": "AlienAttack - 副本/SoundManager.h",
+    "Bytes": 1441,
+    "Kind": "application-source",
+    "SHA256": "62FC964E46782CD1D0D4DD694EEDB93FBB05F03CE4B082A50F352D70B06052F1"
+  },
+  {
+    "Path": "AlienAttack - 副本/StateParser.cpp",
+    "Bytes": 3892,
+    "Kind": "application-source",
+    "SHA256": "0D166153A71F79DAD6F8154F668DB9155D34A5282E2D01311FFEAB3A3080B87E"
+  },
+  {
+    "Path": "AlienAttack - 副本/StateParser.h",
+    "Bytes": 472,
+    "Kind": "application-source",
+    "SHA256": "8AD0F002336ECB8B269C678E1700AC82E0147E97B18E3FBAD411101AF585D6D9"
+  },
+  {
+    "Path": "AlienAttack - 副本/TextureManager.cpp",
+    "Bytes": 2934,
+    "Kind": "application-source",
+    "SHA256": "4D3717A356E7C8DC0034D1F1E31D5B696975D4F61BD6DE8C10AB9420D368E275"
+  },
+  {
+    "Path": "AlienAttack - 副本/TextureManager.h",
+    "Bytes": 899,
+    "Kind": "application-source",
+    "SHA256": "A716C66D7FC0147D903D5CF8F8137737FF3048E1E37009B86B7C170CB3AF4661"
+  },
+  {
+    "Path": "AlienAttack - 副本/TileLayer.cpp",
+    "Bytes": 4234,
+    "Kind": "application-source",
+    "SHA256": "4D55A850B61C76B8009E68CC91EE5998CC8C8C48D202354D48FA121865E0074E"
+  },
+  {
+    "Path": "AlienAttack - 副本/TileLayer.h",
+    "Bytes": 1822,
+    "Kind": "application-source",
+    "SHA256": "D487E4928097B2FB4A5A6611E7C960EF1D04376619DEAD1F798F2603EAA52050"
+  },
+  {
+    "Path": "AlienAttack - 副本/tinystr.cpp",
+    "Bytes": 2507,
+    "Kind": "third-party-helper",
+    "SHA256": "220612A57261E51016670678A1474E28C3EECB30B0544CF16EFB9851ECB4CB5B"
+  },
+  {
+    "Path": "AlienAttack - 副本/tinystr.h",
+    "Bytes": 8198,
+    "Kind": "third-party-helper",
+    "SHA256": "718E05D00AE40D2EABD688C64B980FA40419ACE7C12D9685C710888CAF102DD5"
+  },
+  {
+    "Path": "AlienAttack - 副本/tinyxml.cpp",
+    "Bytes": 37594,
+    "Kind": "third-party-helper",
+    "SHA256": "D3517D20E1A9D1651DD36B89F984DE08DCD0D2D28868BFC554A15590F92E7BF6"
+  },
+  {
+    "Path": "AlienAttack - 副本/tinyxml.h",
+    "Bytes": 64888,
+    "Kind": "third-party-helper",
+    "SHA256": "E3ADAFEA3036D51A86EED98398812E9B287EC3C89CF222AC27EC3C7933931AD7"
+  },
+  {
+    "Path": "AlienAttack - 副本/tinyxmlerror.cpp",
+    "Bytes": 1791,
+    "Kind": "third-party-helper",
+    "SHA256": "2367FC5035030390FD2D420501ED9AFF5A5D32C59F3C5B1EFB9A769D469ED926"
+  },
+  {
+    "Path": "AlienAttack - 副本/tinyxmlparser.cpp",
+    "Bytes": 37242,
+    "Kind": "third-party-helper",
+    "SHA256": "1DD6068847EE18697E559B7876136BCAAF3C9ECA58C28863320E8A21C8F4AEB5"
+  },
+  {
+    "Path": "AlienAttack - 副本/Vector2D.h",
+    "Bytes": 2059,
+    "Kind": "application-source",
+    "SHA256": "9A985864CEB4A8B25769755272477753C4EEACE496E80C3CE9401E234138E565"
+  },
+  {
+    "Path": "AlienAttack - 副本/.vscode/c_cpp_properties.json",
+    "Bytes": 0,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/blocks1.png",
+    "Bytes": 36610,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/button.png",
+    "Bytes": 27885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/exit.png",
+    "Bytes": 27477,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/gameover.png",
+    "Bytes": 12241,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/helicopter.png",
+    "Bytes": 5545,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/helicopter2.png",
+    "Bytes": 6885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/main.png",
+    "Bytes": 19480,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/map1.tmx",
+    "Bytes": 1321,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/restart.png",
+    "Bytes": 16969,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/resume.png",
+    "Bytes": 16681,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/assets/test.xml",
+    "Bytes": 2292,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/AlienAttack.Build.CppClean.log",
+    "Bytes": 2656,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/AlienAttack.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/AlienAttack.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/AlienAttack.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.exe.recipe",
+    "Bytes": 310,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.log",
+    "Bytes": 1785,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.Build.CppClean.log",
+    "Bytes": 2424,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.exe.recipe",
+    "Bytes": 304,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.log",
+    "Bytes": 2653,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.Build.CppClean.log",
+    "Bytes": 1453,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.log",
+    "Bytes": 1172,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.log",
+    "Bytes": 2103,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.Build.CppClean.log",
+    "Bytes": 2515,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.log",
+    "Bytes": 3229,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/CL.command.1.tlog",
+    "Bytes": 15934,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/Cl.items.tlog",
+    "Bytes": 2739,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/CL.read.1.tlog",
+    "Bytes": 510594,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/CL.write.1.tlog",
+    "Bytes": 10914,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/DataDriveDesign.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/link.command.1.tlog",
+    "Bytes": 5564,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/link.read.1.tlog",
+    "Bytes": 9012,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/link.secondary.1.tlog",
+    "Bytes": 1542,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/DataDriveDesign.tlog/link.write.1.tlog",
+    "Bytes": 3212,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/CL.command.1.tlog",
+    "Bytes": 10994,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/Cl.items.tlog",
+    "Bytes": 1763,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/CL.read.1.tlog",
+    "Bytes": 378758,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/CL.write.1.tlog",
+    "Bytes": 7056,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/GameState.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/link.command.1.tlog",
+    "Bytes": 4152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/link.read.1.tlog",
+    "Bytes": 6940,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/link.secondary.1.tlog",
+    "Bytes": 1015,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/GameState.tlog/link.write.1.tlog",
+    "Bytes": 2158,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/CL.command.1.tlog",
+    "Bytes": 5134,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/Cl.items.tlog",
+    "Bytes": 823,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/CL.read.1.tlog",
+    "Bytes": 189194,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/CL.write.1.tlog",
+    "Bytes": 3524,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/InputHandle.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/link.command.1.tlog",
+    "Bytes": 2704,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/link.read.1.tlog",
+    "Bytes": 4808,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/link.secondary.1.tlog",
+    "Bytes": 512,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/InputHandle.tlog/link.write.1.tlog",
+    "Bytes": 1152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/CL.command.1.tlog",
+    "Bytes": 4314,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/Cl.items.tlog",
+    "Bytes": 662,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/CL.read.1.tlog",
+    "Bytes": 160710,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/CL.write.1.tlog",
+    "Bytes": 2878,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/link.command.1.tlog",
+    "Bytes": 2454,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/link.read.1.tlog",
+    "Bytes": 4460,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/link.secondary.1.tlog",
+    "Bytes": 421,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/link.write.1.tlog",
+    "Bytes": 970,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/Movement.tlog/Movement.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/CL.command.1.tlog",
+    "Bytes": 20618,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/Cl.items.tlog",
+    "Bytes": 3004,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/CL.read.1.tlog",
+    "Bytes": 638862,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/CL.write.1.tlog",
+    "Bytes": 11946,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/link.command.1.tlog",
+    "Bytes": 6188,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/link.read.1.tlog",
+    "Bytes": 9806,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/link.secondary.1.tlog",
+    "Bytes": 1683,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/link.write.1.tlog",
+    "Bytes": 3494,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "AlienAttack - 副本/x64/Debug/TileMaps.tlog/TileMaps.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/breakupHello.vcxproj",
+    "Bytes": 6828,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/breakupHello.vcxproj.filters",
+    "Bytes": 977,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/breakupHello.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/main.cpp",
+    "Bytes": 475,
+    "Kind": "application-source",
+    "SHA256": "ED0A72726A8A5D92E190C7A7AA57D81FFD221F04C07EBA1F83F90D8AA9698BA4"
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.exe.recipe",
+    "Bytes": 307,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.ilk",
+    "Bytes": 701621,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.log",
+    "Bytes": 107,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/main.obj",
+    "Bytes": 33064,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/vc143.idb",
+    "Bytes": 125952,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/vc143.pdb",
+    "Bytes": 102400,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/breakupHello.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/CL.command.1.tlog",
+    "Bytes": 722,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/Cl.items.tlog",
+    "Bytes": 111,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/CL.read.1.tlog",
+    "Bytes": 9436,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/CL.write.1.tlog",
+    "Bytes": 476,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/link.command.1.tlog",
+    "Bytes": 1616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/link.read.1.tlog",
+    "Bytes": 2994,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/link.secondary.1.tlog",
+    "Bytes": 131,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "breakupHello/x64/Debug/breakupHello.tlog/link.write.1.tlog",
+    "Bytes": 390,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/AnimatedGraphic.cpp",
+    "Bytes": 638,
+    "Kind": "application-source",
+    "SHA256": "8B62EBE043BCE06FB37F963649C82BAD9D68AED8A5A0F9ECC0B2BDFB64990BD4"
+  },
+  {
+    "Path": "DataDriveDesign/AnimatedGraphic.h",
+    "Bytes": 461,
+    "Kind": "application-source",
+    "SHA256": "B7EB327283920946B3F79364FB59A1A21EB17A8A7051600D9BE9A6FA3ED8D7D0"
+  },
+  {
+    "Path": "DataDriveDesign/DataDriveDesign.vcxproj",
+    "Bytes": 9652,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/DataDriveDesign.vcxproj.filters",
+    "Bytes": 6329,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/DataDriveDesign.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/Enemy.cpp",
+    "Bytes": 687,
+    "Kind": "application-source",
+    "SHA256": "686AD7722AFD929AEB3A5DCB0D1CE3927F99FD5468997231140E2EB484A38D45"
+  },
+  {
+    "Path": "DataDriveDesign/Enemy.h",
+    "Bytes": 445,
+    "Kind": "application-source",
+    "SHA256": "EC2C8AB8B415A4D9777F858CDB843647855A5619C34CF757935E56ED39E2E1F3"
+  },
+  {
+    "Path": "DataDriveDesign/Game.cpp",
+    "Bytes": 3572,
+    "Kind": "application-source",
+    "SHA256": "3EF342476AA298E10CFECCE81A0668A3B734F4B2EBBB9B83C391900EEAF00837"
+  },
+  {
+    "Path": "DataDriveDesign/Game.h",
+    "Bytes": 794,
+    "Kind": "application-source",
+    "SHA256": "D8DB6EF4BBC0F66CF729058DAEE00C740A3DC625CBE80DEEE7BC74486EE581B7"
+  },
+  {
+    "Path": "DataDriveDesign/GameObject.h",
+    "Bytes": 416,
+    "Kind": "application-source",
+    "SHA256": "DE54B85085BAD5B456E8BB4AD328CE05706AA6BE1DFF35135F207A0B23FCF956"
+  },
+  {
+    "Path": "DataDriveDesign/GameObjectFactory.cpp",
+    "Bytes": 1025,
+    "Kind": "application-source",
+    "SHA256": "C6E6096495E523A6EDFF63C5639832CD5BB3452BC15FFF017431BF20E156051B"
+  },
+  {
+    "Path": "DataDriveDesign/GameObjectFactory.h",
+    "Bytes": 492,
+    "Kind": "application-source",
+    "SHA256": "002D4367961E5534A8C5127AEB1482E94958F1810060485EF7F3FF2835698DFD"
+  },
+  {
+    "Path": "DataDriveDesign/GameOverState.cpp",
+    "Bytes": 2496,
+    "Kind": "application-source",
+    "SHA256": "6303E8C70C0F2A8A3F815C3EA044A06BF6986C7D4E0312895BBCD51393370E2B"
+  },
+  {
+    "Path": "DataDriveDesign/GameOverState.h",
+    "Bytes": 743,
+    "Kind": "application-source",
+    "SHA256": "69F9700DFAB5BB42DD7B4612AF4580DE20E450F445DA3BFD928A41B686DB53A0"
+  },
+  {
+    "Path": "DataDriveDesign/GameState.h",
+    "Bytes": 374,
+    "Kind": "application-source",
+    "SHA256": "0C6F7EB86B996B99C41A8242653A134DFAF45BA261F1B4DE231F77EF03438252"
+  },
+  {
+    "Path": "DataDriveDesign/GameStateMachine.cpp",
+    "Bytes": 1826,
+    "Kind": "application-source",
+    "SHA256": "17433F4CD37DED584A74832B584E2A9D0715E48C173E7C33049F0D95D16CFA53"
+  },
+  {
+    "Path": "DataDriveDesign/GameStateMachine.h",
+    "Bytes": 284,
+    "Kind": "application-source",
+    "SHA256": "A3F0297AF0878AEB6C3E9140C5B746F5D70B65EB723BE3885041FC4DD621F80B"
+  },
+  {
+    "Path": "DataDriveDesign/InputHandler.cpp",
+    "Bytes": 8837,
+    "Kind": "application-source",
+    "SHA256": "80F8B35ABA7DEE984CF5326B1D58F9D3E21712A7E82A5FD9CA8706FECACE9F59"
+  },
+  {
+    "Path": "DataDriveDesign/InputHandler.h",
+    "Bytes": 2712,
+    "Kind": "application-source",
+    "SHA256": "0867F2F30AD98C98773448D6572750F2331C1C9C4ED9C39C0AC1B62523A86D86"
+  },
+  {
+    "Path": "DataDriveDesign/LoaderParams.h",
+    "Bytes": 913,
+    "Kind": "application-source",
+    "SHA256": "DB960370018E3852BF9B2675E33388DF35F58DD14AF169682769A7914348DE35"
+  },
+  {
+    "Path": "DataDriveDesign/main.cpp",
+    "Bytes": 710,
+    "Kind": "application-source",
+    "SHA256": "0A3D9395C6ADF1D652DC9C85EBA48BDDFCB637B472A78ECD04506878CF22C681"
+  },
+  {
+    "Path": "DataDriveDesign/MainMenuState.cpp",
+    "Bytes": 4365,
+    "Kind": "application-source",
+    "SHA256": "D5116C0F9728845752E9673647A2764131FB8609EDF30F27C1B481B9EF6D254A"
+  },
+  {
+    "Path": "DataDriveDesign/MainMenuState.h",
+    "Bytes": 718,
+    "Kind": "application-source",
+    "SHA256": "D9DA30F5C33856287A565A2C54921FD201B9709B341D282AB0BAEF71341091A8"
+  },
+  {
+    "Path": "DataDriveDesign/MenuButton.cpp",
+    "Bytes": 1300,
+    "Kind": "application-source",
+    "SHA256": "241ECD28DF3A8F9B859CAB0F7112266CCA423B7BC640670795CE26DE030087B0"
+  },
+  {
+    "Path": "DataDriveDesign/MenuButton.h",
+    "Bytes": 1452,
+    "Kind": "application-source",
+    "SHA256": "54C655CF5A9088C9F8943100C3D27DD0BD1AFE94DCD779B86E54251AEA85811D"
+  },
+  {
+    "Path": "DataDriveDesign/MenuState.h",
+    "Bytes": 239,
+    "Kind": "application-source",
+    "SHA256": "288A77AE044D0718AE291E98B61546DD76F74A2451C12A9E08CAC735AA89E1CF"
+  },
+  {
+    "Path": "DataDriveDesign/PauseState.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "600B63E3CB7B1E70FC95860B9E0D0D5239F0303D6E37E963E021A5AFA7F13824"
+  },
+  {
+    "Path": "DataDriveDesign/PauseState.h",
+    "Bytes": 750,
+    "Kind": "application-source",
+    "SHA256": "309506BB218A8D77C43895892E8370D898059A82F621D3D4A7531DE3162D4F55"
+  },
+  {
+    "Path": "DataDriveDesign/Player.cpp",
+    "Bytes": 1171,
+    "Kind": "application-source",
+    "SHA256": "68C7314A2A7579CECB4CBDFF1A8DBF3DB7103B69CBE1CDC8954B31A231D2A27B"
+  },
+  {
+    "Path": "DataDriveDesign/Player.h",
+    "Bytes": 474,
+    "Kind": "application-source",
+    "SHA256": "08B40A2FB69AC4592FDC68463684645E8F39F445603415CB0DEED001F7ED5F76"
+  },
+  {
+    "Path": "DataDriveDesign/PlayState.cpp",
+    "Bytes": 3192,
+    "Kind": "application-source",
+    "SHA256": "33B68C7A661D8298678A51A4910107A8F1E85FC7B52A169AB786DB4DDFFCEE01"
+  },
+  {
+    "Path": "DataDriveDesign/PlayState.h",
+    "Bytes": 527,
+    "Kind": "application-source",
+    "SHA256": "EA901B2F0B938344EF26D0D9F294DAB1788AB0B50B5DB075A37E788B5F0A81C7"
+  },
+  {
+    "Path": "DataDriveDesign/SDLGameObject.cpp",
+    "Bytes": 2042,
+    "Kind": "application-source",
+    "SHA256": "135818E5319DFA4124DFB86A97E447764F5E68E0C84FDC528E12CC4E83E986AF"
+  },
+  {
+    "Path": "DataDriveDesign/SDLGameObject.h",
+    "Bytes": 675,
+    "Kind": "application-source",
+    "SHA256": "08AC19459EE23B57DC93CCF9913144974796A3FE78BF1054DFAA614495541396"
+  },
+  {
+    "Path": "DataDriveDesign/StateParser.cpp",
+    "Bytes": 3892,
+    "Kind": "application-source",
+    "SHA256": "0D166153A71F79DAD6F8154F668DB9155D34A5282E2D01311FFEAB3A3080B87E"
+  },
+  {
+    "Path": "DataDriveDesign/StateParser.h",
+    "Bytes": 472,
+    "Kind": "application-source",
+    "SHA256": "8AD0F002336ECB8B269C678E1700AC82E0147E97B18E3FBAD411101AF585D6D9"
+  },
+  {
+    "Path": "DataDriveDesign/TextureManager.cpp",
+    "Bytes": 2156,
+    "Kind": "application-source",
+    "SHA256": "D3F71C2646ABB1EE08536CFA4A1DDE2C069F3C7F270AC954576EBAA857B816C6"
+  },
+  {
+    "Path": "DataDriveDesign/TextureManager.h",
+    "Bytes": 718,
+    "Kind": "application-source",
+    "SHA256": "F11041286E373C3C2E41A36FF6EA5F35996E6305DD3E93FEC3FE15A58CC683F9"
+  },
+  {
+    "Path": "DataDriveDesign/tinystr.cpp",
+    "Bytes": 2507,
+    "Kind": "third-party-helper",
+    "SHA256": "220612A57261E51016670678A1474E28C3EECB30B0544CF16EFB9851ECB4CB5B"
+  },
+  {
+    "Path": "DataDriveDesign/tinystr.h",
+    "Bytes": 8198,
+    "Kind": "third-party-helper",
+    "SHA256": "718E05D00AE40D2EABD688C64B980FA40419ACE7C12D9685C710888CAF102DD5"
+  },
+  {
+    "Path": "DataDriveDesign/tinyxml.cpp",
+    "Bytes": 37594,
+    "Kind": "third-party-helper",
+    "SHA256": "D3517D20E1A9D1651DD36B89F984DE08DCD0D2D28868BFC554A15590F92E7BF6"
+  },
+  {
+    "Path": "DataDriveDesign/tinyxml.h",
+    "Bytes": 64888,
+    "Kind": "third-party-helper",
+    "SHA256": "E3ADAFEA3036D51A86EED98398812E9B287EC3C89CF222AC27EC3C7933931AD7"
+  },
+  {
+    "Path": "DataDriveDesign/tinyxmlerror.cpp",
+    "Bytes": 1791,
+    "Kind": "third-party-helper",
+    "SHA256": "2367FC5035030390FD2D420501ED9AFF5A5D32C59F3C5B1EFB9A769D469ED926"
+  },
+  {
+    "Path": "DataDriveDesign/tinyxmlparser.cpp",
+    "Bytes": 37242,
+    "Kind": "third-party-helper",
+    "SHA256": "1DD6068847EE18697E559B7876136BCAAF3C9ECA58C28863320E8A21C8F4AEB5"
+  },
+  {
+    "Path": "DataDriveDesign/Vector2D.h",
+    "Bytes": 2059,
+    "Kind": "application-source",
+    "SHA256": "9A985864CEB4A8B25769755272477753C4EEACE496E80C3CE9401E234138E565"
+  },
+  {
+    "Path": "DataDriveDesign/.vscode/c_cpp_properties.json",
+    "Bytes": 0,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/button.png",
+    "Bytes": 27885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/exit.png",
+    "Bytes": 27477,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/gameover.png",
+    "Bytes": 12241,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/helicopter.png",
+    "Bytes": 5545,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/helicopter2.png",
+    "Bytes": 6885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/main.png",
+    "Bytes": 19480,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/restart.png",
+    "Bytes": 16969,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/resume.png",
+    "Bytes": 16681,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/assets/test.xml",
+    "Bytes": 2292,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/DataDriveDesign.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/DataDriveDesign.exe.recipe",
+    "Bytes": 310,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/DataDriveDesign.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/DataDriveDesign.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.Build.CppClean.log",
+    "Bytes": 2424,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.exe.recipe",
+    "Bytes": 304,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.log",
+    "Bytes": 2653,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.Build.CppClean.log",
+    "Bytes": 1453,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.log",
+    "Bytes": 1172,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.log",
+    "Bytes": 2103,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/CL.command.1.tlog",
+    "Bytes": 10994,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/Cl.items.tlog",
+    "Bytes": 1763,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/CL.read.1.tlog",
+    "Bytes": 378758,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/CL.write.1.tlog",
+    "Bytes": 7056,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/GameState.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/link.command.1.tlog",
+    "Bytes": 4152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/link.read.1.tlog",
+    "Bytes": 6940,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/link.secondary.1.tlog",
+    "Bytes": 1015,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/GameState.tlog/link.write.1.tlog",
+    "Bytes": 2158,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/CL.command.1.tlog",
+    "Bytes": 5134,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/Cl.items.tlog",
+    "Bytes": 823,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/CL.read.1.tlog",
+    "Bytes": 189194,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/CL.write.1.tlog",
+    "Bytes": 3524,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/InputHandle.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/link.command.1.tlog",
+    "Bytes": 2704,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/link.read.1.tlog",
+    "Bytes": 4808,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/link.secondary.1.tlog",
+    "Bytes": 512,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/InputHandle.tlog/link.write.1.tlog",
+    "Bytes": 1152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/CL.command.1.tlog",
+    "Bytes": 4314,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/Cl.items.tlog",
+    "Bytes": 662,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/CL.read.1.tlog",
+    "Bytes": 160710,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/CL.write.1.tlog",
+    "Bytes": 2878,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/link.command.1.tlog",
+    "Bytes": 2454,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/link.read.1.tlog",
+    "Bytes": 4460,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/link.secondary.1.tlog",
+    "Bytes": 421,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/link.write.1.tlog",
+    "Bytes": 970,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/Movement.tlog/Movement.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "DataDriveDesign/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/demo2.vcxproj",
+    "Bytes": 6727,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/demo2.vcxproj.filters",
+    "Bytes": 977,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/demo2.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/main.cpp",
+    "Bytes": 1019,
+    "Kind": "application-source",
+    "SHA256": "42A7B6BCDC8C8ACD6FB688500F1676CCD873C8D07B33E189485228FB7BB13501"
+  },
+  {
+    "Path": "demo2/main.obj",
+    "Bytes": 154523,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.exe.recipe",
+    "Bytes": 300,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.ilk",
+    "Bytes": 825633,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.log",
+    "Bytes": 93,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/main.obj",
+    "Bytes": 99960,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/vc143.idb",
+    "Bytes": 265216,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/vc143.pdb",
+    "Bytes": 421888,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/CL.command.1.tlog",
+    "Bytes": 694,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/Cl.items.tlog",
+    "Bytes": 97,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/CL.read.1.tlog",
+    "Bytes": 25940,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/CL.write.1.tlog",
+    "Bytes": 420,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/demo2.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/link.command.1.tlog",
+    "Bytes": 1264,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/link.read.1.tlog",
+    "Bytes": 2888,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/link.secondary.1.tlog",
+    "Bytes": 110,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "demo2/x64/Debug/demo2.tlog/link.write.1.tlog",
+    "Bytes": 348,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/Enemy.cpp",
+    "Bytes": 388,
+    "Kind": "application-source",
+    "SHA256": "4A19BBF98DC3376E2D3F6F9FBCB82B0145225F455E3F6A7CE6A206A6FC0C3A4E"
+  },
+  {
+    "Path": "GameObjects/Enemy.h",
+    "Bytes": 508,
+    "Kind": "application-source",
+    "SHA256": "94D6E00F8FE811C375B80AD2F5F723322E84893E7E06877B5F68DE34131D5F55"
+  },
+  {
+    "Path": "GameObjects/Game.cpp",
+    "Bytes": 2430,
+    "Kind": "application-source",
+    "SHA256": "D5998A45E146F3BB31A9178E49A0529E7427631D65D5EF42072936AC7E36BEB6"
+  },
+  {
+    "Path": "GameObjects/Game.h",
+    "Bytes": 947,
+    "Kind": "application-source",
+    "SHA256": "E8DD6382AFBF1D32F9206ECA69DE81D56451EC181970E13A5DB44021BC23DA12"
+  },
+  {
+    "Path": "GameObjects/GameObject.cpp",
+    "Bytes": 570,
+    "Kind": "application-source",
+    "SHA256": "E04A249867272BAB7259169E16F81012392B32951A60C9DFF49544ABFD4927B5"
+  },
+  {
+    "Path": "GameObjects/GameObject.h",
+    "Bytes": 691,
+    "Kind": "application-source",
+    "SHA256": "5672D20270162E2CA7795648AD4742BEF4AFD81BA30478AFAAC0FBF88C2AD766"
+  },
+  {
+    "Path": "GameObjects/GameObjects.vcxproj",
+    "Bytes": 7942,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/GameObjects.vcxproj.filters",
+    "Bytes": 2625,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/GameObjects.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/main.cpp",
+    "Bytes": 334,
+    "Kind": "application-source",
+    "SHA256": "6E5AA4A7A01570070F7357405DA511690748B465FEE39B5EDF7D5BDD2BADF52F"
+  },
+  {
+    "Path": "GameObjects/Player.cpp",
+    "Bytes": 600,
+    "Kind": "application-source",
+    "SHA256": "2B16D966D454216C134A8FE523D93ACC6CACF170B7A6AB0FE347A1D9C3DB161D"
+  },
+  {
+    "Path": "GameObjects/Player.h",
+    "Bytes": 332,
+    "Kind": "application-source",
+    "SHA256": "D81201B452F49EB8794937B61AFD7B73E694FA95288C15437D6BEB088C8637CA"
+  },
+  {
+    "Path": "GameObjects/TextureManager.cpp",
+    "Bytes": 1812,
+    "Kind": "application-source",
+    "SHA256": "9DA3B3E75FA65A734688CF867D214BC9E8A5A833C75B163A1D6FBD24A53A58D8"
+  },
+  {
+    "Path": "GameObjects/TextureManager.h",
+    "Bytes": 674,
+    "Kind": "application-source",
+    "SHA256": "E46BB8240B68C53AF0CE3CFF3C3725D8515345077DFFC5407DA3F614DD4A12E7"
+  },
+  {
+    "Path": "GameObjects/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameObjects.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameObjects.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.exe.recipe",
+    "Bytes": 307,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.log",
+    "Bytes": 188,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/CL.command.1.tlog",
+    "Bytes": 2202,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/Cl.items.tlog",
+    "Bytes": 353,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/CL.read.1.tlog",
+    "Bytes": 79172,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/CL.write.1.tlog",
+    "Bytes": 1664,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/GameSkeleton.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/link.command.1.tlog",
+    "Bytes": 2006,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/link.read.1.tlog",
+    "Bytes": 3790,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/link.secondary.1.tlog",
+    "Bytes": 261,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameObjects/x64/Debug/GameSkeleton.tlog/link.write.1.tlog",
+    "Bytes": 650,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/Game.cpp",
+    "Bytes": 2172,
+    "Kind": "application-source",
+    "SHA256": "E98DDFC513D71FC777311FFAE14B50F46D28F47C37467D37F8720CBFBE6E7690"
+  },
+  {
+    "Path": "GameSkeleton/Game.h",
+    "Bytes": 441,
+    "Kind": "application-source",
+    "SHA256": "93080FBCEEDFBACD7659835BE4B1015D36B29ABB0EF3E8D57E77AF288DA282D0"
+  },
+  {
+    "Path": "GameSkeleton/GameSkeleton.vcxproj",
+    "Bytes": 7703,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/GameSkeleton.vcxproj.filters",
+    "Bytes": 2067,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/GameSkeleton.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/main.cpp",
+    "Bytes": 322,
+    "Kind": "application-source",
+    "SHA256": "6CBCBF15C33B3AA30E4189076C9B84ECF8B4EA35C03875C7C7A42CAECF67047B"
+  },
+  {
+    "Path": "GameSkeleton/TextureManager.cpp",
+    "Bytes": 1812,
+    "Kind": "application-source",
+    "SHA256": "9DA3B3E75FA65A734688CF867D214BC9E8A5A833C75B163A1D6FBD24A53A58D8"
+  },
+  {
+    "Path": "GameSkeleton/TextureManager.h",
+    "Bytes": 674,
+    "Kind": "application-source",
+    "SHA256": "E46BB8240B68C53AF0CE3CFF3C3725D8515345077DFFC5407DA3F614DD4A12E7"
+  },
+  {
+    "Path": "GameSkeleton/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/x64/Debug/GameSkeleton.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/x64/Debug/GameSkeleton.exe.recipe",
+    "Bytes": 307,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/x64/Debug/GameSkeleton.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameSkeleton/x64/Debug/GameSkeleton.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/AnimatedGraphic.cpp",
+    "Bytes": 561,
+    "Kind": "application-source",
+    "SHA256": "C100993DBF19A944EBD3321E78C56E877B4CCBBD5253FE9E328EE85657B9447B"
+  },
+  {
+    "Path": "GameState/AnimatedGraphic.h",
+    "Bytes": 290,
+    "Kind": "application-source",
+    "SHA256": "E8912A74EEA6EC2F77429D725AFAD162B7CC553990892E088F620F40CDA5801F"
+  },
+  {
+    "Path": "GameState/Enemy.cpp",
+    "Bytes": 622,
+    "Kind": "application-source",
+    "SHA256": "43C8134D2D7FD298ADEB3325D66462207634B99E12505B29CAF9B13201A86616"
+  },
+  {
+    "Path": "GameState/Enemy.h",
+    "Bytes": 277,
+    "Kind": "application-source",
+    "SHA256": "9662C6096526745EA29B6D0011E8C48DF98BADB31EEBC63622C5DA6C73AF6C0C"
+  },
+  {
+    "Path": "GameState/Game.cpp",
+    "Bytes": 3121,
+    "Kind": "application-source",
+    "SHA256": "CF71B8E9551E3DC2A5920FE73CC631E33119D603C3AEBA2F7A4CAB71F4E1E5C6"
+  },
+  {
+    "Path": "GameState/Game.h",
+    "Bytes": 794,
+    "Kind": "application-source",
+    "SHA256": "D8DB6EF4BBC0F66CF729058DAEE00C740A3DC625CBE80DEEE7BC74486EE581B7"
+  },
+  {
+    "Path": "GameState/GameObject.h",
+    "Bytes": 290,
+    "Kind": "application-source",
+    "SHA256": "4F0A23CCDB1F892583F738F056CF5ED9727424C3AC0F7C5340B10BFEA556DEC6"
+  },
+  {
+    "Path": "GameState/GameOverState.cpp",
+    "Bytes": 2531,
+    "Kind": "application-source",
+    "SHA256": "FAAC061986886B60CC3C6519758BB44AF66C76C17D59006CC566545E9CEF6A97"
+  },
+  {
+    "Path": "GameState/GameOverState.h",
+    "Bytes": 646,
+    "Kind": "application-source",
+    "SHA256": "ADB9E03CF98192CE8FD649FB11FF4F003752310BF8D3B6E5E776DA2C8C55ABEE"
+  },
+  {
+    "Path": "GameState/GameState.h",
+    "Bytes": 302,
+    "Kind": "application-source",
+    "SHA256": "ABEBFBABB85149FA76B5C713EBED88C587F36B47573EA0168F83085AFFA35D37"
+  },
+  {
+    "Path": "GameState/GameState.vcxproj",
+    "Bytes": 9086,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/GameState.vcxproj.filters",
+    "Bytes": 5137,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/GameState.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/GameStateMachine.cpp",
+    "Bytes": 1826,
+    "Kind": "application-source",
+    "SHA256": "17433F4CD37DED584A74832B584E2A9D0715E48C173E7C33049F0D95D16CFA53"
+  },
+  {
+    "Path": "GameState/GameStateMachine.h",
+    "Bytes": 281,
+    "Kind": "application-source",
+    "SHA256": "F67B25F9E45DCD2076A1BCE3238A72BAFA6F6AE5EDE642211E6E625BB3F96E6A"
+  },
+  {
+    "Path": "GameState/InputHandler.cpp",
+    "Bytes": 8833,
+    "Kind": "application-source",
+    "SHA256": "A5D2766F95BC432A13CD906E14E8275160F285DAF994FBA951F89B0842B8DC10"
+  },
+  {
+    "Path": "GameState/InputHandler.h",
+    "Bytes": 2712,
+    "Kind": "application-source",
+    "SHA256": "0867F2F30AD98C98773448D6572750F2331C1C9C4ED9C39C0AC1B62523A86D86"
+  },
+  {
+    "Path": "GameState/LoaderParams.h",
+    "Bytes": 561,
+    "Kind": "application-source",
+    "SHA256": "9F15A4CD44B2E1650B549108BBA1ED91F361B4D756B9B1BCF142273DA713AE96"
+  },
+  {
+    "Path": "GameState/main.cpp",
+    "Bytes": 710,
+    "Kind": "application-source",
+    "SHA256": "B20C9849F78BF896F9191D2B9BA6EDC81F7D79FC39F2B4042AC2C6BAE4D7C7C9"
+  },
+  {
+    "Path": "GameState/MenuButton.cpp",
+    "Bytes": 1230,
+    "Kind": "application-source",
+    "SHA256": "87F69A7A3AECA5E6695A099B2A4DE91D76E27E4C9F4DC8D3B20C55AA57646980"
+  },
+  {
+    "Path": "GameState/MenuButton.h",
+    "Bytes": 1258,
+    "Kind": "application-source",
+    "SHA256": "254B054A2AF5DF0BEAE5EE76421DFAECB6B7D739630E0DEF0E6FD510C15B048B"
+  },
+  {
+    "Path": "GameState/MenuState.cpp",
+    "Bytes": 4113,
+    "Kind": "application-source",
+    "SHA256": "3AD42AE0820EC20416F180A2A77BB61B9BF78B8B45351AE7297B8BAD7507BBA9"
+  },
+  {
+    "Path": "GameState/MenuState.h",
+    "Bytes": 598,
+    "Kind": "application-source",
+    "SHA256": "B04A814520D35A0406A917658B6B2158B9DEF5572719CF289BDE04BD1A2222D0"
+  },
+  {
+    "Path": "GameState/PauseState.cpp",
+    "Bytes": 1929,
+    "Kind": "application-source",
+    "SHA256": "3B67EFAE398EA2695157F65476FCA8C4D71BF3D9B9E3B613CE2B07E8978D5A1C"
+  },
+  {
+    "Path": "GameState/PauseState.h",
+    "Bytes": 652,
+    "Kind": "application-source",
+    "SHA256": "156DFF0BCBA5C070E91394A7351C5EF7413A20C11940CA621A4785C8962F7DF4"
+  },
+  {
+    "Path": "GameState/Player.cpp",
+    "Bytes": 1112,
+    "Kind": "application-source",
+    "SHA256": "FF00CAC58BC17ADB2F0D83BF5DA48F0EEE26A80D4FD83DAD47515C42C622B757"
+  },
+  {
+    "Path": "GameState/Player.h",
+    "Bytes": 297,
+    "Kind": "application-source",
+    "SHA256": "51240C707AF381005DA1802D7896C0FF1EFB11165C59D1A24618B6CED6F17139"
+  },
+  {
+    "Path": "GameState/PlayState.cpp",
+    "Bytes": 3120,
+    "Kind": "application-source",
+    "SHA256": "79582B40AE540DB26C82C42D117BBD0254DA415BAFC9673AA66E9CBB5942E9D9"
+  },
+  {
+    "Path": "GameState/PlayState.h",
+    "Bytes": 527,
+    "Kind": "application-source",
+    "SHA256": "EA901B2F0B938344EF26D0D9F294DAB1788AB0B50B5DB075A37E788B5F0A81C7"
+  },
+  {
+    "Path": "GameState/SDLGameObject.cpp",
+    "Bytes": 1111,
+    "Kind": "application-source",
+    "SHA256": "D60EEF887E3D69D01497DD3DC84ECFDA7EB4F04F8442AF0AA0476C7EDD8647C2"
+  },
+  {
+    "Path": "GameState/SDLGameObject.h",
+    "Bytes": 583,
+    "Kind": "application-source",
+    "SHA256": "72B6C52C75E9C1294D3B3A0844B8EB8088078DCAB42957AF012D613FB6E2B693"
+  },
+  {
+    "Path": "GameState/TextureManager.cpp",
+    "Bytes": 2138,
+    "Kind": "application-source",
+    "SHA256": "06799CCDC8A2DB3615778F1A2AFEA7131582A15071E07F18072512B836690FCC"
+  },
+  {
+    "Path": "GameState/TextureManager.h",
+    "Bytes": 718,
+    "Kind": "application-source",
+    "SHA256": "F11041286E373C3C2E41A36FF6EA5F35996E6305DD3E93FEC3FE15A58CC683F9"
+  },
+  {
+    "Path": "GameState/Vector2D.h",
+    "Bytes": 2059,
+    "Kind": "application-source",
+    "SHA256": "9A985864CEB4A8B25769755272477753C4EEACE496E80C3CE9401E234138E565"
+  },
+  {
+    "Path": "GameState/.vscode/c_cpp_properties.json",
+    "Bytes": 0,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/button.png",
+    "Bytes": 27885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/exit.png",
+    "Bytes": 27477,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/gameover.png",
+    "Bytes": 12241,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/helicopter.png",
+    "Bytes": 5545,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/helicopter2.png",
+    "Bytes": 6885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/main.png",
+    "Bytes": 19480,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/restart.png",
+    "Bytes": 16969,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/resume.png",
+    "Bytes": 16681,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/GameState.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/GameState.exe.recipe",
+    "Bytes": 304,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/GameState.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/GameState.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.Build.CppClean.log",
+    "Bytes": 1453,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.log",
+    "Bytes": 1172,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.log",
+    "Bytes": 2103,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/CL.command.1.tlog",
+    "Bytes": 5134,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/Cl.items.tlog",
+    "Bytes": 823,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/CL.read.1.tlog",
+    "Bytes": 189194,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/CL.write.1.tlog",
+    "Bytes": 3524,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/InputHandle.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/link.command.1.tlog",
+    "Bytes": 2704,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/link.read.1.tlog",
+    "Bytes": 4808,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/link.secondary.1.tlog",
+    "Bytes": 512,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/InputHandle.tlog/link.write.1.tlog",
+    "Bytes": 1152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/CL.command.1.tlog",
+    "Bytes": 4314,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/Cl.items.tlog",
+    "Bytes": 662,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/CL.read.1.tlog",
+    "Bytes": 160710,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/CL.write.1.tlog",
+    "Bytes": 2878,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/link.command.1.tlog",
+    "Bytes": 2454,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/link.read.1.tlog",
+    "Bytes": 4460,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/link.secondary.1.tlog",
+    "Bytes": 421,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/link.write.1.tlog",
+    "Bytes": 970,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/Movement.tlog/Movement.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "GameState/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/Enemy.cpp",
+    "Bytes": 372,
+    "Kind": "application-source",
+    "SHA256": "47F9348446559EBDC5BC1402AF046EFECE09A66E76129E4693B5ADF25AFCEDD6"
+  },
+  {
+    "Path": "InputHandle/Enemy.h",
+    "Bytes": 207,
+    "Kind": "application-source",
+    "SHA256": "559F2CE242432D3EDEF2F148A98673BB4C6F6E6794307864E9A6E53362647C16"
+  },
+  {
+    "Path": "InputHandle/Game.cpp",
+    "Bytes": 2527,
+    "Kind": "application-source",
+    "SHA256": "1DE9DF240F51F32542158975CC2F85B8A69ECEB4C866D91EE463303F0FCD8A24"
+  },
+  {
+    "Path": "InputHandle/Game.h",
+    "Bytes": 1049,
+    "Kind": "application-source",
+    "SHA256": "84381DC2780BB18A334419D2F5030C10B949B8653178C40B8B41034D09163756"
+  },
+  {
+    "Path": "InputHandle/GameObject.h",
+    "Bytes": 287,
+    "Kind": "application-source",
+    "SHA256": "6FA71A618BAB5F95729FE490089C69284C5077FA214B49F0A9E3D6636CF7503D"
+  },
+  {
+    "Path": "InputHandle/InputHandle.vcxproj",
+    "Bytes": 8164,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/InputHandle.vcxproj.filters",
+    "Bytes": 3112,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/InputHandle.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/InputHandler.cpp",
+    "Bytes": 8086,
+    "Kind": "application-source",
+    "SHA256": "192486DE7079EC305062204BEF7BE11F0A9CAFFD75173D926F01178E1D8F3910"
+  },
+  {
+    "Path": "InputHandle/InputHandler.h",
+    "Bytes": 2335,
+    "Kind": "application-source",
+    "SHA256": "C4D97F7B89685636F26D01F0A2B15BA94704354AFCBCC9712520AC061C6D4A23"
+  },
+  {
+    "Path": "InputHandle/LoaderParams.h",
+    "Bytes": 558,
+    "Kind": "application-source",
+    "SHA256": "B954F9C250D58A87AB6521A055F0075B1469C01543D33A71F0B886FF3466D6CB"
+  },
+  {
+    "Path": "InputHandle/main.cpp",
+    "Bytes": 710,
+    "Kind": "application-source",
+    "SHA256": "B20C9849F78BF896F9191D2B9BA6EDC81F7D79FC39F2B4042AC2C6BAE4D7C7C9"
+  },
+  {
+    "Path": "InputHandle/Player.cpp",
+    "Bytes": 2194,
+    "Kind": "application-source",
+    "SHA256": "5DEFA3A1AA4DB1D2DE9F053C68E5186F4C2866657BDA7BD529BB213E9A06CD4B"
+  },
+  {
+    "Path": "InputHandle/Player.h",
+    "Bytes": 237,
+    "Kind": "application-source",
+    "SHA256": "52D62E205AA9ADBABA15E86082CBAEC8E4C1508AA2D5829E0D61C9391D68BF0C"
+  },
+  {
+    "Path": "InputHandle/SDLGameObject.cpp",
+    "Bytes": 848,
+    "Kind": "application-source",
+    "SHA256": "660B3D6D5F5EF2E5CD9793CE8EE4EAD3C746FFB434071D976AC110587E3F1768"
+  },
+  {
+    "Path": "InputHandle/SDLGameObject.h",
+    "Bytes": 436,
+    "Kind": "application-source",
+    "SHA256": "FB4CD4A5ABFE1D95D2CBD1DF978A59594DC93F91B50C457832288945D789FCD2"
+  },
+  {
+    "Path": "InputHandle/TextureManager.cpp",
+    "Bytes": 1812,
+    "Kind": "application-source",
+    "SHA256": "9DA3B3E75FA65A734688CF867D214BC9E8A5A833C75B163A1D6FBD24A53A58D8"
+  },
+  {
+    "Path": "InputHandle/TextureManager.h",
+    "Bytes": 674,
+    "Kind": "application-source",
+    "SHA256": "E46BB8240B68C53AF0CE3CFF3C3725D8515345077DFFC5407DA3F614DD4A12E7"
+  },
+  {
+    "Path": "InputHandle/Vector2D.h",
+    "Bytes": 2059,
+    "Kind": "application-source",
+    "SHA256": "9A985864CEB4A8B25769755272477753C4EEACE496E80C3CE9401E234138E565"
+  },
+  {
+    "Path": "InputHandle/.vscode/c_cpp_properties.json",
+    "Bytes": 0,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/InputHandle.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/InputHandle.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/InputHandle.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/InputHandle.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.log",
+    "Bytes": 2103,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/CL.command.1.tlog",
+    "Bytes": 4314,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/Cl.items.tlog",
+    "Bytes": 662,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/CL.read.1.tlog",
+    "Bytes": 160710,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/CL.write.1.tlog",
+    "Bytes": 2878,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/link.command.1.tlog",
+    "Bytes": 2454,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/link.read.1.tlog",
+    "Bytes": 4460,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/link.secondary.1.tlog",
+    "Bytes": 421,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/link.write.1.tlog",
+    "Bytes": 970,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/Movement.tlog/Movement.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "InputHandle/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/Enemy.cpp",
+    "Bytes": 372,
+    "Kind": "application-source",
+    "SHA256": "47F9348446559EBDC5BC1402AF046EFECE09A66E76129E4693B5ADF25AFCEDD6"
+  },
+  {
+    "Path": "Movement/Enemy.h",
+    "Bytes": 207,
+    "Kind": "application-source",
+    "SHA256": "559F2CE242432D3EDEF2F148A98673BB4C6F6E6794307864E9A6E53362647C16"
+  },
+  {
+    "Path": "Movement/Game.cpp",
+    "Bytes": 2408,
+    "Kind": "application-source",
+    "SHA256": "E44659FA5895896685AAC390498D2891CB01A2D5B92CCAD7DE819F05B7C631B7"
+  },
+  {
+    "Path": "Movement/Game.h",
+    "Bytes": 1034,
+    "Kind": "application-source",
+    "SHA256": "E17E36C10C7C2EE8F0DA403E0F5F8B8FA3FA856266A3F50310524E767BBDD581"
+  },
+  {
+    "Path": "Movement/GameObject.h",
+    "Bytes": 287,
+    "Kind": "application-source",
+    "SHA256": "6FA71A618BAB5F95729FE490089C69284C5077FA214B49F0A9E3D6636CF7503D"
+  },
+  {
+    "Path": "Movement/LoaderParams.h",
+    "Bytes": 546,
+    "Kind": "application-source",
+    "SHA256": "E574593C2C3ADF600A2E5E7DAF85E5CBC4B2BBD09C280E2324DE2897034D6F12"
+  },
+  {
+    "Path": "Movement/main.cpp",
+    "Bytes": 676,
+    "Kind": "application-source",
+    "SHA256": "B761BA66BF2842DA6620C8CF354ADCA39545119898DFB57073E83B90085A8DEB"
+  },
+  {
+    "Path": "Movement/Movement.vcxproj",
+    "Bytes": 8071,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/Movement.vcxproj.filters",
+    "Bytes": 2916,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/Movement.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/Player.cpp",
+    "Bytes": 403,
+    "Kind": "application-source",
+    "SHA256": "A07CDE3137F41D63FCBE264B90BCD4BB6D37B9D5273B9A454F6C237E214735A5"
+  },
+  {
+    "Path": "Movement/Player.h",
+    "Bytes": 205,
+    "Kind": "application-source",
+    "SHA256": "C1793084D78FB7F035DAD191C608120DBEE2EDBC023E49EED4F42CF385ECFD35"
+  },
+  {
+    "Path": "Movement/SDLGameObject.cpp",
+    "Bytes": 848,
+    "Kind": "application-source",
+    "SHA256": "660B3D6D5F5EF2E5CD9793CE8EE4EAD3C746FFB434071D976AC110587E3F1768"
+  },
+  {
+    "Path": "Movement/SDLGameObject.h",
+    "Bytes": 436,
+    "Kind": "application-source",
+    "SHA256": "FB4CD4A5ABFE1D95D2CBD1DF978A59594DC93F91B50C457832288945D789FCD2"
+  },
+  {
+    "Path": "Movement/TextureManager.cpp",
+    "Bytes": 1812,
+    "Kind": "application-source",
+    "SHA256": "9DA3B3E75FA65A734688CF867D214BC9E8A5A833C75B163A1D6FBD24A53A58D8"
+  },
+  {
+    "Path": "Movement/TextureManager.h",
+    "Bytes": 674,
+    "Kind": "application-source",
+    "SHA256": "E46BB8240B68C53AF0CE3CFF3C3725D8515345077DFFC5407DA3F614DD4A12E7"
+  },
+  {
+    "Path": "Movement/Vector2D.h",
+    "Bytes": 2140,
+    "Kind": "application-source",
+    "SHA256": "70583102405462C9E0D24B0CE37616AA5CD58D27F94160474BA72070B2EDF393"
+  },
+  {
+    "Path": "Movement/.vscode/c_cpp_properties.json",
+    "Bytes": 0,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/Movement.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "Movement/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/.gitignore",
+    "Bytes": 833,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos.sln",
+    "Bytes": 9201,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos.vcxproj",
+    "Bytes": 6404,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos.vcxproj.filters",
+    "Bytes": 855,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/vcpkg.json",
+    "Bytes": 192,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos/x64/Debug/SDL-demos.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos/x64/Debug/SDL-demos.exe.recipe",
+    "Bytes": 304,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos/x64/Debug/SDL-demos.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos/x64/Debug/SDL-demos.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/SDL-demos/x64/Debug/SDL-demos.tlog/SDL-demos.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/breakupHello.exe",
+    "Bytes": 65536,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/breakupHello.pdb",
+    "Bytes": 1028096,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/demo2.exe",
+    "Bytes": 71680,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/demo2.pdb",
+    "Bytes": 1527808,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/SDL2_image.dll",
+    "Bytes": 287232,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/zlib.dll",
+    "Bytes": 84992,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/blocks1.png",
+    "Bytes": 36610,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/button.png",
+    "Bytes": 27885,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/exit.png",
+    "Bytes": 27477,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/gameover.png",
+    "Bytes": 12241,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/helicopter.png",
+    "Bytes": 5545,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/helicopter2.png",
+    "Bytes": 6885,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/main.png",
+    "Bytes": 19480,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/map1.tmx",
+    "Bytes": 1321,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/restart.png",
+    "Bytes": 16969,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/resume.png",
+    "Bytes": 16681,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDL-demos/x64/Debug/assets/test.xml",
+    "Bytes": 2292,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/Enemy.cpp",
+    "Bytes": 325,
+    "Kind": "application-source",
+    "SHA256": "0FE5C9E621064EF78D2A39D58FC167B05F07073D66215C91FC5D902BB1CA91CE"
+  },
+  {
+    "Path": "SDLGameObjects/Enemy.h",
+    "Bytes": 207,
+    "Kind": "application-source",
+    "SHA256": "559F2CE242432D3EDEF2F148A98673BB4C6F6E6794307864E9A6E53362647C16"
+  },
+  {
+    "Path": "SDLGameObjects/Game.cpp",
+    "Bytes": 2408,
+    "Kind": "application-source",
+    "SHA256": "E44659FA5895896685AAC390498D2891CB01A2D5B92CCAD7DE819F05B7C631B7"
+  },
+  {
+    "Path": "SDLGameObjects/Game.h",
+    "Bytes": 1038,
+    "Kind": "application-source",
+    "SHA256": "B816F48E5DC24C3CF7DD98CCAB0C187BDF088E1B4AF828C94B67064CA9AB05AF"
+  },
+  {
+    "Path": "SDLGameObjects/GameObject.h",
+    "Bytes": 287,
+    "Kind": "application-source",
+    "SHA256": "6FA71A618BAB5F95729FE490089C69284C5077FA214B49F0A9E3D6636CF7503D"
+  },
+  {
+    "Path": "SDLGameObjects/LoaderParams.h",
+    "Bytes": 546,
+    "Kind": "application-source",
+    "SHA256": "E574593C2C3ADF600A2E5E7DAF85E5CBC4B2BBD09C280E2324DE2897034D6F12"
+  },
+  {
+    "Path": "SDLGameObjects/main.cpp",
+    "Bytes": 450,
+    "Kind": "application-source",
+    "SHA256": "3A52757F2C2B6C5DCCB4006C275294AA8BFB633F27BA5BE23B19842F14DE19AD"
+  },
+  {
+    "Path": "SDLGameObjects/Player.cpp",
+    "Bytes": 366,
+    "Kind": "application-source",
+    "SHA256": "7E6507E50AFFD488A8D458798A41BFFDA5E2B7F023EF7703A0774B7D004428F6"
+  },
+  {
+    "Path": "SDLGameObjects/Player.h",
+    "Bytes": 205,
+    "Kind": "application-source",
+    "SHA256": "C1793084D78FB7F035DAD191C608120DBEE2EDBC023E49EED4F42CF385ECFD35"
+  },
+  {
+    "Path": "SDLGameObjects/SDLGameObject.cpp",
+    "Bytes": 742,
+    "Kind": "application-source",
+    "SHA256": "1530B02F1EDB562A1165B7EC24E004EE416CCE1D6FFAAA1F24FC2052F7C55B6B"
+  },
+  {
+    "Path": "SDLGameObjects/SDLGameObject.h",
+    "Bytes": 365,
+    "Kind": "application-source",
+    "SHA256": "011388C359CF0A7D4ABD1894D43253D9DE6CA03B1131B8D573E19541D77CE247"
+  },
+  {
+    "Path": "SDLGameObjects/SDLGameObjects.vcxproj",
+    "Bytes": 8037,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/SDLGameObjects.vcxproj.filters",
+    "Bytes": 2823,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/SDLGameObjects.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/TextureManager.cpp",
+    "Bytes": 1812,
+    "Kind": "application-source",
+    "SHA256": "9DA3B3E75FA65A734688CF867D214BC9E8A5A833C75B163A1D6FBD24A53A58D8"
+  },
+  {
+    "Path": "SDLGameObjects/TextureManager.h",
+    "Bytes": 674,
+    "Kind": "application-source",
+    "SHA256": "E46BB8240B68C53AF0CE3CFF3C3725D8515345077DFFC5407DA3F614DD4A12E7"
+  },
+  {
+    "Path": "SDLGameObjects/.vscode/c_cpp_properties.json",
+    "Bytes": 439,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/x64/Debug/SDLGameObjects.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "SDLGameObjects/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/AnimatedGraphic.cpp",
+    "Bytes": 638,
+    "Kind": "application-source",
+    "SHA256": "8B62EBE043BCE06FB37F963649C82BAD9D68AED8A5A0F9ECC0B2BDFB64990BD4"
+  },
+  {
+    "Path": "TileMaps/AnimatedGraphic.h",
+    "Bytes": 461,
+    "Kind": "application-source",
+    "SHA256": "B7EB327283920946B3F79364FB59A1A21EB17A8A7051600D9BE9A6FA3ED8D7D0"
+  },
+  {
+    "Path": "TileMaps/base64.cpp",
+    "Bytes": 3738,
+    "Kind": "third-party-helper",
+    "SHA256": "80817640E9E7821A3A61F38D389299526B03C773EE1F8BC41B0F99A7CEE78608"
+  },
+  {
+    "Path": "TileMaps/base64.h",
+    "Bytes": 140,
+    "Kind": "third-party-helper",
+    "SHA256": "EF091A48A65114612CE319D6CCD289BB639E7A6D70E07FD8AD76DC50AFD68311"
+  },
+  {
+    "Path": "TileMaps/Enemy.cpp",
+    "Bytes": 687,
+    "Kind": "application-source",
+    "SHA256": "686AD7722AFD929AEB3A5DCB0D1CE3927F99FD5468997231140E2EB484A38D45"
+  },
+  {
+    "Path": "TileMaps/Enemy.h",
+    "Bytes": 445,
+    "Kind": "application-source",
+    "SHA256": "EC2C8AB8B415A4D9777F858CDB843647855A5619C34CF757935E56ED39E2E1F3"
+  },
+  {
+    "Path": "TileMaps/Game.cpp",
+    "Bytes": 3750,
+    "Kind": "application-source",
+    "SHA256": "E02122C1D6E7C3791CDAE2CBC00EDC79126F3B22B2E9C2D34A13EC3FC8D01142"
+  },
+  {
+    "Path": "TileMaps/Game.h",
+    "Bytes": 892,
+    "Kind": "application-source",
+    "SHA256": "8350EECE2270B4516AA631FDE5F7861DCF5B770CC3E3CEE477A15E6B09951A8E"
+  },
+  {
+    "Path": "TileMaps/GameObject.h",
+    "Bytes": 416,
+    "Kind": "application-source",
+    "SHA256": "DE54B85085BAD5B456E8BB4AD328CE05706AA6BE1DFF35135F207A0B23FCF956"
+  },
+  {
+    "Path": "TileMaps/GameObjectFactory.cpp",
+    "Bytes": 1025,
+    "Kind": "application-source",
+    "SHA256": "C6E6096495E523A6EDFF63C5639832CD5BB3452BC15FFF017431BF20E156051B"
+  },
+  {
+    "Path": "TileMaps/GameObjectFactory.h",
+    "Bytes": 492,
+    "Kind": "application-source",
+    "SHA256": "002D4367961E5534A8C5127AEB1482E94958F1810060485EF7F3FF2835698DFD"
+  },
+  {
+    "Path": "TileMaps/GameOverState.cpp",
+    "Bytes": 2496,
+    "Kind": "application-source",
+    "SHA256": "6303E8C70C0F2A8A3F815C3EA044A06BF6986C7D4E0312895BBCD51393370E2B"
+  },
+  {
+    "Path": "TileMaps/GameOverState.h",
+    "Bytes": 743,
+    "Kind": "application-source",
+    "SHA256": "69F9700DFAB5BB42DD7B4612AF4580DE20E450F445DA3BFD928A41B686DB53A0"
+  },
+  {
+    "Path": "TileMaps/GameState.h",
+    "Bytes": 374,
+    "Kind": "application-source",
+    "SHA256": "0C6F7EB86B996B99C41A8242653A134DFAF45BA261F1B4DE231F77EF03438252"
+  },
+  {
+    "Path": "TileMaps/GameStateMachine.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "F55292C88E32A63ADEFD1209C93E3DD0FAD067F2935250E62008B709CEC7A358"
+  },
+  {
+    "Path": "TileMaps/GameStateMachine.h",
+    "Bytes": 284,
+    "Kind": "application-source",
+    "SHA256": "A3F0297AF0878AEB6C3E9140C5B746F5D70B65EB723BE3885041FC4DD621F80B"
+  },
+  {
+    "Path": "TileMaps/InputHandler.cpp",
+    "Bytes": 8837,
+    "Kind": "application-source",
+    "SHA256": "80F8B35ABA7DEE984CF5326B1D58F9D3E21712A7E82A5FD9CA8706FECACE9F59"
+  },
+  {
+    "Path": "TileMaps/InputHandler.h",
+    "Bytes": 2712,
+    "Kind": "application-source",
+    "SHA256": "0867F2F30AD98C98773448D6572750F2331C1C9C4ED9C39C0AC1B62523A86D86"
+  },
+  {
+    "Path": "TileMaps/Layer.h",
+    "Bytes": 253,
+    "Kind": "application-source",
+    "SHA256": "0C6E845D5380A50501503130F0077BD65C85032325D05474AB33A993DE0654F7"
+  },
+  {
+    "Path": "TileMaps/Level.cpp",
+    "Bytes": 263,
+    "Kind": "application-source",
+    "SHA256": "69386D1750790391250E54A5BF12E61128333881ADE17A671410EE5D2E994E71"
+  },
+  {
+    "Path": "TileMaps/Level.h",
+    "Bytes": 604,
+    "Kind": "application-source",
+    "SHA256": "4D102D68A0DFB940FB3D41A5D93F5854D62607CFC3557583617C75EA6354B232"
+  },
+  {
+    "Path": "TileMaps/LevelParser.cpp",
+    "Bytes": 9158,
+    "Kind": "application-source",
+    "SHA256": "D315B48DD28BDDBB99482F84F53860FF6770ED7AD068E3E81511652D4A508BC5"
+  },
+  {
+    "Path": "TileMaps/LevelParser.h",
+    "Bytes": 702,
+    "Kind": "application-source",
+    "SHA256": "01A14D36B71E25677D714A0EA645B06858590F522180E5920D5B240C619A9E09"
+  },
+  {
+    "Path": "TileMaps/LoaderParams.h",
+    "Bytes": 913,
+    "Kind": "application-source",
+    "SHA256": "DB960370018E3852BF9B2675E33388DF35F58DD14AF169682769A7914348DE35"
+  },
+  {
+    "Path": "TileMaps/main.cpp",
+    "Bytes": 710,
+    "Kind": "application-source",
+    "SHA256": "0A3D9395C6ADF1D652DC9C85EBA48BDDFCB637B472A78ECD04506878CF22C681"
+  },
+  {
+    "Path": "TileMaps/MainMenuState.cpp",
+    "Bytes": 4365,
+    "Kind": "application-source",
+    "SHA256": "D5116C0F9728845752E9673647A2764131FB8609EDF30F27C1B481B9EF6D254A"
+  },
+  {
+    "Path": "TileMaps/MainMenuState.h",
+    "Bytes": 718,
+    "Kind": "application-source",
+    "SHA256": "D9DA30F5C33856287A565A2C54921FD201B9709B341D282AB0BAEF71341091A8"
+  },
+  {
+    "Path": "TileMaps/MenuButton.cpp",
+    "Bytes": 1300,
+    "Kind": "application-source",
+    "SHA256": "241ECD28DF3A8F9B859CAB0F7112266CCA423B7BC640670795CE26DE030087B0"
+  },
+  {
+    "Path": "TileMaps/MenuButton.h",
+    "Bytes": 1452,
+    "Kind": "application-source",
+    "SHA256": "54C655CF5A9088C9F8943100C3D27DD0BD1AFE94DCD779B86E54251AEA85811D"
+  },
+  {
+    "Path": "TileMaps/MenuState.h",
+    "Bytes": 239,
+    "Kind": "application-source",
+    "SHA256": "288A77AE044D0718AE291E98B61546DD76F74A2451C12A9E08CAC735AA89E1CF"
+  },
+  {
+    "Path": "TileMaps/ObjectLayer.cpp",
+    "Bytes": 273,
+    "Kind": "application-source",
+    "SHA256": "3EF75E65F0896F663F71408DA2F41CB656DB8AEA38332760FB876CE8D95CABDA"
+  },
+  {
+    "Path": "TileMaps/ObjectLayer.h",
+    "Bytes": 316,
+    "Kind": "application-source",
+    "SHA256": "174F506715CED0D2AFFBC8363E01F434BC6B3922D4A7B4BE293196D96BF68B8D"
+  },
+  {
+    "Path": "TileMaps/PauseState.cpp",
+    "Bytes": 1858,
+    "Kind": "application-source",
+    "SHA256": "600B63E3CB7B1E70FC95860B9E0D0D5239F0303D6E37E963E021A5AFA7F13824"
+  },
+  {
+    "Path": "TileMaps/PauseState.h",
+    "Bytes": 750,
+    "Kind": "application-source",
+    "SHA256": "309506BB218A8D77C43895892E8370D898059A82F621D3D4A7531DE3162D4F55"
+  },
+  {
+    "Path": "TileMaps/Player.cpp",
+    "Bytes": 1171,
+    "Kind": "application-source",
+    "SHA256": "68C7314A2A7579CECB4CBDFF1A8DBF3DB7103B69CBE1CDC8954B31A231D2A27B"
+  },
+  {
+    "Path": "TileMaps/Player.h",
+    "Bytes": 474,
+    "Kind": "application-source",
+    "SHA256": "08B40A2FB69AC4592FDC68463684645E8F39F445603415CB0DEED001F7ED5F76"
+  },
+  {
+    "Path": "TileMaps/PlayState.cpp",
+    "Bytes": 3204,
+    "Kind": "application-source",
+    "SHA256": "E127C5685328410EA9D9D1DDBB45269E107CE7A25904C548266D71F13D82943C"
+  },
+  {
+    "Path": "TileMaps/PlayState.h",
+    "Bytes": 564,
+    "Kind": "application-source",
+    "SHA256": "EC91AE06DF48B1211FFCBE3E31F26DC881EE5DC12805631D14B1F7AFCC66C5D3"
+  },
+  {
+    "Path": "TileMaps/SDLGameObject.cpp",
+    "Bytes": 2042,
+    "Kind": "application-source",
+    "SHA256": "135818E5319DFA4124DFB86A97E447764F5E68E0C84FDC528E12CC4E83E986AF"
+  },
+  {
+    "Path": "TileMaps/SDLGameObject.h",
+    "Bytes": 675,
+    "Kind": "application-source",
+    "SHA256": "08AC19459EE23B57DC93CCF9913144974796A3FE78BF1054DFAA614495541396"
+  },
+  {
+    "Path": "TileMaps/StateParser.cpp",
+    "Bytes": 3892,
+    "Kind": "application-source",
+    "SHA256": "0D166153A71F79DAD6F8154F668DB9155D34A5282E2D01311FFEAB3A3080B87E"
+  },
+  {
+    "Path": "TileMaps/StateParser.h",
+    "Bytes": 472,
+    "Kind": "application-source",
+    "SHA256": "8AD0F002336ECB8B269C678E1700AC82E0147E97B18E3FBAD411101AF585D6D9"
+  },
+  {
+    "Path": "TileMaps/TextureManager.cpp",
+    "Bytes": 2816,
+    "Kind": "application-source",
+    "SHA256": "62AF2BB9D37EB18B48A03DE5216055BCEA1256436B55491FFF5420CDAAF17984"
+  },
+  {
+    "Path": "TileMaps/TextureManager.h",
+    "Bytes": 875,
+    "Kind": "application-source",
+    "SHA256": "01495F7E395DFD465420B3CBCE80B1401A46F256DFE3199E95EA04F8600DCA9F"
+  },
+  {
+    "Path": "TileMaps/TileLayer.cpp",
+    "Bytes": 4234,
+    "Kind": "application-source",
+    "SHA256": "4D55A850B61C76B8009E68CC91EE5998CC8C8C48D202354D48FA121865E0074E"
+  },
+  {
+    "Path": "TileMaps/TileLayer.h",
+    "Bytes": 1822,
+    "Kind": "application-source",
+    "SHA256": "D487E4928097B2FB4A5A6611E7C960EF1D04376619DEAD1F798F2603EAA52050"
+  },
+  {
+    "Path": "TileMaps/TileMaps.vcxproj",
+    "Bytes": 10455,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/TileMaps.vcxproj.filters",
+    "Bytes": 7484,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/TileMaps.vcxproj.user",
+    "Bytes": 168,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/tinystr.cpp",
+    "Bytes": 2507,
+    "Kind": "third-party-helper",
+    "SHA256": "220612A57261E51016670678A1474E28C3EECB30B0544CF16EFB9851ECB4CB5B"
+  },
+  {
+    "Path": "TileMaps/tinystr.h",
+    "Bytes": 8198,
+    "Kind": "third-party-helper",
+    "SHA256": "718E05D00AE40D2EABD688C64B980FA40419ACE7C12D9685C710888CAF102DD5"
+  },
+  {
+    "Path": "TileMaps/tinyxml.cpp",
+    "Bytes": 37594,
+    "Kind": "third-party-helper",
+    "SHA256": "D3517D20E1A9D1651DD36B89F984DE08DCD0D2D28868BFC554A15590F92E7BF6"
+  },
+  {
+    "Path": "TileMaps/tinyxml.h",
+    "Bytes": 64888,
+    "Kind": "third-party-helper",
+    "SHA256": "E3ADAFEA3036D51A86EED98398812E9B287EC3C89CF222AC27EC3C7933931AD7"
+  },
+  {
+    "Path": "TileMaps/tinyxmlerror.cpp",
+    "Bytes": 1791,
+    "Kind": "third-party-helper",
+    "SHA256": "2367FC5035030390FD2D420501ED9AFF5A5D32C59F3C5B1EFB9A769D469ED926"
+  },
+  {
+    "Path": "TileMaps/tinyxmlparser.cpp",
+    "Bytes": 37242,
+    "Kind": "third-party-helper",
+    "SHA256": "1DD6068847EE18697E559B7876136BCAAF3C9ECA58C28863320E8A21C8F4AEB5"
+  },
+  {
+    "Path": "TileMaps/Vector2D.h",
+    "Bytes": 2059,
+    "Kind": "application-source",
+    "SHA256": "9A985864CEB4A8B25769755272477753C4EEACE496E80C3CE9401E234138E565"
+  },
+  {
+    "Path": "TileMaps/.vscode/c_cpp_properties.json",
+    "Bytes": 0,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/animate-alpha.png",
+    "Bytes": 8393,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/animate.bmp",
+    "Bytes": 188984,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/animate.png",
+    "Bytes": 6295,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/blocks1.png",
+    "Bytes": 36610,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/button.png",
+    "Bytes": 27885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/exit.png",
+    "Bytes": 27477,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/gameover.png",
+    "Bytes": 12241,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/helicopter.png",
+    "Bytes": 5545,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/helicopter2.png",
+    "Bytes": 6885,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/main.png",
+    "Bytes": 19480,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/map1.tmx",
+    "Bytes": 1321,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/restart.png",
+    "Bytes": 16969,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/resume.png",
+    "Bytes": 16681,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/rider.bmp",
+    "Bytes": 32420,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/assets/test.xml",
+    "Bytes": 2292,
+    "Kind": "asset-or-config",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.exe.recipe",
+    "Bytes": 310,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.log",
+    "Bytes": 1785,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.Build.CppClean.log",
+    "Bytes": 2424,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.exe.recipe",
+    "Bytes": 304,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.log",
+    "Bytes": 2653,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.Build.CppClean.log",
+    "Bytes": 1453,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.exe.recipe",
+    "Bytes": 306,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.log",
+    "Bytes": 1172,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.log",
+    "Bytes": 2103,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.Build.CppClean.log",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.exe.recipe",
+    "Bytes": 309,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.log",
+    "Bytes": 240,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/TileMaps.Build.CppClean.log",
+    "Bytes": 2515,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/TileMaps.exe.recipe",
+    "Bytes": 303,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/TileMaps.log",
+    "Bytes": 3,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/TileMaps.vcxproj.FileListAbsolute.txt",
+    "Bytes": 0,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/CL.command.1.tlog",
+    "Bytes": 15934,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/Cl.items.tlog",
+    "Bytes": 2739,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/CL.read.1.tlog",
+    "Bytes": 510594,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/CL.write.1.tlog",
+    "Bytes": 10914,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/DataDriveDesign.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/link.command.1.tlog",
+    "Bytes": 5564,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/link.read.1.tlog",
+    "Bytes": 9012,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/link.secondary.1.tlog",
+    "Bytes": 1542,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/DataDriveDesign.tlog/link.write.1.tlog",
+    "Bytes": 3212,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/CL.command.1.tlog",
+    "Bytes": 10994,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/Cl.items.tlog",
+    "Bytes": 1763,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/CL.read.1.tlog",
+    "Bytes": 378758,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/CL.write.1.tlog",
+    "Bytes": 7056,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/GameState.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/link.command.1.tlog",
+    "Bytes": 4152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/link.read.1.tlog",
+    "Bytes": 6940,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/link.secondary.1.tlog",
+    "Bytes": 1015,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/GameState.tlog/link.write.1.tlog",
+    "Bytes": 2158,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/CL.command.1.tlog",
+    "Bytes": 5134,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/Cl.items.tlog",
+    "Bytes": 823,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/CL.read.1.tlog",
+    "Bytes": 189194,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/CL.write.1.tlog",
+    "Bytes": 3524,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/InputHandle.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/link.command.1.tlog",
+    "Bytes": 2704,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/link.read.1.tlog",
+    "Bytes": 4808,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/link.secondary.1.tlog",
+    "Bytes": 512,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/InputHandle.tlog/link.write.1.tlog",
+    "Bytes": 1152,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/CL.command.1.tlog",
+    "Bytes": 4314,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/Cl.items.tlog",
+    "Bytes": 662,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/CL.read.1.tlog",
+    "Bytes": 160710,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/CL.write.1.tlog",
+    "Bytes": 2878,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/link.command.1.tlog",
+    "Bytes": 2454,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/link.read.1.tlog",
+    "Bytes": 4460,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/link.secondary.1.tlog",
+    "Bytes": 421,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/link.write.1.tlog",
+    "Bytes": 970,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/Movement.tlog/Movement.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/CL.command.1.tlog",
+    "Bytes": 4458,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/Cl.items.tlog",
+    "Bytes": 734,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/CL.read.1.tlog",
+    "Bytes": 160652,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/CL.write.1.tlog",
+    "Bytes": 3190,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/link.command.1.tlog",
+    "Bytes": 2574,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/link.read.1.tlog",
+    "Bytes": 4616,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/link.secondary.1.tlog",
+    "Bytes": 469,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/link.write.1.tlog",
+    "Bytes": 1066,
+    "Kind": "generated",
+    "SHA256": null
+  },
+  {
+    "Path": "TileMaps/x64/Debug/SDLGameObjects.tlog/SDLGameObjects.lastbuildstate",
+    "Bytes": 167,
+    "Kind": "generated",
+    "SHA256": null
+  }
+]

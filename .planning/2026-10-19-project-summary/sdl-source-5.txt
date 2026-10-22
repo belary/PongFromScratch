@@ -1,0 +1,580 @@
+FILE AlienAttack/BulletHandler.h
+#pragma once
+#include <iostream>
+#include <vector>
+
+#include "Bullet.h"
+
+class BulletHandler
+{
+public:
+	static BulletHandler* Instance();
+	void addPlayerBullet(int x, int y, int width, int height, std::string textureID, int numFrames, Vector2D heading);
+	void addEnemyBullet(int x, int y, int width, int height, std::string textureID, int numFrames, Vector2D heading);
+
+	void updateBullets();
+	void drawBullets();
+	void clearBullets();
+
+	const std::vector<PlayerBullet*> getPlayerBullets() { return m_playerBullets; }
+	const std::vector<EnemyBullet*> getEnemyBullets() { return m_enemyBullets; }
+
+private:
+	BulletHandler() {}
+	~BulletHandler() {}
+
+	BulletHandler(const BulletHandler&);
+	BulletHandler& operator=(const BulletHandler&);
+
+	std::vector<PlayerBullet*> m_playerBullets;
+	std::vector<EnemyBullet*> m_enemyBullets;
+};
+
+typedef BulletHandler TheBulletHandler;
+
+FILE AlienAttack/Collision.h
+#pragma once
+#include "SDL.h"
+#include "Vector2D.h"
+
+const static int s_buffer = 4;
+
+/*
+算法原理
+	这是一个分离轴定理（SAT）的简化版本：
+	如果两个矩形在任意轴上分离，则它们不相交
+	只有当两个矩形在所有轴上都不分离时，才发生碰撞
+*/
+static bool RectRect(SDL_Rect* A, SDL_Rect* B)
+{
+	int aHBuf = A->h / s_buffer;
+	int aWBuf = A->w / s_buffer;
+
+	int bHBuf = B->h / s_buffer;
+	int bWBuf = B->w / s_buffer;
+
+	// A的底边纵坐标比B的顶部纵坐标小
+	if ((A->y + A->w) - aHBuf <= B->y + bHBuf) { return false; }
+
+	// A的顶部纵坐标比B的底部纵坐标大
+	if ((A->y + aHBuf) >= (B->y + B->h) - bHBuf) { return false; }
+
+	// A的右边横坐标比B的左边横坐标要小
+	if ((A->x + A->w) - aWBuf <= B->x + bWBuf) { return false; }
+
+	// A的左边横坐标比B的右边横坐标要大
+	if ((A->x + aWBuf) >= (B->x + B->w) - bWBuf) { return false; }
+
+	// 其他情况都是碰撞了
+	return true;
+
+}
+
+FILE AlienAttack/CollisionManager.cpp
+#include "CollisionManager.h"
+#include "Collision.h"
+#include "Player.h"
+#include "Enemy.h"
+#include "BulletHandler.h"
+#include "TileLayer.h"
+
+void CollisionManager::checkPlayerEnemyBulletCollision(Player* pPlayer)
+{
+	SDL_Rect* pRect1 = new SDL_Rect();
+	pRect1->x = pPlayer->getPosition().getX();
+	pRect1->y = pPlayer->getPosition().getY();
+	pRect1->w = pPlayer->getWidth();
+	pRect1->h = pPlayer->getHeight();
+
+	// 遍历每一颗敌机子弹
+	for (int i = 0; i < TheBulletHandler::Instance()->getEnemyBullets().size(); i++)
+	{
+		EnemyBullet* pEnemyBullet = TheBulletHandler::Instance()->getEnemyBullets()[i];
+
+		// 子弹对应的检测碰撞矩形
+		SDL_Rect* pRect2 = new SDL_Rect(); // 堆上分配
+		pRect2->x = pEnemyBullet->getPosition().getX();
+		pRect2->y = pEnemyBullet->getPosition().getY();
+		pRect2->w = pEnemyBullet->getWidth();
+		pRect2->h = pEnemyBullet->getHeight();
+
+		if (RectRect(pRect1, pRect2))
+		{
+			//发生了碰撞
+			if (!pPlayer->isDying() && !pEnemyBullet->isDying())
+			{
+				pPlayer->collision();
+				pEnemyBullet->collision();
+			}
+		}
+
+		// 必须手动清理
+		delete pRect2; // 处理完就子弹碰撞矩形并非敌机子弹对象？？
+	}
+
+	delete pRect1;
+}
+
+void CollisionManager::checkPlayerEnemyCollision(Player* pPlayer, const std::vector<GameObject*>& objects)
+{
+	SDL_Rect* pRect1 = new SDL_Rect();
+	pRect1->x = pPlayer->getPosition().getX();
+	pRect1->y = pPlayer->getPosition().getY();
+	pRect1->w = pPlayer->getWidth();
+	pRect1->h = pPlayer->getHeight();
+
+	for (int i = 0; i < objects.size(); i++)
+	{
+		// 对象不在更新状态（屏幕外或已停用）
+		if (objects[i]->type() != std::string("Enemy") || !objects[i]->updating() ||)
+		{
+			continue;
+		}
+
+		if (objects[i]->dead() || objects[i]->isDying())
+		{
+			continue;
+		}
+
+		SDL_Rect* pRect2 = new SDL_Rect();
+		pRect2->x = objects[i]->getPosition().getX();
+		pRect2->y = objects[i]->getPosition().getY();
+		pRect2->w = objects[i]->getWidth();
+		pRect2->h = objects[i]->getHeight();
+
+		if (RectRect(pRect1, pRect2))
+		{
+			pPlayer->collision();
+		}
+		delete pRect2;
+	}
+	delete pRect1;
+}
+
+void CollisionManager::checkEnemyPlayerBulletCollision(const std::vector<GameObject*>& objects)
+{
+	// 遍历敌人
+	for (int i = 0; i < objects.size(); i++)
+	{
+		GameObject* pObject = objects[i];
+
+		// 遍历玩家子弹
+		for (int j = 0; j < TheBulletHandler::Instance()->getPlayerBullets().size(); j++)
+		{
+			if (pObject->type() != std::string("Enemy") || !pObject->updating())
+			{
+				continue;
+			}
+
+			// 创建敌人碰撞矩形
+			SDL_Rect* pRect1 = new SDL_Rect();
+			pRect1->x = pObject->getPosition().getX();
+			pRect1->y = pObject->getPosition().getY();
+			pRect1->w = pObject->getWidth();
+			pRect1->h = pObject->getHeight();
+
+			PlayerBullet* pPlayerBullet = TheBulletHandler::Instance()->getPlayerBullets()[j];
+
+			SDL_Rect* pRect2 = new SDL_Rect();
+			pRect2->x = pPlayerBullet->getPosition().getX();
+			pRect1->y = pPlayerBullet->getPosition().getY();
+			pRect2->w = pPlayerBullet->getWidth();
+			pRect2->h = pPlayerBullet->getHeight();
+
+			if (RectRect(pRect1, pRect2))
+			{
+				if (!pObject->isDying() && !pPlayerBullet->isDying())
+				{
+					pPlayerBullet->collision();
+					pObject->collision();
+				}
+			}
+
+			delete pRect1;
+			delete pRect2;
+		}
+	}
+
+	
+}
+
+void checkPlayerTileCollision(Player* pPlayer, const std::vector<TileLayer*>& collisionLayers)
+{
+	//	遍历所有的碰撞层
+	for (std::vector<TileLayer*>::const_iterator it = collisionLayers.begin(); it != collisionLayers.end(); ++it)
+	{
+		TileLayer* pTileLayer = (*it);
+
+		// 获取当前碰撞层的tile数组
+		std::vector<std::vector<int>> tiles = pTileLayer->getTileIDs();
+
+		// 当前碰撞层的偏移量（毕竟游戏时候都在滚动的)
+		Vector2D layerPos = pTileLayer->getPosition();
+
+		// 用于玩家与瓦片地图的碰撞检测的变量
+		int x, y, tileColumn, tileRow, tileid = 0;
+
+		// 将图层的世界坐标的 X 转换为瓦片列索引
+		x = layerPos.getX() / pTileLayer->getTileSize();
+		// 将图层的世界坐标的 Y 转换为瓦片行索引
+		y = layerPos.getY() / pTileLayer->getTileSize();
+
+		// 1. 玩家速度往右/下方向，使用玩家的右/下边界的世界坐标计算玩家所在瓦片的列/行索引
+		if (pPlayer->getVelocity().getX() >= 0 || pPlayer->getVelocity().getY() >= 0)
+		{
+			// 使用玩家的右边界（玩家坐标+玩家宽度） 计算玩家所在的瓦片列
+			tileColumn = (pPlayer->getPosition().getX() + pPlayer->getWidth()) / pTileLayer->getTileSize();
+
+			// 使用玩家的下边界（玩家坐标+玩家宽度） 计算玩家所在的瓦片行
+			tileRow = (pPlayer->getPosition().getY() + pPlayer->getHeight()) / pTileLayer->getTileSize();
+
+			// 基于偏移量计算得出
+			tileid = tiles[tileRow + y][tileColumn + x];
+		}
+		else if (pPlayer->getVelocity().getX() < 0 || pPlayer->getVelocity().getY() < 0)
+		{
+			// 速度往左/上，则使用玩家的左上边界来计算所在的瓦片列/行
+			tileColumn = pPlayer->getPosition().getX() / pTileLayer->getTileSize();
+			tileRow = pPlayer->getPosition().getY() / pTileLayer->getTileSize();
+
+			tileid = tiles[tileRow + y][tileColumn + x];
+		}
+
+		// 检查所在的瓦片是否有障碍物
+		if (tileid != 0)
+		{
+			pPlayer->collision();
+		}
+
+	}
+
+}
+
+FILE AlienAttack/CollisionManager.h
+#pragma once
+#include <iostream>
+#include <vector>
+
+class Player;
+class GameObject;
+class TileLayer;
+
+class CollisionManager
+{
+public:
+	void checkPlayerEnemyBulletCollision(Player* pPlayer);
+	void checkPlayerEnemyCollision(Player* pPlayer, const std::vector<GameObject*>& objects);
+	void checkEnemyPlayerBulletCollision(const std::vector<GameObject*>& objects);
+	void checkPlayerTileCollision(Player* pPlayer, const std::vector<TileLayer*>& collisionLayers);
+};
+
+FILE AlienAttack/Enemy.h
+#pragma once
+#include "GameObjectFactory.h"
+#include "ShooterObject.h"
+
+class Enemy : public ShooterObject 
+{
+public:
+	void load(const LoaderParams* pParams);
+	Enemy();
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+
+	virtual std::string type() { return "Enemy"; }
+
+protected:
+	int m_health;
+	Enemy(): ShooterObject() {} // 构造函数是protected 只能由子类调用
+	virtual ~Enemy() {}
+private:
+	int m_numFrames = 5; // Number of frames for animation
+};
+
+/*
+* 工厂模式
+* 具体子类需要 Creator
+	Glider → GliderCreator
+	Eskeletor → EskeletorCreator
+	Level1Boss → Level1BossCreator
+	这些子类都继承自 Enemy，但各自有 Creator
+*/
+
+FILE AlienAttack/Eskeletor.h
+#pragma once
+#include "Enemy.h"
+#include "Game.h"
+#include "SoundManager.h"
+
+class Eskeletor : public Enemy
+{
+public:
+	virtual ~Eskeletor() {} //best practice
+	Eskeletor() : Enemy()
+	{
+
+		/*
+		*	从 main.cpp 可以看到游戏运行在 60 FPS：
+		*	const int FPS = 60;
+			const int DELAY_TIME = 1000.0f / FPS;
+			单位说明
+			m_bulletFiringSpeed = 50 表示：需要经过 50 次 update() 调用（即 50 帧）才会发射一次子弹
+			由于游戏是 60 FPS，每帧调用一次 update()
+			因此，50 帧 = 50/60 秒 ≈ 0.83 秒
+			总结：
+				m_bulletFiringSpeed 的单位是帧数（frames），表示发射子弹的间隔帧数。值越大，发射频率越低。
+		*	
+		*/
+		m_dyingTime = 50;
+		m_health = 3;
+		m_moveSpeed = 3;
+		m_bulletFiringSpeed = 50;
+	}
+
+	virtual void collision()
+	{
+		m_health -= 1;
+		/*
+		*	这段代码在生命值归零时执行，将对象从正常状态切换到死亡/爆炸状态：
+				播放死亡音效（仅一次）
+				将纹理改为 "largeexplosion"（爆炸动画）
+				重置动画帧为 0
+				设置动画帧数为 9
+				调整宽高为 60x60（爆炸效果尺寸）
+				设置 m_bDying = true，触发死亡状态
+		*/
+		if (m_health == 0)
+		{
+			if (!m_bPlayerDeathSound)
+			{
+				TheSoundManager::Instance()->playSound("explode", 0);
+				m_textureID = "largeexplosion";
+				m_currentFrame = 0;
+				m_numFrame = 9;
+				m_width = 60;
+				m_height = 60;
+				m_bDying = true;
+			}
+		}
+	}
+
+
+	virtual void update()
+	{
+		if (!m_bDying)
+		{
+			scroll(TheGame::Instance()->getScrollSpeed());
+			m_velocity.setY(m_moveSpeed);
+
+		}
+	}
+};
+
+FILE AlienAttack/Game.h
+#pragma once
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include "GameStateMachine.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void quit();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+	void setCurrentLevel(int level);
+
+	SDL_Renderer* getRenderer() const { return m_pRenderer; }
+
+	GameStateMachine* getStateMachine() const { return m_pGameStateMachine; }
+
+	int getGameWidth() const;
+	int getGameHeight() const;
+
+	bool getLevelComplete() { return m_bLevelComplete; }
+	int getCurrentLevel() { return m_currentLevel; }
+
+	float getScrollSpeed() { return m_scrollSpeed; }
+
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+	int m_gameWidth;
+	int m_gameHeight;
+	int m_currentLevel;
+	bool m_bLevelComplete;
+
+	float m_scrollSpeed;
+
+	GameStateMachine* m_pGameStateMachine;
+	Game() {};
+};
+
+typedef Game TheGame;
+
+FILE AlienAttack/GameObject.h
+#pragma once
+#include <iostream>
+#include <memory>
+
+#include "Vector2D.h"
+#include "SDL.h"
+#include "LoaderParams.h"
+
+
+class GameObject
+{
+public:
+
+	virtual ~GameObject() {};
+	// 资源载入方法用于和creator解耦（创造对象与加载对象资源解耦）
+	virtual void load(std::unique_ptr<LoaderParams> const& pParams) = 0;
+	virtual void draw() = 0;
+	virtual void update() = 0;
+	virtual void clean() = 0;
+	virtual void collision() = 0;
+	virtual std::string type() = 0;
+
+	// getter, setter
+	Vector2D& getPosition() { return m_position; }
+	Vector2D& getVelocity() { return m_velocity; }
+
+	int getWidth() { return m_width; }
+	int getHeight() { return m_height; }
+
+	// scroll the tile map
+	void scroll(float scrollSpeed)
+	{
+		if (type() != std::string("Player")) // Player is never scrolled
+		{
+			m_position.setX(m_position.getX() - scrollSpeed);
+		}
+	}
+
+	//check if it's updating
+	bool updating() { return m_bUpdating; }
+
+	// check if object is doing dying animation
+	bool isDying() { return m_bDying; }
+
+	// is the object dead?
+	bool dead() { return m_bDead; }
+
+	// set whether to update the object or not
+	void setUpdating(bool updating) { m_bUpdating = updating; }
+
+
+protected:
+	GameObject() : m_position(0, 0),
+		m_velocity(0, 0),
+		m_acceleration(0, 0),
+		m_width(0),
+		m_height(0),
+		m_currentRow(0),
+		m_currentFrame(0),
+		m_numFrame(0),
+		m_bUpdating(false),
+		m_bDying(false),
+		m_bDead(false),
+		m_angle(0),
+		m_alpha(255)
+	{
+	}
+
+	// 位置和运动
+	// movement variables 
+	Vector2D m_position;
+	Vector2D m_velocity;
+	Vector2D m_acceleration;
+
+	// 动画和显示
+	// size variables
+	int m_width;
+	int m_height;
+	// animation variables
+	int m_currentRow;
+	int m_currentFrame;
+	int m_numFrame;
+	std::string m_textureID;
+
+	// 状态控制
+	// common boolean 
+	bool m_bUpdating;
+	bool m_bDead;
+	bool m_bDying;
+
+	// rotation
+	double m_angle;
+
+	// blending
+	int m_alpha;
+
+};
+
+FILE AlienAttack/Level.h
+#pragma once
+#include <string>
+#include <vector>
+#include "Player.h"
+#include "Layer.h"
+#include "LevelParser.h"
+
+struct Tileset
+{
+	int firstGridID;
+	int tileWidth;
+	int tileHeight;
+	int spacing;
+	int margin;
+	int width;
+	int height;
+	int numColumns;
+	std::string name;
+};
+class Level
+{
+public:
+	~Level() {}
+	void update();
+	void render();
+	std::vector<Tileset>* getTilesets()
+	{
+		return &m_tilesets;
+	}
+
+	std::vector<Layer*>* getLayers()
+	{
+		return &m_layers;
+	}
+
+	std::vector<TileLayer*>* getCollisionLayers() { return &m_collisionLayers; } // 返回原始指针，允许修改容器内容
+	const std::vector<TileLayer*>& getCollidableLayers() { return m_collisionLayers; } //返回常量引用，不允许修改容器的内容
+
+	Player* getPlayer() { return m_pPlayer; }
+	void setPlayer(Player* pPlayer) { m_pPlayer = pPlayer; }
+
+private:
+	Level();
+	friend class LevelParser;
+	Player* m_pPlayer;
+	std::vector<Tileset> m_tilesets;
+	std::vector<Layer*> m_layers;
+	std::vector<TileLayer*> m_collisionLayers;
+};
+

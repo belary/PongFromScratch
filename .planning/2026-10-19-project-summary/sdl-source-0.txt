@@ -1,0 +1,695 @@
+FILE AlienAttack - 副本/AnimatedGraphic.cpp
+#include "AnimatedGraphic.h"
+
+void AnimatedGraphic::load(const LoaderParams* pParams)
+{
+	SDLGameObject::load(pParams);
+	m_animSpeed = pParams->getAnimSpeed();
+	m_currentFrame = 0; // 加了这个就报错。。todo
+}
+
+AnimatedGraphic::AnimatedGraphic(): SDLGameObject()
+{
+	m_animSpeed = 0;
+}
+
+void AnimatedGraphic::draw() {
+	SDLGameObject::draw();
+}
+
+void AnimatedGraphic::update() {
+	// Update the current frame based on time
+	m_currentFrame = int(((SDL_GetTicks() / 1000) % m_numFrames));
+	SDLGameObject::update();
+}
+
+void AnimatedGraphic::clean() {
+	std::cout << "AnimatedGraphic Cleaned" << std::endl;
+}
+
+FILE AlienAttack - 副本/AnimatedGraphic.h
+#pragma
+#include "SDLGameObject.h"
+#include "GameObjectFactory.h"
+class AnimatedGraphic : public SDLGameObject {
+public:
+	void load (const LoaderParams* pParams);
+	AnimatedGraphic();
+	virtual void draw() override;
+	virtual void update() override;
+	virtual void clean() override;
+private:
+	int m_animSpeed;
+};
+
+class AnimatedGraphicCreator : public BaseCreator
+{
+	GameObject* createGameObject() const {
+		return new AnimatedGraphic();
+	}
+};
+FILE AlienAttack - 副本/Enemy.cpp
+#include "Enemy.h"
+
+void Enemy::load(const LoaderParams* pParams) 
+{
+	std::cout << "Enemy Created" << std::endl;
+	SDLGameObject::load(pParams);
+	m_velocity.setY(2);
+	m_velocity.setX(0.001);
+}
+
+Enemy::Enemy():SDLGameObject()
+{
+}
+
+void Enemy::draw() 
+{
+	SDLGameObject::draw();
+}
+
+void Enemy::update() 
+{
+	m_currentFrame = int(((SDL_GetTicks() / 100) % m_numFrames));
+
+	if (m_position.getY() < 0) 
+	{
+		m_velocity.setY(2); // Move down if above the screen
+	} else if (m_position.getY() > 400) 
+	{
+		m_velocity.setY(-2); // Move up if below the screen
+	}
+	SDLGameObject::update();
+}
+
+void Enemy::clean() 
+{
+	std::cout << "Enemy Cleaned" << std::endl;
+}
+FILE AlienAttack - 副本/Enemy.h
+#pragma once
+#include "GameObjectFactory.h"
+#include "ShooterObject.h"
+
+class Enemy : public ShooterObject 
+{
+public:
+	void load(const LoaderParams* pParams);
+	Enemy();
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+
+	virtual std::string type() { return "Enemy"; }
+
+protected:
+	int m_health;
+	Enemy(): ShooterObject() {}
+	virtual ~Enemy() {}
+private:
+	int m_numFrames = 5; // Number of frames for animation
+};
+
+class EnemyCreator : public BaseCreator 
+{
+	GameObject* createGameObject() const
+	{
+		return new Enemy();
+	}
+};
+
+FILE AlienAttack - 副本/Game.cpp
+#include <SDL_image.h>
+#include <iostream>
+#include "InputHandler.h"
+#include "Game.h"  
+#include "MenuButton.h"
+#include "PlayState.h"
+#include "MainMenuState.h"
+#include "Enemy.h"
+#include "AnimatedGraphic.h"
+
+int Game::getGameWidth() const
+{
+	return m_gameWidth;
+}
+
+int Game::getGameHeight() const
+{
+	return m_gameHeight;
+}
+
+Game* Game::Instance() {
+	static Game instance;
+	return &instance;
+}
+
+bool Game::init(const char* title, int xpos, int ypos, int width, int height, int flags) {
+
+	if (SDL_Init(SDL_INIT_EVERYTHING) == 0) {
+		std::cout << "SDL initialized successfully" << std::endl;
+		m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
+
+		if (m_pWindow != nullptr) {
+
+			std::cout << "Create window successfully" << std::endl;
+			m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, 0);
+			if (m_pRenderer == nullptr) {
+				std::cout << "Renderer initialization failed for " << SDL_GetError() << std::endl;
+				return false;
+			}
+			std::cout << "Renderer initialization successfully" << std::endl;
+		}
+		else {
+			std::cout << "window initialization failed for " << SDL_GetError() << std::endl;
+			return false;
+		}
+
+		// 注册工厂能够创建的对象类型
+
+		TheGameObjectFactory::instance()->registerType("MenuButton",
+			new MenuButtonCreator());
+		TheGameObjectFactory::instance()->registerType("Player",
+			new PlayerCreator());
+		TheGameObjectFactory::instance()->registerType("Enemy",
+			new EnemyCreator());
+		TheGameObjectFactory::instance()->registerType("AnimatedGraphic",
+			new AnimatedGraphicCreator());
+
+		// 初始化进入 MenuState
+		m_pGameStateMachine = new GameStateMachine();
+		m_pGameStateMachine->pushState(new MainMenuState());
+
+		// 初始化joystick
+		TheInputHandler::Instance()->initialiseJoysticks();
+
+		m_gameHeight = height;
+		m_gameWidth = width;
+	}
+	// window and render initialized successfully
+	std::cout << "Game initialized successfully" << std::endl;
+
+
+	return true;
+}
+
+void Game::render() {
+	SDL_RenderClear(m_pRenderer);
+
+	// Render the current game state
+	if (m_pGameStateMachine == nullptr) {
+		std::cerr << "GameStateMachine is not initialized!" << std::endl;
+		return;
+	}
+	m_pGameStateMachine->render();
+
+	SDL_RenderPresent(m_pRenderer);
+}
+
+void Game::clean() {
+	std::cout << "Cleaning game" << std::endl;
+	SDL_DestroyWindow(m_pWindow);
+	SDL_DestroyRenderer(m_pRenderer);
+	TheInputHandler::Instance()->clean();
+	SDL_Quit();
+}
+
+
+void Game::handleEvents() {
+	TheInputHandler::Instance()->update();
+
+	//if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+	//	m_bRunning = false;
+	//}
+
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RETURN)) {
+		// 切换到 PlayState
+		m_pGameStateMachine->changeState(new PlayState());
+	}
+
+}
+
+bool Game::running() {
+	return m_bRunning;
+}
+
+void Game::setRunning(bool running) {
+	m_bRunning = running;
+}
+
+void Game::setCurrentLevel(int level)
+{
+	m_currentLevel = level;
+	m_pGameStateMachine->changeState(new BetweenLevelState());
+	m_bLevelComplete = false;
+
+}
+
+
+
+
+
+/*
+单条更新链
+	Game::update()
+	-> GameStateMachine::update()
+		-> PlayState::update()
+			-> 遍历 PlayState 的 m_gameObjects 调用各自 update()
+
+	+------------+      +---------------------+      +--------------------+
+	|   Game     | ---> |   GameStateMachine  | ---> |   Current GameState|
+	|            |      |                     |      | (e.g., PlayState)  |
+	|            |      |                     |      |                    |
+	| update()   | ---> | update()            | ---> | update()           |
+	|            |      |                     |      | - update GameObject|
+	+------------+      +---------------------+      +--------------------+
+*/
+void Game::update() {
+
+	m_pGameStateMachine->update();
+}
+
+void Game::quit() {
+	m_bRunning = false;
+}
+
+FILE AlienAttack - 副本/Game.h
+#pragma once
+#include "SDL.h"
+#include "TextureManager.h"
+#include "Player.h"
+#include "Enemy.h"
+#include "GameStateMachine.h"
+#include <vector>
+
+class Game {
+public:
+
+	bool init(const char* title, int xpos, int ypos, int width, int height, int flags);
+	void render();
+	void handleEvents();
+	void update();
+	void quit();
+	void clean();
+	bool running();
+	void setRunning(bool running);
+	void setCurrentLevel(int level);
+
+	SDL_Renderer* getRenderer() const { return m_pRenderer; }
+
+	GameStateMachine* getStateMachine() const { return m_pGameStateMachine; }
+
+	int getGameWidth() const;
+	int getGameHeight() const;
+
+	bool getLevelComplete() { return m_bLevelComplete; }
+	int getCurrentLevel() { return m_currentLevel; }
+
+	// singleton instance
+	static Game* Instance();
+
+private:
+	bool m_bRunning;
+
+	SDL_Window* m_pWindow;
+	SDL_Renderer* m_pRenderer;
+
+	int m_currentFrame;
+	int m_gameWidth;
+	int m_gameHeight;
+	int m_currentLevel;
+	bool m_bLevelComplete;
+
+	GameStateMachine* m_pGameStateMachine;
+	Game() {};
+};
+
+typedef Game TheGame;
+
+FILE AlienAttack - 副本/GameObject.h
+#pragma once
+#include <iostream>
+#include "Vector2D.h"
+#include "SDL.h"
+#include "LoaderParams.h"
+
+
+class GameObject {
+public:
+	virtual ~GameObject() {};
+	// 资源载入方法用于和creator解耦（创造对象与加载对象资源解耦）
+	virtual void load(std::unique_ptr<LoaderParams> const& pParams) = 0;
+	virtual void draw() = 0;
+	virtual void update() = 0;
+	virtual void clean() = 0;
+	virtual void collision() = 0;
+	virtual std::string type() = 0;
+
+	// getter, setter
+	Vector2D& getPosition() { return m_position; }
+	int getWidth() { return m_width; }
+	int getHeight() { return m_height; }
+
+	// scroll the tile map
+	void scroll(float scrollSpeed) { m_position.setX(m_position.getX() - scrollSpeed); }
+
+	//check if it's updating
+	bool updating() { return m_bUpdating; }
+
+	// check if object is doing dying animation
+	bool isDying() { return m_bDying; }
+
+	// set whether to update the object or not
+	void setUpdating(bool updating) { m_bUpdating = updating; }
+
+protected:
+	GameObject() : m_position(0, 0),m_velocity(0, 0), m_acceleration(0, 0),
+		m_width(0), m_height(0), m_currentRow(0), m_currentFrame(0), m_numFrame(0),
+		m_bUpdating(false), m_bDying(false), m_bDead(false),
+		m_angle(0), m_alpha(255)
+	{}
+
+	// movement variables
+	Vector2D m_position;
+	Vector2D m_velocity;
+	Vector2D m_acceleration;
+
+	// size variables
+	int m_width;
+	int m_height;
+
+	// animation variables
+	int m_currentRow;
+	int m_currentFrame;
+	int m_numFrame;
+	std::string m_textureID;
+
+	// common boolean 
+	bool m_bUpdating;
+	bool m_bDead;
+	bool m_bDying;
+
+	// rotation
+	double m_angle;
+
+	// blending
+	int m_alpha;
+
+};
+
+FILE AlienAttack - 副本/GameObjectFactory.cpp
+#include "GameObjectFactory.h"
+
+bool GameObjectFactory::registerType(std::string typeID, BaseCreator* pCreator)
+{
+    std::map<std::string, BaseCreator*>::iterator it =
+        m_creators.find(typeID);
+
+	// Check if the typeID already exists
+    if (it != m_creators.end())
+    {
+        delete pCreator;
+        return false;
+    }
+    
+    m_creators[typeID] = pCreator;
+
+    return true;
+}
+
+GameObject* GameObjectFactory::create(std::string typeID)
+{
+    std::map<std::string, BaseCreator*>::iterator it =
+        m_creators.find(typeID);
+
+    if (it == m_creators.end())
+    {
+        std::cout << "could not find type: " << typeID << "\n";
+        return NULL;
+    }
+
+	// Create the game object using the creator associated with the typeID
+    BaseCreator* pCreator = (*it).second;
+    return pCreator->createGameObject();
+}
+
+GameObjectFactory* GameObjectFactory::instance()
+{
+    static GameObjectFactory instance;
+    return &instance;
+}
+
+BaseCreator::~BaseCreator()
+{
+}
+
+FILE AlienAttack - 副本/GameObjectFactory.h
+#pragma once
+#include <map>
+#include <string>
+#include "GameObject.h"
+
+class BaseCreator
+{
+public:
+	virtual GameObject* createGameObject() const = 0;
+	virtual ~BaseCreator();
+};
+
+class GameObjectFactory
+{
+public:
+	bool registerType(std::string typeID, BaseCreator* pCreator);
+	GameObject* create(std::string typeID);
+	static GameObjectFactory* instance();
+private:
+	std::map<std::string, BaseCreator*> m_creators;
+};
+
+typedef GameObjectFactory TheGameObjectFactory;
+
+FILE AlienAttack - 副本/GameOverState.cpp
+#include "GameOverState.h"
+#include "MainMenuState.h"
+#include "PlayState.h"
+#include "AnimatedGraphic.h"
+#include "InputHandler.h"
+#include "MenuButton.h"
+#include "Game.h"
+#include "StateParser.h"
+
+const std::string GameOverState::s_gameOverID = "GAMEOVER";
+
+void GameOverState::s_gameOverToMain()
+{
+	TheGame::Instance()->getStateMachine()->changeState(new MainMenuState());
+}
+
+void GameOverState::s_restartPlay()
+{
+	TheGame::Instance()->getStateMachine()->changeState(new PlayState());
+}
+
+void GameOverState::update()
+{
+	// Update logic for the game over state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->update(); // Update each game object
+	}
+	// Check for input to restart or return to main menu
+	if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_RETURN)) {
+		s_restartPlay(); // Restart the game
+	} else if (TheInputHandler::Instance()->isKeyDown(SDL_SCANCODE_ESCAPE)) {
+		s_gameOverToMain(); // Return to main menu
+	}
+}
+
+void GameOverState::render()
+{
+	// Render logic for the game over state
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->draw(); // Draw each game object
+	}
+}
+
+bool GameOverState::onEnter()
+{
+	std::cout << "Entering GameOver State " << std::endl;
+	StateParser parser;
+	parser.parseState("assets/test.xml", s_gameOverID, &m_gameObjects, &m_textureIDList);
+
+	m_callbacks.push_back(0);
+	m_callbacks.push_back(s_gameOverToMain);
+	m_callbacks.push_back(s_restartPlay);
+	setCallbacks(m_callbacks);
+
+	return true;
+}
+
+bool GameOverState::onExit()
+{
+	// 清理游戏对象
+	for (auto& gameObject : m_gameObjects) {
+		gameObject->clean();
+	}
+	m_gameObjects.clear(); // 清空游戏对象列表
+
+	for (int i = 0; i < m_textureIDList.size(); i++)
+	{
+		TheTextureManager::Instance()
+			->clearFromTextureMap(m_textureIDList[i]);
+	}
+
+	std::cout << "Exiting GameOver State" << std::endl;
+	return true;
+}
+
+void GameOverState::setCallbacks(const std::vector<Callback>& callbacks)
+{
+	// 遍历所有 GameObject，找出是 MenuButton 类型的，
+	// 然后根据 callbackID 从 callbacks 向量中找到对应函数，并通过 setCallback() 绑定给这个按钮。
+	for (int i = 0; i < m_gameObjects.size(); i++)
+	{
+		if (dynamic_cast<MenuButton*>(m_gameObjects[i]))
+		{
+			MenuButton* pButton =
+				dynamic_cast<MenuButton*>(m_gameObjects[i]);
+			pButton->setCallback(callbacks[pButton->getCallbackID()]); // 通过 setCallback() 绑定给这个按钮。
+		}
+	}
+}
+
+FILE AlienAttack - 副本/GameOverState.h
+#pragma once
+#include "GameState.h"
+#include "MenuState.h"
+
+class GameObject; // 前向声明 GameObject 类
+
+class GameOverState : public MenuState {
+	public:
+	virtual void update() override;
+	virtual void render() override;
+	virtual bool onEnter() override;
+	virtual bool onExit() override;
+	virtual std::string getStateId() const override { return s_gameOverID; }
+private:
+	virtual void setCallbacks(const std::vector<Callback>& callbacks);
+
+	std::vector<GameObject*> m_gameObjects; // 存储游戏结束状态的游戏对象
+
+
+	static const std::string s_gameOverID;
+	static void s_gameOverToMain(); // 静态函数，用于退出游戏
+	static void s_restartPlay(); // 静态函数，用于重新开始游戏
+};
+
+FILE AlienAttack - 副本/GameState.h
+#pragma once
+#include <string>
+#include <vector>
+// 蓝图
+class GameState {
+public:
+
+
+	virtual void update() = 0;
+	virtual void render() = 0;
+
+	virtual bool onEnter() = 0;
+	virtual bool onExit() = 0;
+
+	// 所有 State 实例共享的同一个值
+	virtual std::string getStateId() const = 0; 
+protected:
+	std::vector<std::string> m_textureIDList;
+
+};
+
+FILE AlienAttack - 副本/GameStateMachine.cpp
+#include "GameStateMachine.h"
+#include <iostream>
+
+// 入栈但不删除栈顶
+void GameStateMachine::pushState(GameState* pState) {
+	m_gameStates.push_back(pState);
+	// initialize the new state
+	m_gameStates.back()->onEnter();
+}
+
+// 删除栈顶
+void GameStateMachine::popState() {
+	if (!m_gameStates.empty()) {
+		if (m_gameStates.back()->onExit()) {
+			/*
+				m_gameStates 是一个 std::vector<GameState*>，也就是说它存的是指针；
+				如果只调用 pop_back()，指针从 vector 中移除了，但内存没释放，导致内存泄漏；
+				如果只调用 delete，而不 pop_back()，那么这个“野指针”还留在容器里，之后访问会导致崩溃；
+			*/
+			delete m_gameStates.back();
+			m_gameStates.pop_back();
+		}
+		else {
+			// Handle failure to exit state
+			std::cerr << "Failed to exit state: " << m_gameStates.back()->getStateId() << std::endl;
+			return;
+		}
+	}
+}
+
+// 切换状态，先删除栈顶，再入栈新状态
+void GameStateMachine::changeState(GameState* pState) {
+
+	if (!m_gameStates.empty()) {
+
+		// Check if the new state is the same as the current state
+		if ( pState->getStateId() == m_gameStates.back()->getStateId() ) {
+			return;
+		}
+
+		if (m_gameStates.back()->onExit()) { // 退出状态
+			delete m_gameStates.back();
+			m_gameStates.pop_back();
+		}
+		else {
+			// Handle failure to exit state
+			std::cerr << "Failed to exit state: " << m_gameStates.back()->getStateId() << std::endl;
+			return;
+		}
+	}
+	m_gameStates.push_back(pState);
+	// Initialize the new state
+	m_gameStates.back()->onEnter(); // 进入状态
+}
+
+
+void GameStateMachine::update() {
+	if (!m_gameStates.empty()) {
+		m_gameStates.back()->update();
+	}
+}
+
+void GameStateMachine::render() {
+	if (!m_gameStates.empty()) {
+		m_gameStates.back()->render();
+	}
+}
+
+FILE AlienAttack - 副本/GameStateMachine.h
+#pragma once
+#include "GameState.h"
+#include <string>
+
+class GameStateMachine {
+public:
+
+	void pushState(GameState* pState);
+	void changeState(GameState* pState);
+	void popState();
+
+	void update();
+	void render();
+private:
+	std::vector<GameState*> m_gameStates;
+};
+

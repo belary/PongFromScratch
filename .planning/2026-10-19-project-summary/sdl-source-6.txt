@@ -1,0 +1,699 @@
+FILE AlienAttack/LevelParser.cpp
+#include "LevelParser.h"
+#include "TileLayer.h"
+#include "ObjectLayer.h"
+#include "Game.h"
+#include "base64.h"
+#include <zlib.h>
+#include "Level.h"
+
+Level* LevelParser::parseLevel(const char* levelFile)
+{
+	// 载入tmx文件
+	TiXmlDocument levelDoc;
+	levelDoc.LoadFile(levelFile);
+
+	// 创建level对象
+	Level* pLevel = new Level(); // 这里是堆上创建对象？是的，后面需要手动delete
+	TiXmlElement* pRoot = levelDoc.RootElement();
+	pRoot->Attribute("tilewidth", &m_tileSize); // 宽度作为size? 基本上每个tile都是正方形
+	pRoot->Attribute("width", &m_width);
+	pRoot->Attribute("height", &m_height);
+
+	std::cout << "Loading level: \n" << "Version: " << pRoot->Attribute("version") << "\n";
+
+	// 约定了第一个节点是properties
+	// 解析Properties节点 ： map-->properties
+	for (TiXmlElement* properties = pRoot->FirstChildElement(); properties != NULL; properties = properties->NextSiblingElement())
+	{
+		if (properties->Value() == std::string("properties"))
+		{
+			for (TiXmlElement* property = properties->FirstChildElement(); property != NULL; property = property->NextSiblingElement())
+			{
+				parseTexture(property);
+			}
+		}
+	}
+
+
+	// 解析Tileset节点： map-->tileset
+	for (TiXmlElement* e = pRoot->FirstChildElement(); e != NULL; e = e->NextSiblingElement())
+	{
+		if (e->Value() == std::string("tileset"))
+		{
+			parseTilesets(e, pLevel->getTilesets()); // 为什么这里直接getTilesets（）new的时候已经生成了vector的入口地址吗？是的，
+		}
+	}
+
+	// 解析Layer节点： map->layer, map->objectgroup
+	//  NULL 是 C 语言风格的空指针（通常定义为 #define NULL 0）。
+	//  nullptr 是 C++11 引入的关键字，表示空指针，类型安全，推荐使用。
+	for (TiXmlElement* e = pRoot->FirstChildElement(); e != NULL; /*NULL和 nullptr区别是什么？*/ e = e->NextSiblingElement())
+	{
+		if (e->Value() == std::string("layer") || e->Value() == std::string("objectgroup"))
+		{
+			// 解析ObjectLayer节点
+			if (e->FirstChildElement()->Value() == std::string("object"))
+			{
+				parseObjectLayer(e, pLevel->getLayers());
+			}
+			else if (e->FirstChildElement()->Value() == std::string("data")
+				|| (e->FirstChildElement()->NextSiblingElement() != 0 && e->FirstChildElement()->NextSiblingElement()->Value() == std::string("data"))
+				)
+			{
+				parseTileLayer(e, pLevel->getLayers(), pLevel->getTilesets(), pLevel->getCollisionLayers());
+			}
+		}
+	}
+
+	return pLevel;
+}
+
+void LevelParser::parseTilesets(TiXmlElement* pTilesetRoot, std::vector<Tileset>* pTilesets)
+{
+	std::string assetsTag = "assets/";
+
+	// 将tile图集载入到纹理管理器中
+	std::cout << "adding texture " << pTilesetRoot->FirstChildElement()->Attribute("source") << " with ID " << pTilesetRoot->Attribute("name") << std::endl;
+	TheTextureManager::Instance()->load(
+		pTilesetRoot->FirstChildElement()->Attribute("source"),
+		pTilesetRoot->Attribute("name"),
+		TheGame::Instance()->getRenderer());
+
+	// 创建tileset对象
+	Tileset tileset;
+
+	// 使用子节点的数据初始化
+	pTilesetRoot->FirstChildElement()->Attribute("width", &tileset.width); //单位是像素
+	pTilesetRoot->FirstChildElement()->Attribute("height", &tileset.height);
+
+	// 使用自身节点的数据初始化
+	pTilesetRoot->Attribute("firstgid", &tileset.firstGridID);
+	pTilesetRoot->Attribute("tilewidth", &tileset.tileWidth);
+	pTilesetRoot->Attribute("tileheight", &tileset.tileHeight);
+	pTilesetRoot->Attribute("spacing", &tileset.spacing);
+	pTilesetRoot->Attribute("margin", &tileset.margin);
+
+	tileset.name = pTilesetRoot->Attribute("name");
+	tileset.numColumns = tileset.width / (tileset.tileWidth + tileset.spacing);
+
+	// 这个指针是level的成员变量，支持多tileset
+	pTilesets->push_back(tileset);
+}
+
+void LevelParser::parseTileLayer(TiXmlElement* pTileElement,
+	std::vector<Layer*>* pLayers, const std::vector<Tileset>* pTilesets, std::vector<TileLayer*>* pCollisionLayers)
+{
+	// const std::vector<Tileset>& 是 常量引用，
+	// 它可以绑定到一个 指向 const std::vector<Tileset> 类型的指针解引用后的对象，
+	// 前提是你传的是 *pTilesets，而不是 pTilesets 本身。
+	// *pTilesets 解引用后，类型是 std::vector<Tileset>&
+	// 可以自动绑定到 const std::vector<Tileset>&
+	TileLayer* pTileLayer = new TileLayer(m_tileSize, *pTilesets);
+
+	// tile data
+	std::vector<std::vector<int>> data;
+	std::string decodedIDs;
+	TiXmlElement* pDataNode = nullptr;
+
+	// 
+	bool collidable = false;
+
+
+	for (TiXmlElement* e = pTileElement->FirstChildElement(); e != nullptr; e = e->NextSiblingElement())
+	{
+		// 找到data节点
+		if (e->Value() == std::string("data"))
+		{
+			pDataNode = e;
+		}
+
+		// 找properties 节点, layer->properties
+		if (e->Value() == std::string("properties"))
+		{
+			for (TiXmlElement* property = e->FirstChildElement(); property != nullptr; property = property->NextSiblingElement())
+			{
+				if (property->Value() == std::string("property"))
+				{
+					if (property->Attribute("name") == std::string("collidable"))
+					{
+						collidable = true;
+					}
+				}
+			}
+		}
+
+	}
+
+	if (pDataNode != nullptr)
+	{
+		// 提取data数据: 改用TiXmlNode对象了
+		for (TiXmlNode* e = pDataNode->FirstChild(); e != nullptr; e = e->NextSibling())
+		{
+			TiXmlText* text = e->ToText();
+			std::string t = text->Value(); // XML 解析并获取 base64 编码的字符串
+			decodedIDs = base64_decode(t); // base64 解码得到压缩的字节数据
+		}
+	}
+	else
+	{
+		std::cerr << "Error: <data> node not found in tile layer." << std::endl;
+		return;
+	}
+
+	// 解压
+	// uLongf 是 zlib 提供的一个类型，本质上是 unsigned long，用于表示缓冲区长度。
+	// m_width* m_height 计算的是地图的格子数量（比如 100x100 共 10000 个格子）。
+	// sizeof(int) 返回一个 int 占用的字节数，通常是 4。所以整个表达式是：总共多少字节的数据，而不是元素个数。
+	uLongf sizeOfGids = m_width * m_height * sizeof(int); // 这是所有元素的字节数,解压后需要的字节数
+
+	int numOfGids = m_width * m_height; // 这才是所有元素个数
+
+	//  存储 字节数 个 unsigned
+	std::vector<unsigned> gids(numOfGids); // 存储图块id
+
+	// 使用 zlib 的 uncompress 解压数据, 将解压后的数据存入一个 std::vector<unsigned>
+	/*
+	*   int uncompress(
+			Bytef *dest,        // 输出缓冲区
+			uLongf *destLen,    // 输出缓冲区大小（传入传出）
+			const Bytef *source,// 输入压缩数据
+			uLong sourceLen     // 输入压缩数据长度
+		);
+	*/
+	uncompress(
+		(Bytef*)&gids[0], &sizeOfGids, (const Bytef*)decodedIDs.c_str(), decodedIDs.size()
+	);
+
+	/*
+	*   假设：m_width = 3 m_height = 2
+		那么 gids 是一个长度为 3×2=6 的一维数组，
+		比如：gids = [11, 12, 13, 21, 22, 23]
+		对应的是一个二维地图数据（2行3列）：
+			11 12 13
+			21 22 23
+
+		对应转换逻辑
+		rows	cols	gids 下标	赋值
+			0	0	0	data[0][0] = 11
+			0	1	1	data[0][1] = 12
+			0	2	2	data[0][2] = 13
+			1	0	3	data[1][0] = 21
+			1	1	4	data[1][1] = 22
+			1	2	5	data[1][2] = 23
+	*/
+	std::vector<int> layerRow(m_width);
+	for (int j = 0; j < m_height; j++)
+	{
+		data.push_back(layerRow);
+	}
+	for (int rows = 0; rows < m_height; rows++)
+	{
+		for (int cols = 0; cols < m_width; cols++)
+		{
+			// 把一维数组 gids 中的内容，按行主序转存到二维数组 data 中
+			data[rows][cols] = gids[rows * m_width + cols];
+		}
+	}
+
+	pTileLayer->setTileIDs(data);
+	pTileLayer->setMapWidth(m_width);
+	// 构建碰撞层
+	if (collidable)
+	{
+		pCollisionLayers->push_back(pTileLayer);
+	}
+
+	pLayers->push_back(pTileLayer);
+
+
+}
+
+void LevelParser::parseTexture(TiXmlElement* pTextureRoot)
+{
+	std::cout << "adding texture " << pTextureRoot->Attribute("value") << " with ID " << pTextureRoot->Attribute("name") << std::endl;
+	TheTextureManager::Instance()->load(pTextureRoot->Attribute("value"),
+		pTextureRoot->Attribute("name"),
+		TheGame::Instance()->getRenderer()
+	);
+}
+
+void LevelParser::parseObjectLayer(TiXmlElement* pObjectElement, std::vector<Layer*>* pLayers)
+{
+	ObjectLayer* pObjectLayer = new ObjectLayer();
+	std::cout << pObjectElement->FirstChildElement()->Value();
+
+	for (TiXmlElement* e = pObjectElement->FirstChildElement(); e != nullptr; e = e->NextSiblingElement())
+	{
+		std::cout << e->Value();
+		if (e->Value() == std::string("object"))
+		{
+			int x, y, width, height, numFrames, callbackID, animSpeed;
+			std::string textureID;
+
+			// 设置对象的类型和坐标
+			e->Attribute("x", &x);
+			e->Attribute("y", &y);
+			GameObject* pGameObject = TheGameObjectFactory::instance()
+				->create(e->Attribute("type"));
+
+			// 设置对象的属性
+			for (TiXmlElement* properties = e->FirstChildElement(); properties != nullptr; properties = properties->NextSiblingElement())
+			{
+				if (properties->Value() == std::string("properties"))
+				{
+					for (TiXmlElement* property = properties->FirstChildElement(); property != nullptr; property = property->NextSiblingElement())
+					{
+						if (property->Attribute("name") == std::string("numFrames"))
+						{
+							property->Attribute("value", &numFrames);
+						}
+						else if (property->Attribute("name") == std::string("textureHeight"))
+						{
+							property->Attribute("value", &height);
+						}
+						else if (property->Attribute("name") == std::string("textureID"))
+						{
+							textureID = property->Attribute("value"); // 这里要注意是之前纹理管理器加载的ID
+						}
+						else if (property->Attribute("name") == std::string("textureWidth"))
+						{
+							property->Attribute("value", &width);
+						}
+						//else if (property->Attribute("name") == std::string("callbackID"))
+						//{
+						//	property->Attribute("value", &callbackID);
+						//}
+					/*	else if (property->Attribute("name") == std::string("animeSpeed"))
+						{
+							property->Attribute("value", &animSpeed);
+						}*/
+					}
+				}
+			}
+
+			pGameObject->load(
+				new LoaderParams(x, y, width, height, textureID, numFrames)
+			);
+			pObjectLayer->getGameObjects()->push_back(pGameObject);
+		}// load object data end
+	}
+	pLayers->push_back(pObjectLayer);
+
+}
+
+FILE AlienAttack/LevelParser.h
+#pragma once
+#include <vector>
+#include <iostream>
+#include "tinyxml.h"
+
+
+class Level;
+struct Tileset;
+class Layer;
+class TileLayer;
+
+
+class LevelParser
+{
+public:
+	Level* parseLevel(const char* levelFile);
+
+private:
+	void parseTilesets(TiXmlElement* pTilesetRoot,
+		std::vector<Tileset>* pTilesets);
+
+	void parseTileLayer(TiXmlElement* pTileElement,
+		std::vector<Layer*>* pLayers, const std::vector<Tileset>* pTilesets, std::vector<TileLayer*>* pCollisionLayers);
+
+	void parseTexture(TiXmlElement* pTextureRoot);
+	void parseObjectLayer(TiXmlElement* pObjectElement,
+		std::vector<Layer*>* pLayers);
+
+	int m_tileSize; // 一个 tile 的边长（像素）
+	int m_width; // 单位是一个tile
+	int m_height;
+};
+
+FILE AlienAttack/Player.h
+#pragma once
+#include "GameObjectFactory.h"
+#include "ShooterObject.h"
+
+class Player : public ShooterObject {
+public:
+	Player();
+	virtual void load(std::unique_ptr<LoaderParams> const &pParams);
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+private:
+	void ressurect();
+	void handleAnimation();
+	void handleInput();
+
+	int m_numFrames = 5; // Number of frames for animation
+
+	// player can be invulnerable for a time
+	int m_invulnerable;
+	int m_invulnerableTime;
+	int m_invulnerableCounter;
+};
+
+class PlayerCreator : public BaseCreator
+{
+	GameObject* createGameObject() const
+	{
+		return new Player();
+	}
+};
+FILE AlienAttack/ScrollingBackground.cpp
+#include "ScrollingBackground.h"
+#include "TextureManager.h"
+#include "Game.h"
+
+
+ScrollingBackground::ScrollingBackground()
+{
+	count = 0;
+	maxcount = 10;
+}
+
+void ScrollingBackground::load(std::unique_ptr<LoaderParams> const& pParams)
+{
+	ShooterObject::load(pParams);
+
+	m_scrollSpeed = pParams->getAnimSpeed();
+	m_scrollSpeed = 1;
+
+	m_srcRect1.x = 0;
+	m_destRect1.x = m_position.getX();
+	m_srcRect1.y = 0;
+	m_destRect1.y = m_position.getY();
+
+	m_srcRect1.w = m_destRect1.w = m_srcRect1Width = m_destRect1Width = m_width;
+	m_srcRect1.h = m_destRect1.h = m_height;
+
+	m_srcRect2.w = m_destRect2.w = m_srcRect2Width = m_destRect2Width = 0;
+	m_srcRect2.h = m_destRect2.h = m_height;
+}
+
+void ScrollingBackground::draw()
+{
+	// draw first rect
+	SDL_RenderCopyEx(TheGame::Instance()->getRenderer(), TheTextureManager::Instance()->getTextureMap()[m_textureID], &m_srcRect1, &m_destRect1, 0, 0, SDL_FLIP_NONE);
+
+	// draw second rect
+	SDL_RenderCopyEx(TheGame::Instance()->getRenderer(), TheTextureManager::Instance()->getTextureMap()[m_textureID], &m_srcRect2, &m_destRect2, 0, 0, SDL_FLIP_NONE);
+}
+
+void ScrollingBackground::update()
+{
+
+	if (count == maxcount) // 达到指定帧数才滚
+	{
+		m_srcRect1.x += m_scrollSpeed;
+		m_srcRect1.w -= m_scrollSpeed;
+		m_destRect1.w -= m_scrollSpeed; // 注意这里并没有修改destRect1.x
+
+		m_srcRect2.x -= m_scrollSpeed;
+		m_srcRect2.w += m_scrollSpeed;
+		m_destRect2.w += m_scrollSpeed;
+
+		// 重置: 只有2个矩形的宽度
+		if (m_destRect2.w >= m_width)
+		{
+			// reset rect1
+			m_srcRect1.x = 0; // 重置到源图的起点了
+			m_destRect1.x = m_position.getX();
+			m_srcRect1.y = 0;
+			m_destRect1.y = m_position.getY();
+
+			m_srcRect1.w = m_destRect1.w = m_srcRect1Width = m_destRect1Width = m_width;
+			m_srcRect1.h = m_destRect1.h = m_height;
+
+			// reset rect2
+			m_srcRect2.x = 0;
+			m_destRect2.x = m_position.getX() + m_width; // 这里区别rect1
+			m_srcRect2.y = 0;
+			m_destRect2.y = m_position.getY();
+
+			m_srcRect2.w = m_destRect2.w = m_srcRect2Width = m_destRect2Width = 0;  // 这里也是
+			m_srcRect2.h = m_destRect2.h = m_height;
+
+			// reset counter
+			count = 0;
+		}
+	}
+	count++; // 每帧递增
+}
+
+void ScrollingBackground::clean()
+{
+	ShooterObject::clean();
+}
+
+
+FILE AlienAttack/ScrollingBackground.h
+#pragma once
+#include <iostream>
+#include "GameObjectFactory.h"
+#include "ShooterObject.h"
+
+class ScrollingBackground: public ShooterObject
+{
+public:
+	virtual ~ScrollingBackground() {}
+	ScrollingBackground();
+
+	virtual void draw();
+	virtual void update();
+	virtual void clean();
+
+	virtual void load(std::unique_ptr<LoaderParams> const& pParams);
+
+private:
+	int m_scrollSpeed;
+
+	int count;
+	int maxcount;
+
+	SDL_Rect m_srcRect1;
+	SDL_Rect m_srcRect2;
+
+	SDL_Rect m_destRect1;
+	SDL_Rect m_destRect2;
+
+	int m_srcRect1Width;
+	int m_srcRect2Width;
+
+	int m_destRect1Width;
+	int m_destRect2Width;
+};
+
+class ScrollingBackgroundCreator : public BaseCreator
+{
+	virtual GameObject* createGameObject() const
+	{
+		return new ScrollingBackground();
+	}
+};
+
+FILE AlienAttack/ShooterObject.cpp
+#include "Game.h"
+#include "TextureManager.h"
+#include "ShooterObject.h"
+#include "ScrollingBackground.h"
+
+
+
+ShooterObject::ShooterObject() : GameObject(),
+								m_bulletFiringSpeed(0),
+								m_bulletCounter(0),
+								m_moveSpeed(0),
+								m_dyingTime(0),
+								m_dyingCounter(0),
+								m_bPlayerDeathSound(false)
+{
+}
+
+
+
+void ShooterObject::load(std::unique_ptr<LoaderParams> const& pParams)
+{
+	// pParams 是 std::unique_ptr<LoaderParams> 的引用
+	// std::unique_ptr 重载了 -> 操作符，可以直接访问指向的对象
+	// get position
+	m_position = Vector2D(pParams->getX(), pParams->getY());
+
+	m_width = pParams->getWidth();
+	m_height = pParams->getHeight();
+	m_textureID = pParams->getTextureID();
+	m_numFrame = pParams->getNumFrames();
+}
+
+void ShooterObject::update()
+{
+	m_position += m_velocity;
+	m_currentFrame = int(((SDL_GetTicks() / (1000 / 3)) % m_numFrame));
+}
+
+void ShooterObject::doDyingAnimation()
+{
+	// keep scrolling the tile map
+	//scroll(TheGame::Instance()->getScrollSpeed());
+
+	m_currentFrame = int(
+		(SDL_GetTicks() / (1000 / 3)) // SDL_GetTicks()：表示从游戏启动到现在的总时间，这里是每秒播放3帧， 每333毫秒切换一帧
+		%m_numFrame // 死亡动画的总帧数，当到最后一帧后回到第0帧
+		);
+
+	if (m_dyingCounter == m_dyingTime)
+	{
+		m_bDead = true;
+	}
+	m_dyingCounter++;
+}
+
+FILE AlienAttack/ShooterObject.h
+#pragma once
+
+#include <SDL.h>
+#include "GameObject.h"
+
+class ShooterObject : public GameObject
+{
+public:
+
+	virtual ~ShooterObject() {}
+
+	virtual void load(std::unique_ptr<LoaderParams> const &pParams);
+
+	virtual void draw();
+	virtual void update();
+
+	virtual void clean() {} // not implemted
+	virtual void collision() {}  // not implemted
+
+	virtual std::string type() { return "SDLGameObject"; }
+
+protected:
+
+	ShooterObject();
+
+	// draw animation for the object being destroyed
+	void doDyingAnimation();
+
+	// how fast will this object fire bullets; with a counter
+	int m_bulletFiringSpeed;
+	int m_bulletCounter;
+
+	// how fast the object move
+	int m_moveSpeed;
+
+	// how long will the death animation takes? with a counter
+	int m_dyingTime;
+	int m_dyingCounter;
+
+	// has the death sound played?
+	bool m_bPlayerDeathSound;
+};
+
+
+FILE AlienAttack/SoundManager.cpp
+#include "SoundManager.h"
+
+SoundManager::SoundManager()
+{
+	/*
+	 * 参数解析
+	22050 - 采样率（Sample Rate）
+		表示每秒采样22050次
+		这是音频质量的关键参数，22050Hz是中等质量的采样率
+		常见值：8000Hz（电话质量）、22050Hz（中等质量）、44100Hz（CD质量）
+	AUDIO_S16 - 音频格式（Audio Format）
+		表示16位有符号整数格式
+		提供较好的音质和兼容性
+		其他选项：AUDIO_U8（8位无符号）、AUDIO_S8（8位有符号）、AUDIO_S32（32位有符号）
+	2 - 声道数（Channels）
+		表示立体声（双声道）
+		1 = 单声道，2 = 立体声，4 = 四声道
+	(4096 / 2) - 缓冲区大小（Buffer Size）
+		计算结果为2048字节
+		这是音频缓冲区的大小，影响音频延迟
+		较小的值 = 更低延迟但可能产生音频断断续续
+		较大的值 = 更稳定但延迟更高
+	*/
+	Mix_OpenAudio(22050, AUDIO_S16, 2, (4096 / 2));
+}
+
+SoundManager::~SoundManager()
+{
+	Mix_CloseAudio();
+}
+
+bool SoundManager::load(std::string fileName, std::string id, sound_type type)
+{
+	if (type == SOUND_MUSIC)
+	{
+		/*
+		* Mix_LoadMUS(const char *file)：
+			用途：加载音乐文件（流式解码用）。
+			适合播放：背景音乐（只允许一个通道）。
+			配套释放函数：Mix_FreeMusic()
+			和 Mix_LoadWAV 的区别：Mix_LoadWAV() 加载 chunk（预解码），而 Mix_LoadMUS() 加载 music（流式解码）。
+		*/
+		Mix_Music* pMusic = Mix_LoadMUS(fileName.c_str());
+		if (pMusic == 0)
+		{
+			std::cout << "Could not load music: ERROR - "
+				<< Mix_GetError() << std::endl;
+			return false;
+		}
+		m_music[id] = pMusic;
+		return true;
+	}
+	else if (type == SOUND_SFX)
+	{
+		Mix_Chunk* pChunk = Mix_LoadWAV(fileName.c_str());
+		if (pChunk == 0)
+		{
+			std::cout << "Could not load SFX: ERROR - "
+				<< Mix_GetError() << std::endl;
+			return false;
+		}
+		return true;
+	}
+
+	return false;
+}
+
+void SoundManager::playSound(std::string id, int loop)
+{
+
+	/*
+	* 用途：在指定通道播放音效。
+
+		特点：支持自动分配空闲通道；占用通道会替换原有音效；支持循环播放。
+		配套函数：
+		Mix_HaltChannel(channel) → 立即停止通道音效；
+		Mix_VolumeChunk(chunk, volume) → 设置音效音量；
+		Mix_LoadWAV(path) → 加载音效。
+	*/
+	Mix_PlayChannel(-1, m_sfxs[id], loop);
+}
+
+void SoundManager::playMusic(std::string id, int loop)
+{
+	/*
+	* 用途：播放一个音乐对象（背景音乐用）。
+		注意事项：一次只能播放一个 music，如果有音乐正在淡出，新播放会阻塞。
+		循环参数：0 → 播一次，-1 → 无限循环，n → 播 n+1 次。
+		配套函数：Mix_HaltMusic()（立即停止音乐），Mix_FadeOutMusic()（淡出音乐），Mix_LoadMUS()（加载音乐）。
+	*/
+	Mix_PlayMusic(m_music[id], loop);
+}
+
+
+
