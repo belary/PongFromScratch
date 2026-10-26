@@ -1,5 +1,5 @@
 @echo off
-call "D:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 set includes=/Isrc /I%VULKAN_SDK%/Include
 set links=/link /LIBPATH:%VULKAN_SDK%/Lib vulkan-1.lib user32.lib Shell32.lib
